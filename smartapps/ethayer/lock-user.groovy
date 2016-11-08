@@ -1,0 +1,687 @@
+definition (
+  name: 'Lock User',
+  namespace: 'ethayer',
+  author: 'Erik Thayer',
+  description: 'App to manager users. This is a child app.',
+  category: 'My Apps',
+
+  // the parent option allows you to specify the parent app in the form <namespace>/<app name>
+  parent: 'ethayer:Lock Manager',
+  iconUrl: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png',
+  iconX2Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png',
+  iconX3Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png'
+)
+
+import groovy.json.JsonSlurper
+import groovy.json.JsonBuilder
+
+preferences {
+  page(name: "rootPage")
+  page name: "lockPage", title: "Manage Lock", install: false, uninstall: false
+  page name: "schedulingPage", title: "Schedule User", install: false, uninstall: false
+  page name: "calendarPage", title: "Calendar", install: false, uninstall: false
+  page name: "notificationPage"
+  page(name: "reEnableUserLockPage")
+}
+
+def installed() {
+  log.debug "Installed with settings: ${settings}"
+  initialize()
+}
+
+def updated() {
+  log.debug "Updated with settings: ${settings}"
+  initialize()
+}
+
+def initialize() {
+  // reset listeners
+  unsubscribe()
+  unschedule()
+
+  // setup data
+  initalizeLockData()
+
+  // set listeners
+  subscribe(parent.locks, "codeReport", codeReturn)
+  subscribe(parent.locks, "lock", codeUsed)
+}
+
+def initalizeLockData() {
+  parent.locks.each { lock->
+    if (state."lock${lock.id}" == null) {
+      state."lock${lock.id}" = [:]
+      state."lock${lock.id}".code = false
+      state."lock${lock.id}".enabled = true
+      state."lock${lock.id}".access = false
+      state."lock${lock.id}".errorLoop = false
+      state."lock${lock.id}".errorLoopCount = 0
+      state."lock${lock.id}".disabledReason = ''
+    }
+  }
+}
+
+def rootPage() {
+  //reset errors on each load
+  dynamicPage(name: "rootPage", title: "", install: true, uninstall: true) {
+    section('User Settings') {
+      def title = "Code (4 to 8 digits)"
+      parent.locks.each { lock->
+        // set required pin length if a lock requires it
+        if (lock.hasAttribute('pinLength')) {
+          title = "Code (Must be ${lock.latestValue('pinLength')} digits)"
+        }
+      }
+      label title: "Name for User", defaultValue: app.label, required: false
+
+      input(name: "userCode", type: "text", title: title, required: false, defaultValue: settings."userCode", refreshAfterSelection: true)
+      input(name: "userSlot", type: "enum", options: parent.availableSlots(settings.userSlot), title: "Select slot", required: true, refreshAfterSelection: true )
+    }
+    section('Locks') {
+      initalizeLockData()
+      parent.locks.each { lock->
+        href(name: "toLockPage${lock.id}", page: "lockPage", params: [id: lock.id], required: false, title: lock.displayName )
+      }
+    }
+    section('Additional Settings') {
+      def text
+      if (isActive()) {
+        text = 'active'
+      } else {
+        text = 'inactive'
+      }
+      paragraph "User is ${text}"
+      href(name: "toSchedulingPage", page: "schedulingPage", title: "Schedule (optional)", description: schedulingHrefDescription(), state: schedulingHrefDescription() ? "complete" : "")
+      href(name: "toNotificationPage", page: "notificationPage", title: "Notification Settings", description: notificationPageDescription(), state: notificationPageDescription() ? "complete" : "")
+    }
+  }
+}
+def lockPage(params) {
+  dynamicPage(name:"lockPage", title:"Lock Settings") {
+    def lock = getLock(params)
+    def lockCode = state."lock${lock.id}".code
+    def lockAccessable = state."lock${lock.id}".access
+    def errorLoopCount = state."lock${lock.id}".errorLoopCount
+    if (!state."lock${lock.id}".enabled) {
+      section {
+        paragraph "WARNING:\n\nThis user has been disabled.\nReason: ${state."lock${lock.id}".disabledReason}"
+        href(name: "reEnableUserLockPage", title: "Reset User", page: "reEnableUserLockPage", params: [id: lock.id], description: "Tap to reset")
+      }
+    }
+    section("${deviceLabel(lock)} settings for ${app.label}") {
+      paragraph "Lock is currently set to ${lockCode} and is ${lockAccessable}"
+      if( errorLoopCount > 0) {
+        paragraph "Lock set failed try ${errorLoopCount}/10"
+      }
+      input(name: "lockDisabled${lock.id}", type: "bool", title: "Disable lock for this user?", required: false, defaultValue: settings."lockDisabled${lock.id}", refreshAfterSelection: true )
+    }
+  }
+}
+
+def reEnableUserLockPage(params) {
+  // do reset
+  def lock = getLock(params)
+  lockReset(lock.id)
+  dynamicPage(name:"reEnableUserLockPage", title:"User re-enabled") {
+    section {
+      paragraph "Lock has been reset."
+    }
+    section {
+      href(name: "toRootPage", title: "Back To Setup", page: "rootPage")
+    }
+  }
+}
+
+def lockReset(lockId) {
+  state."lock${lockId}".enabled = true
+  state."lock${lockId}".access = false
+  state."lock${lockId}".errorLoop = false
+  state."lock${lockId}".errorLoopCount = 0
+  state."lock${lockId}".disabledReason = ''
+}
+
+def schedulingPage() {
+  dynamicPage(name: "schedulingPage", title: "Rules For Access Scheduling") {
+
+    section {
+      href(name: "toCalendarPage", title: "Calendar", page: "calendarPage", description: calendarHrefDescription(), state: calendarHrefDescription() ? "complete" : "")
+    }
+
+    section {
+      input(name: "days", type: "enum", title: "Allow User Access On These Days", description: "Every day", required: false, multiple: true, options: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], submitOnChange: true)
+    }
+    section {
+      input(name: "modeStart", title: "Allow Access only when in this mode", type: "mode", required: false, mutliple: false, submitOnChange: true)
+    }
+    section {
+      input(name: "startTime", type: "time", title: "Start Time", description: null, required: false)
+      input(name: "endTime", type: "time", title: "End Time", description: null, required: false)
+    }
+  }
+}
+
+def calendarPage() {
+  dynamicPage(name: "calendarPage", title: "Calendar Access") {
+    section() {
+      paragraph "Enter each field carefully."
+    }
+    def hhPhrases = location.getHelloHome()?.getPhrases()*.label
+    section("Start Date") {
+      input name: "startDay", type: "number", title: "Day", required: false
+      input name: "startMonth", type: "number", title: "Month", required: false
+      input name: "startYear", type: "number", description: "Format(yyyy)", title: "Year", required: false
+      input name: "calStartTime", type: "time", title: "Start Time", description: null, required: false
+      if (hhPhrases) {
+        hhPhrases.sort()
+        input name: "calStartPhrase", type: "enum", title: "Hello Home Phrase", multiple: true,required: false, options: hhPhrases, refreshAfterSelection: true
+      }
+    }
+    section("End Date") {
+      input name: "endDay", type: "number", title: "Day", required: false
+      input name: "endMonth", type: "number", title: "Month", required: false
+      input name: "endYear", type: "number", description: "Format(yyyy)", title: "Year", required: false
+      input name: "calEndTime", type: "time", title: "End Time", description: null, required: false
+      if (hhPhrases) {
+        hhPhrases.sort()
+        input name: "calEndPhrase", type: "enum", title: "Hello Home Phrase", multiple: true,required: false, options: hhPhrases, refreshAfterSelection: true
+      }
+    }
+  }
+}
+
+def notificationPage() {
+  dynamicPage(name: "notificationPage", title: "Notification Settings") {
+
+    section {
+      input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
+      paragraph "For multiple SMS recipients, separate phone numbers with a semicolon(;)"
+      input(name: "notification", type: "bool", title: "Send A Push Notification", description: "Notification", required: false, submitOnChange: true)
+      if (phone != null || notification || sendevent) {
+        input(name: "notifyAccess", title: "on User Entry", type: "bool", required: false)
+        input(name: "notifyLock", title: "on Lock", type: "bool", required: false)
+        input(name: "notifyAccessStart", title: "when granting access", type: "bool", required: false)
+        input(name: "notifyAccessEnd", title: "when revoking access", type: "bool", required: false)
+      }
+    }
+
+    section("Only During These Times (optional)") {
+      input(name: "notificationStartTime", type: "time", title: "Notify Starting At This Time", description: null, required: false)
+      input(name: "notificationEndTime", type: "time", title: "Notify Ending At This Time", description: null, required: false)
+    }
+  }
+}
+
+public smartThingsDateFormat() { "yyyy-MM-dd'T'HH:mm:ss.SSSZ" }
+
+public humanReadableStartDate() {
+  new Date().parse(smartThingsDateFormat(), startTime).format("h:mm a", timeZone(startTime))
+}
+public humanReadableEndDate() {
+  new Date().parse(smartThingsDateFormat(), endTime).format("h:mm a", timeZone(endTime))
+}
+
+def readableDateTime(date) {
+  new Date().parse(smartThingsDateFormat(), date.format(smartThingsDateFormat(), location.timeZone)).format("EEE, MMM d yyyy 'at' h:mma", location.timeZone)
+}
+
+def calendarHrefDescription() {
+  def dateStart = startDateTime()
+  def dateEnd = endDateTime()
+  if (dateEnd && dateStart) {
+    def startReadableTime = readableDateTime(dateStart)
+    def endReadableTime = readableDateTime(dateEnd)
+    return "Accessible from ${startReadableTime} until ${endReadableTime}"
+  } else if (!dateEnd && dateStart) {
+    def startReadableTime = readableDateTime(dateStart)
+    return "Accessible on ${startReadableTime}"
+  } else if (dateEnd && !dateStart){
+    def endReadableTime = readableDateTime(dateEnd)
+    return "Accessible until ${endReadableTime}"
+  }
+}
+
+def notificationPageDescription() {
+  def parts = []
+  def msg = ""
+  if (settings.phone) {
+    parts << "SMS to ${phone}"
+  }
+  if (settings.sendevent) {
+    parts << "Event Notification"
+  }
+  if (settings.notification) {
+    parts << "Push Notification"
+  }
+  msg += fancyString(parts)
+  parts = []
+
+  if (settings.notifyAccess) {
+    parts << "on entry"
+  }
+  if (settings.notifyLock) {
+    parts << "on lock"
+  }
+  if (settings.notifyAccessStart) {
+    parts << "when granting access"
+  }
+  if (settings.notifyAccessEnd) {
+    parts << "when revoking access"
+  }
+  if (settings.notificationStartTime) {
+    parts << "starting at ${settings.notificationStartTime}"
+  }
+  if (settings.notificationEndTime) {
+    parts << "ending at ${settings.notificationEndTime}"
+  }
+  if (parts.size()) {
+    msg += ": "
+    msg += fancyString(parts)
+  }
+  return msg
+}
+
+def fancyDeviceString(devices = []) {
+  fancyString(devices.collect { deviceLabel(it) })
+}
+
+def deviceLabel(device) {
+  return device.label ?: device.name
+}
+
+def fancyString(listOfStrings) {
+  listOfStrings.removeAll([null])
+  def fancify = { list ->
+    return list.collect {
+      def label = it
+      if (list.size() > 1 && it == list[-1]) {
+        label = "and ${label}"
+      }
+      label
+    }.join(", ")
+  }
+
+  return fancify(listOfStrings)
+}
+
+
+def schedulingHrefDescription() {
+  def descriptionParts = []
+  if (startDateTime() || endDateTime()) {
+    descriptionParts << calendarHrefDescription()
+  }
+  if (days) {
+    descriptionParts << "On ${fancyString(days)},"
+  }
+  if ((andOrTime != null) || (modeStart == null)) {
+    if (startTime) {
+      descriptionParts << "at ${humanReadableStartDate()}"
+    }
+    if (endTime) {
+      descriptionParts << "until ${humanReadableEndDate()}"
+    }
+  }
+  if (modeStart) {
+    descriptionParts << "and when ${location.name} enters '${modeStart}' mode"
+  }
+  if (descriptionParts.size() <= 1) {
+    // locks will be in the list no matter what. No rules are set if only locks are in the list
+    return null
+  }
+  return descriptionParts.join(" ")
+}
+
+def isActive(lockId) {
+  if (
+      isEnabled(lockId) &&
+      userLockEnabled(lockId) &&
+      isCorrectDay() &&
+      isInCalendarRange() &&
+      isCorrectMode() &&
+      isInScheduledTime()
+     ) {
+    return true
+  } else {
+    return false
+  }
+}
+
+def isEnabled(lockId) {
+  if (state."lock${lockId}" == null) {
+    return true
+  } else if (state."lock${lockId}".enabled == null) {
+    return true
+  } else {
+    return state."lock${lockId}".enabled
+  }
+}
+
+def userLockEnabled(lockId) {
+  def lockDisabled = settings."lockDisabled${lockId}"
+  if (lockDisabled == null) {
+    return true
+  } else if (lockDisabled == true) {
+    return false
+  } else {
+    return true
+  }
+}
+
+def isCorrectDay() {
+  def today = new Date().format("EEEE", location.timeZone)
+  if (!days || days.contains(today)) {
+    // if no days, assume every day
+    return true
+  }
+  return false
+}
+
+
+def isInCalendarRange() {
+  def dateStart = startDateTime()
+  def dateEnd = endDateTime()
+  def now = rightNow().getTime()
+  if (dateStart && dateEnd) {
+    // There's both an end time, and a start time.  Allow access between them.
+    if (dateStart.getTime() < now && dateEnd.getTime() > now) {
+      // It's in calendar times
+      return true
+    } else {
+      // It's not in calendar times
+      return false
+    }
+  } else if (dateEnd && !dateStart) {
+    // There's a end time, but no start time.  Allow access until end
+    if (dateStart.getTime() > now) {
+      // It's after the start time
+      return true
+    } else {
+      // It's before the start time
+      return false
+    }
+  } else if (!dateEnd && dateStart) {
+    // There's a start time, but no end time.  Allow access after start
+    if (dateStart.getTime() < now) {
+      // It's after the start time
+      return true
+    } else {
+      // It's before the start time
+      return false
+    }
+  } else {
+    // there's no calendar
+    return true
+  }
+}
+
+def isCorrectMode() {
+  if (modeStart) {
+    // mode check is on
+    if (location.mode == modeStart) {
+      // we're in the right one mode
+      return true
+    } else {
+      // we're in the wrong mode
+      return false
+    }
+  } else {
+    // mode check is off
+    return true
+  }
+}
+
+def isInScheduledTime() {
+  def now = new Date()
+  if (startTime && endTime) {
+    def start = timeToday(startTime)
+    def stop = timeToday(endTime)
+
+    // there's both start time and end time
+    if (start.before(now) && stop.after(now)){
+      // It's between the times
+      return true
+    } else {
+      // It's not between the times
+      return false
+    }
+  } else if (startTime && !endTime){
+    // there's a start time, but no end time
+    def start = timeToday(startTime)
+    if (start.before(now)) {
+      // it's after start time
+      return true
+    } else {
+      //it's before start time
+      return false
+    }
+  } else if (!startTime && endTime) {
+    // there's an end time but no start time
+    def stop = timeToday(endTime)
+    if (stop.after(now)) {
+      // it's still before end time
+      return true
+    } else {
+      // it's after end time
+      return false
+    }
+  } else {
+    // there are no times
+    return true
+  }
+}
+
+def startDateTime() {
+  if (startDay && startMonth && startYear && calStartTime) {
+    def time = new Date().parse(smartThingsDateFormat(), calStartTime).format("'T'HH:mm:ss.SSSZ", timeZone(calStartTime))
+    return Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSSZ", "${startYear}-${startMonth}-${startDay}${time}")
+  } else {
+    // Start Date Time not set
+    return false
+  }
+}
+
+def endDateTime() {
+  if (endDay && endMonth && endYear && calEndTime) {
+    def time = new Date().parse(smartThingsDateFormat(), calEndTime).format("'T'HH:mm:ss.SSSZ", timeZone(calEndTime))
+    return Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSSZ", "${endYear}-${endMonth}-${endDay}${time}")
+  } else {
+    // End Date Time not set
+    return false
+  }
+}
+
+def rightNow() {
+  def now = new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSZ", location.timeZone)
+  return Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSSZ", now)
+}
+
+def codeUsed(evt) {
+
+  // check the status of the lock, helpful for some schlage locks.
+  runIn(10, doPoll)
+
+  log.debug("codeUsed evt.value: " + evt.value + ". evt.data: " + evt.data)
+  def message = null
+
+  if(evt.value == "unlocked" && evt.data) {
+    def codeData = new JsonSlurper().parseText(evt.data)
+    if(codeData.usedCode && codeData.usedCode.isNumber() && codeData.usedCode.toInteger() == userSlot.toInteger()) {
+      def unlockUserName = app.label
+      message = "${evt.displayName} was unlocked by ${unlockUserName}"
+      // TODO: Increment usage
+      // TODO: Run Hello Home
+      // TODO: Burn codes after use
+    }
+  } else if(evt.value == "locked" && settings.notifyLock) {
+    // message = "${evt.displayName} has been locked"
+    // TODO: Handle what to do when the lock is locked
+  }
+
+  if (message) {
+    log.debug("Sending message: " + message)
+    send(message)
+  }
+}
+
+def codeReturn(evt) {
+  def codeNumber = evt.data.replaceAll("\\D+","")
+  def codeSlot = evt.value
+  def lock = evt.device
+
+  if (userSlot.toInteger() == evt.integerValue.toInteger()) {
+    if (codeNumber == "") {
+      setKnownCode(false, lock)
+      if (state."lock${lock.id}".access == true) {
+        log.debug "Lock is ${state."lock${lock.id}".access} setting to false!"
+        state."lock${lock.id}".access = false
+        if (notifyAccessEnd) {
+          def message = "${app.label} no longer has access to ${evt.displayName}"
+          if (codeNumber.isNumber()) {
+            state."lock${lock.id}".codes."slot${codeSlot}" = codeNumber
+          }
+          send(message)
+        }
+      }
+    } else if (state."lock${lock.id}".access == false) {
+      state."lock${lock.id}".access = true
+      if (notifyAccessStart) {
+        def message = "${app.label} now has access to ${evt.displayName}"
+        if (codeNumber.isNumber() && codeNumber.toInteger() != userCode.toInteger()) {
+          log.debug "code: ${codeNumber} should be ${userCode.toInteger()}"
+          log.debug 'set message to null'
+          // number is set to the wrong value!
+          message = null
+        }
+        if (codeNumber.isNumber()) {
+          setKnownCode(codeNumber, lock)
+        }
+        if (message) {
+          send(message)
+        }
+      }
+    }
+  }
+}
+
+def pollCodeReport(evt) {
+  def codeData = new JsonSlurper().parseText(evt.data)
+
+  def lock = parent.locks.find{it.id == evt.deviceId}
+  def active = isActive(lock.id)
+  def currentCode = codeData."code${userSlot}"
+  def array = []
+  setKnownCode(currentCode, lock)
+
+  if (active) {
+    if (currentCode != userCode) {
+      array << ["code${userSlot}", userCode]
+    }
+  } else {
+    if (currentCode != '') {
+      // Code is set, We should be disabled.
+      array << ["code${userSlot}", '']
+    }
+  }
+
+
+  def json = new groovy.json.JsonBuilder(array).toString()
+  if (json != '[]') {
+    //Lock is in an error state
+    state."lock${lock.id}".errorLoop = true
+    def errorNumber = state."lock${lock.id}".errorLoopCount + 1
+    if (errorNumber <= 10) {
+      log.debug "sendCodes fix is: ${json} Error: ${errorNumber}/10"
+      state."lock${lock.id}".errorLoopCount = errorNumber
+      lock.updateCodes(json)
+    } else {
+      // reset code
+      def array = []
+      array << ["code${userSlot}", '']
+      json = new groovy.json.JsonBuilder(array).toString()
+
+      log.debug "kill fix is: ${json}"
+      lock.updateCodes(json)
+
+      // set user to disabled state
+      if (state."lock${lock.id}".enabled) {
+        state."lock${lock.id}".enabled = false
+        state."lock${lock.id}".disabledReason = "Controller failed to set code"
+        send("Controller failed to set code for ${app.label}")
+      }
+    }
+  } else {
+    // reset disabled state, set was successful!
+    state."lock${lock.id}".errorLoop = false
+    state."lock${lock.id}".errorLoopCount = 0
+  }
+}
+
+def isInErrorLoop() {
+  def errorInLoop = false
+  parent.locks.each { lock ->
+    if (state."lock${lock.id}".errorLoop) {
+      // Child is in error state
+      errorInLoop = true
+    }
+  }
+  return errorInLoop
+}
+
+def doPoll() {
+  parent.locks.poll()
+}
+
+def setKnownCode(currentCode, lock) {
+  state."lock${lock.id}".code = currentCode
+}
+
+def getLockById(params) {
+  return parent.locks.find{it.id == id}
+}
+
+def getLock(params) {
+  def id = ''
+  // Assign params to id.  Sometimes parameters are double nested.
+  if (params.id) {
+    id = params.id
+  } else if (params.params){
+    id = params.params.id
+  } else if (state.lastLock) {
+    id = state.lastLock
+  }
+
+  state.lastLock = id
+  return parent.locks.find{it.id == id}
+}
+
+def send(msg) {
+  log.debug msg
+  if (notificationStartTime != null && notificationEndTime != null) {
+    def start = timeToday(notificationStartTime)
+    def stop = timeToday(notificationEndTime)
+    def now = new Date()
+    if (start.before(now) && stop.after(now)){
+      sendMessage(msg)
+    }
+  } else {
+    sendMessage(msg)
+  }
+}
+
+def sendMessage(msg) {
+  if (notification) {
+    sendPush(msg)
+  } else {
+    sendNotificationEvent(msg)
+  }
+  if (phone) {
+    if ( phone.indexOf(";") > 1){
+      def phones = phone.split(";")
+      for ( def i = 0; i < phones.size(); i++) {
+        sendSms(phones[i], msg)
+      }
+    }
+    else {
+      sendSms(phone, msg)
+    }
+  }
+}
