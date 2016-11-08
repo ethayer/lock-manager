@@ -109,7 +109,10 @@ def lockPage(params) {
       }
     }
     section("${deviceLabel(lock)} settings for ${app.label}") {
-      paragraph "Lock is currently set to ${lockCode} and is ${lockAccessable}"
+      if (lockCode) {
+        paragraph "Lock is currently set to ${lockCode}"
+      }
+
       if( errorLoopCount > 0) {
         paragraph "Lock set failed try ${errorLoopCount}/10"
       }
@@ -594,7 +597,7 @@ def pollCodeReport(evt) {
       lock.updateCodes(json)
     } else {
       // reset code
-      def array = []
+      array = []
       array << ["code${userSlot}", '']
       json = new groovy.json.JsonBuilder(array).toString()
 
