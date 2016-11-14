@@ -12,13 +12,13 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 
 preferences {
-  page(name: "mainPage", title: "Users", install: true, uninstall: true,submitOnChange: true)
+  page(name: 'mainPage', title: 'Users', install: true, uninstall: true,submitOnChange: true)
 }
 
 def mainPage() {
-  dynamicPage(name: "mainPage", install: true, uninstall: true, submitOnChange: true) {
+  dynamicPage(name: 'mainPage', install: true, uninstall: true, submitOnChange: true) {
     section('Create') {
-      app(name: "lockUsers", appName: "Lock User", namespace: "ethayer", title: "New User", multiple: true)
+      app(name: 'lockUsers', appName: "Lock User", namespace: "ethayer", title: "New User", multiple: true)
     }
     section('Which Locks?') {
       input 'locks', 'capability.lockCodes', title: 'Select Locks', required: true, multiple: true, submitOnChange: true
@@ -78,9 +78,9 @@ def availableSlots(selectedSlot) {
 def pollCodeReport(evt) {
   def needPoll = false
   def children = getChildApps()
+  log.debug 'checking children for errors'
   children.each { child ->
     child.pollCodeReport(evt)
-    log.debug 'checking children for errors?'
     if (child.isInErrorLoop()) {
       log.debug 'child is in error loop'
       needPoll = true
@@ -91,6 +91,21 @@ def pollCodeReport(evt) {
     runIn(25, doPoll)
   }
 }
+
+// def doErrorPoll() {
+//   def needPoll = false
+//   def children = getChildApps()
+//   def pollThese = []
+//   children.each { child ->
+//     if (child.isInErrorLoop()) {
+//       pollThese << child.errorLoopArray()
+//     }
+//   }
+//   log.debug pollThese
+//   if (pollThese != []) {
+//     runIn(25, doErrorPoll)
+//   }
+// }
 
 def setAccess() {
   def children = getChildApps()
