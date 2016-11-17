@@ -721,6 +721,7 @@ def pollCodeReport(evt) {
       // set user to disabled state
       if (state."lock${lock.id}".enabled) {
         state."lock${lock.id}".enabled = false
+        state."lock${lock.id}".errorLoop = false
         state."lock${lock.id}".disabledReason = "Controller failed to set code"
         send("Controller failed to set code for ${app.label}")
       }
@@ -732,13 +733,11 @@ def pollCodeReport(evt) {
   }
 }
 
-def isInErrorLoop() {
+def isInErrorLoop(lockId) {
   def errorInLoop = false
-  parent.locks.each { lock ->
-    if (state."lock${lock.id}".errorLoop) {
-      // Child is in error state
-      errorInLoop = true
-    }
+  if (state."lock${lockId}".errorLoop) {
+    // Child is in error state
+    errorInLoop = true
   }
   return errorInLoop
 }

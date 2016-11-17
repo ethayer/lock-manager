@@ -81,14 +81,14 @@ def pollCodeReport(evt) {
   log.debug 'checking children for errors'
   children.each { child ->
     child.pollCodeReport(evt)
-    if (child.isInErrorLoop()) {
+    if (child.isInErrorLoop(evt.deviceId)) {
       log.debug 'child is in error loop'
       needPoll = true
     }
   }
   if (needPoll) {
     log.debug 'asking for poll!'
-    runIn(25, doPoll)
+    runIn(20, doPoll)
   }
 }
 
