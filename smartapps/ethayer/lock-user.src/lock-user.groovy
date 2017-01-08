@@ -3,9 +3,8 @@ definition (
   namespace: 'ethayer',
   author: 'Erik Thayer',
   description: 'App to manager users. This is a child app.',
-  category: 'My Apps',
+  category: 'Safety & Security',
 
-  // the parent option allows you to specify the parent app in the form <namespace>/<app name>
   parent: 'ethayer:Lock Manager',
   iconUrl: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png',
   iconX2Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png',
@@ -440,7 +439,6 @@ def isValidCode() {
   if (userCode?.isNumber()) {
     return true
   } else {
-    log.debug 'Not a number!'
     return false
   }
 }
@@ -686,6 +684,8 @@ def pollCodeReport(evt) {
   def active = isActive(lock.id)
   def currentCode = codeData."code${userSlot}"
   def array = []
+
+  parent.populateDiscovery(codeData, lock)
   setKnownCode(currentCode, lock)
 
   if (active) {
@@ -811,4 +811,15 @@ def sendMessage(msg) {
       sendSms(phone, msg)
     }
   }
+}
+
+def getLockUserInfo(lock) {
+  def para = "\n${app.label}"
+  def usage = state."lock${lock.id}".usage
+  para += " // Usage: ${usage}"
+  if (!state."lock${lock.id}".enabled) {
+    def reason = state."lock${lock.id}".disabledReason
+    para += "\n ${reason}"
+  }
+  return para
 }
