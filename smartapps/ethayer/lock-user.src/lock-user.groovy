@@ -2,7 +2,7 @@ definition (
   name: 'Lock User',
   namespace: 'ethayer',
   author: 'Erik Thayer',
-  description: 'App to manager users. This is a child app.',
+  description: 'App to manage users. This is a child app.',
   category: 'Safety & Security',
 
   parent: 'ethayer:Lock Manager',
