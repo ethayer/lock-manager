@@ -693,7 +693,7 @@ def pollCodeReport(evt) {
       array << ["code${userSlot}", userCode]
     }
   } else {
-    if (currentCode != '') {
+    if (currentCode) {
       // Code is set, We should be disabled.
       array << ["code${userSlot}", '']
     }

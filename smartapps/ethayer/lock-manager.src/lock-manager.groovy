@@ -186,7 +186,7 @@ def removeUnmanagedCodes(evt) {
     if (!child) {
       def currentCode = codeData."code${slot}"
       // there is no app associated
-      if (currentCode != '') {
+      if (currentCode) {
         // Code is set, We should be disabled.
         array << ["code${slot}", '']
       }
