@@ -14,13 +14,13 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 
 preferences {
-  page(name: 'rootPage')
+  page name: 'rootPage'
   page name: 'lockPage', title: 'Manage Lock', install: false, uninstall: false
   page name: 'schedulingPage', title: 'Schedule User', install: false, uninstall: false
   page name: 'calendarPage', title: 'Calendar', install: false, uninstall: false
   page name: 'notificationPage'
-  page(name: 'reEnableUserLockPage')
-  page(name: 'lockResetPage')
+  page name: 'reEnableUserLockPage'
+  page name: 'lockResetPage'
 }
 
 def installed() {
@@ -160,7 +160,7 @@ def rootPage() {
     section('Locks') {
       initalizeLockData()
       parent.locks.each { lock->
-        href(name: "toLockPage${lock.id}", page: 'lockPage', params: [id: lock.id], required: false, title: lock.displayName )
+        href(name: "toLockPage${lock.id}", page: 'lockPage', params: [id: lock.id], description: lockPageDescription(lock.id), required: false, title: lock.displayName )
       }
     }
   }
@@ -190,6 +190,18 @@ def lockPage(params) {
       href(name: "toLockResetPage", page: "lockResetPage", title: "Reset Lock", description: 'Reset lock data for this user.',  params: [id: lock.id] )
     }
   }
+}
+
+def lockPageDescription(lock_id) {
+  def usage = state."lock${lock_id}".usage
+  def description = "Entries: ${usage} "
+  if (!state."lock${lock_id}".enabled) {
+    description += '// ERROR//DISABLED'
+  }
+  if (settings."lockDisabled${lock_id}") {
+    description += ' DISABLED'
+  }
+  description
 }
 
 def reEnableUserLockPage(params) {
@@ -253,7 +265,7 @@ def calendarPage() {
       input name: "calStartTime", type: "time", title: "Start Time", description: null, required: false
       if (actions) {
         actions.sort()
-        input name: "calStartPhrase", type: "enum", title: "Hello Home Phrase", multiple: true,required: false, options: actions, refreshAfterSelection: true
+        input name: "calStartPhrase", type: "enum", title: "Hello Home Phrase", multiple: true, required: false, options: actions, refreshAfterSelection: true
       }
     }
     section("End Date") {
@@ -263,7 +275,7 @@ def calendarPage() {
       input name: "calEndTime", type: "time", title: "End Time", description: null, required: false
       if (actions) {
         actions.sort()
-        input name: "calEndPhrase", type: "enum", title: "Hello Home Phrase", multiple: true,required: false, options: actions, refreshAfterSelection: true
+        input name: "calEndPhrase", type: "enum", title: "Hello Home Phrase", multiple: true, required: false, options: actions, refreshAfterSelection: true
       }
     }
   }
@@ -273,14 +285,19 @@ def notificationPage() {
   dynamicPage(name: "notificationPage", title: "Notification Settings") {
 
     section {
-      input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
-      paragraph "For multiple SMS recipients, separate phone numbers with a semicolon(;)"
-      input(name: "notification", type: "bool", title: "Send A Push Notification", description: "Notification", required: false, submitOnChange: true)
-      if (phone != null || notification || sendevent) {
+      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false)
+      if (!recipients) {
+        input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
+        paragraph "For multiple SMS recipients, separate phone numbers with a semicolon(;)"
+        input(name: "notification", type: "bool", title: "Send A Push Notification", description: "Notification", required: false, submitOnChange: true)
+      }
+      if (phone != null || notification || sendevent || recipients) {
         input(name: "notifyAccess", title: "on User Entry", type: "bool", required: false)
         input(name: "notifyLock", title: "on Lock", type: "bool", required: false)
         input(name: "notifyAccessStart", title: "when granting access", type: "bool", required: false)
         input(name: "notifyAccessEnd", title: "when revoking access", type: "bool", required: false)
+      } else {
+        input(name: "muteUser", title: "Mute this user?", type: "bool", required: false, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally')
       }
     }
 
@@ -364,6 +381,9 @@ def notificationPageDescription() {
   if (parts.size()) {
     msg += ": "
     msg += fancyString(parts)
+  }
+  if (muteUser) {
+    msg = 'User Muted'
   }
   return msg
 }
@@ -639,16 +659,15 @@ def codeUsed(evt) {
 
 def codeReturn(evt) {
   def codeNumber = evt.data.replaceAll("\\D+","")
-  def codeSlot = evt.value
+  def codeSlot = evt.integerValue.toInteger()
   def lock = evt.device
 
-  if (userSlot.toInteger() == evt.integerValue.toInteger()) {
+  if (userSlot.toInteger() == codeSlot) {
     if (codeNumber == "") {
-      setKnownCode(false, lock)
       if (state."lock${lock.id}".access == true) {
         log.debug "Lock is ${state."lock${lock.id}".access} setting to false!"
         state."lock${lock.id}".access = false
-        if (notifyAccessEnd) {
+        if (notifyAccessEnd || parent.notifyAccessEnd) {
           def message = "${app.label} no longer has access to ${evt.displayName}"
           if (codeNumber.isNumber()) {
             state."lock${lock.id}".codes."slot${codeSlot}" = codeNumber
@@ -658,16 +677,13 @@ def codeReturn(evt) {
       }
     } else if (state."lock${lock.id}".access == false) {
       state."lock${lock.id}".access = true
-      if (notifyAccessStart) {
+      if (notifyAccessStart || parent.notifyAccessStart) {
         def message = "${app.label} now has access to ${evt.displayName}"
         if (codeNumber.isNumber() && codeNumber.toInteger() != userCode.toInteger()) {
           log.debug "code: ${codeNumber} should be ${userCode.toInteger()}"
           log.debug 'set message to null'
           // number is set to the wrong value!
           message = null
-        }
-        if (codeNumber.isNumber()) {
-          setKnownCode(codeNumber, lock)
         }
         if (message) {
           send(message)
@@ -684,9 +700,6 @@ def pollCodeReport(evt) {
   def active = isActive(lock.id)
   def currentCode = codeData."code${userSlot}"
   def array = []
-
-  parent.populateDiscovery(codeData, lock)
-  setKnownCode(currentCode, lock)
 
   if (active) {
     if (currentCode != userCode) {
@@ -758,7 +771,13 @@ def doPoll() {
 }
 
 def setKnownCode(currentCode, lock) {
-  state."lock${lock.id}".code = currentCode
+  def setCode
+  if (currentCode.isNumber()) {
+    setCode = currentCode
+  } else if (!currentCode) {
+    setCode = false
+  }
+  state."lock${lock.id}".code = setCode
 }
 
 def getLockById(params) {
@@ -768,9 +787,9 @@ def getLockById(params) {
 def getLock(params) {
   def id = ''
   // Assign params to id.  Sometimes parameters are double nested.
-  if (params.id) {
+  if (params?.id) {
     id = params.id
-  } else if (params.params){
+  } else if (params?.params){
     id = params.params.id
   } else if (state.lastLock) {
     id = state.lastLock
@@ -780,46 +799,106 @@ def getLock(params) {
   return parent.locks.find{it.id == id}
 }
 
+def userNotificationSettings() {
+  if (phone != null || notification || sendevent || muteUser) {
+    // user has it's own settings!
+    return true
+  }
+  // user doesn'r !
+  return false
+}
+
 def send(msg) {
-  log.debug msg
+  if (userNotificationSettings()) {
+    checkIfNotifyUser(msg)
+  } else {
+    checkIfNotifyGlobal(msg)
+  }
+}
+
+def checkIfNotifyUser(msg) {
   if (notificationStartTime != null && notificationEndTime != null) {
     def start = timeToday(notificationStartTime)
     def stop = timeToday(notificationEndTime)
     def now = new Date()
     if (start.before(now) && stop.after(now)){
-      sendMessage(msg)
+      sendMessageViaUser(msg)
     }
   } else {
-    sendMessage(msg)
+    sendMessageViaUser(msg)
   }
 }
 
-def sendMessage(msg) {
-  if (notification) {
-    sendPush(msg)
+def checkIfNotifyGlobal(msg) {
+  if (parent.notificationStartTime != null && parent.notificationEndTime != null) {
+    def start = timeToday(parent.notificationStartTime)
+    def stop = timeToday(parent.notificationEndTime)
+    def now = new Date()
+    if (parent.start.before(now) && parent.stop.after(now)){
+      sendMessageViaParent(msg)
+    }
   } else {
-    sendNotificationEvent(msg)
+    sendMessageViaParent(msg)
   }
-  if (phone) {
-    if ( phone.indexOf(";") > 1){
-      def phones = phone.split(";")
-      for ( def i = 0; i < phones.size(); i++) {
-        sendSms(phones[i], msg)
+}
+
+def sendMessageViaParent(msg) {
+  if (parent.recipients) {
+    sendNotificationToContacts(msg, parent.recipients)
+  } else {
+    if (parent.notification) {
+      sendPush(msg)
+    } else {
+      sendNotificationEvent(msg)
+    }
+    if (parent.phone) {
+      if ( phone.indexOf(";") > 1){
+        def phones = parent.phone.split(";")
+        for ( def i = 0; i < phones.size(); i++) {
+          sendSms(phones[i], msg)
+        }
+      }
+      else {
+        sendSms(phone, msg)
       }
     }
-    else {
-      sendSms(phone, msg)
+  }
+}
+
+def sendMessageViaUser(msg) {
+  if (recipients) {
+    sendNotificationToContacts(msg, recipients)
+  } else {
+    if (notification) {
+      sendPush(msg)
+    } else {
+      sendNotificationEvent(msg)
+    }
+    if (phone) {
+      if ( phone.indexOf(";") > 1){
+        def phones = phone.split(";")
+        for ( def i = 0; i < phones.size(); i++) {
+          sendSms(phones[i], msg)
+        }
+      }
+      else {
+        sendSms(phone, msg)
+      }
     }
   }
 }
 
 def getLockUserInfo(lock) {
   def para = "\n${app.label}"
+  if (settings."lockDisabled${lock.id}") {
+    para += " DISABLED"
+  }
   def usage = state."lock${lock.id}".usage
-  para += " // Usage: ${usage}"
+  para += " // Entries: ${usage}"
   if (!state."lock${lock.id}".enabled) {
     def reason = state."lock${lock.id}".disabledReason
     para += "\n ${reason}"
   }
-  return para
+
+  para
 }

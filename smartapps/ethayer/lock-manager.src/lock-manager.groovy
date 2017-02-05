@@ -4,17 +4,18 @@ definition(
   author: 'Erik Thayer',
   description: 'Manage locks and users',
   category: 'Safety & Security',
-  iconUrl: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png',
-  iconX2Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png',
-  iconX3Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png'
+  iconUrl: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lm.jpg',
+  iconX2Url: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lm2x.jpg',
+  iconX3Url: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lm3x.jpg'
 )
 import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 
 preferences {
-  page(name: 'mainPage', title: 'Users', install: true, uninstall: true,submitOnChange: true)
-  page(name: "lockInfoPage")
-  page(name: "infoRefreshPage")
+  page(name: 'mainPage', title: 'Users', install: true, uninstall: true, submitOnChange: true)
+  page(name: 'lockInfoPage')
+  page(name: 'infoRefreshPage')
+  page(name: 'notificationPage')
 }
 
 def mainPage() {
@@ -32,7 +33,10 @@ def mainPage() {
       }
     }
     section('Global Settings') {
+      // needs to run any time a lock is added
+      initalizeLockData()
       input 'locks', 'capability.lockCodes', title: 'Select Locks', required: true, multiple: true, submitOnChange: true
+      href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '')
       input(name: "overwriteMode", title: "Overwrite?", type: "bool", required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
       href(name: "toInfoRefreshPage", page: "infoRefreshPage", title: "Refresh Lock Data", description: 'Tap to refresh')
     }
@@ -84,6 +88,88 @@ def lockInfoPage(params) {
   }
 }
 
+def notificationPage() {
+  dynamicPage(name: "notificationPage", title: "Global Notification Settings") {
+    section {
+      paragraph "These settings will apply to all users.  Settings on individual users will override these settings"
+
+      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false)
+
+      if (!recipients) {
+        input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
+        paragraph "For multiple SMS recipients, separate phone numbers with a semicolon(;)"
+        input(name: "notification", type: "bool", title: "Send A Push Notification", description: "Notification", required: false, submitOnChange: true)
+      }
+
+      if (phone != null || notification || sendevent) {
+        input(name: "notifyAccess", title: "on User Entry", type: "bool", required: false)
+        input(name: "notifyLock", title: "on Lock", type: "bool", required: false)
+        input(name: "notifyAccessStart", title: "when granting access", type: "bool", required: false)
+        input(name: "notifyAccessEnd", title: "when revoking access", type: "bool", required: false)
+      }
+    }
+    section("Only During These Times (optional)") {
+      input(name: "notificationStartTime", type: "time", title: "Notify Starting At This Time", description: null, required: false)
+      input(name: "notificationEndTime", type: "time", title: "Notify Ending At This Time", description: null, required: false)
+    }
+  }
+}
+
+def fancyString(listOfStrings) {
+  listOfStrings.removeAll([null])
+  def fancify = { list ->
+    return list.collect {
+      def label = it
+      if (list.size() > 1 && it == list[-1]) {
+        label = "and ${label}"
+      }
+      label
+    }.join(", ")
+  }
+
+  return fancify(listOfStrings)
+}
+
+def notificationPageDescription() {
+  def parts = []
+  def msg = ""
+  if (settings.phone) {
+    parts << "SMS to ${phone}"
+  }
+  if (settings.sendevent) {
+    parts << "Event Notification"
+  }
+  if (settings.notification) {
+    parts << "Push Notification"
+  }
+  msg += fancyString(parts)
+  parts = []
+
+  if (settings.notifyAccess) {
+    parts << "on entry"
+  }
+  if (settings.notifyLock) {
+    parts << "on lock"
+  }
+  if (settings.notifyAccessStart) {
+    parts << "when granting access"
+  }
+  if (settings.notifyAccessEnd) {
+    parts << "when revoking access"
+  }
+  if (settings.notificationStartTime) {
+    parts << "starting at ${settings.notificationStartTime}"
+  }
+  if (settings.notificationEndTime) {
+    parts << "ending at ${settings.notificationEndTime}"
+  }
+  if (parts.size()) {
+    msg += ": "
+    msg += fancyString(parts)
+  }
+  return msg
+}
+
 def installed() {
   log.debug "Installed with settings: ${settings}"
   initialize()
@@ -100,6 +186,7 @@ def initialize() {
 
   initalizeLockData()
   setAccess()
+  subscribe(locks, "codeReport", updateCode)
   subscribe(locks, "reportAllCodes", pollCodeReport, [filterEvents:false])
   log.debug "there are ${children.size()} lock users"
 }
@@ -153,6 +240,11 @@ def availableSlots(selectedSlot) {
 def pollCodeReport(evt) {
   def needPoll = false
   def children = getChildApps()
+  def codeData = new JsonSlurper().parseText(evt.data)
+  def currentLock = locks.find{it.id == evt.deviceId}
+
+  populateDiscovery(codeData, currentLock)
+
   log.debug 'checking children for errors'
   children.each { child ->
     child.pollCodeReport(evt)
@@ -203,21 +295,6 @@ def removeUnmanagedCodes(evt) {
   }
 }
 
-// def doErrorPoll() {
-//   def needPoll = false
-//   def children = getChildApps()
-//   def pollThese = []
-//   children.each { child ->
-//     if (child.isInErrorLoop()) {
-//       pollThese << child.errorLoopArray()
-//     }
-//   }
-//   log.debug pollThese
-//   if (pollThese != []) {
-//     runIn(25, doErrorPoll)
-//   }
-// }
-
 def setAccess() {
   def children = getChildApps()
   def userArray
@@ -242,6 +319,20 @@ def doPoll() {
   locks.poll()
 }
 
+def updateCode(evt) {
+  def codeNumber = evt.data.replaceAll("\\D+","")
+  def codeSlot = evt.integerValue.toInteger()
+  def lock = evt.device
+
+  // set parent known code
+  state."lock${lock.id}".codes[codeSlot] = codeNumber
+
+  def childApp = findAssignedChildApp(lock, codeSlot)
+  if (childApp) {
+    childApp.setKnownCode(codeNumber, lock)
+  }
+}
+
 def populateDiscovery(codeData, lock) {
   def codes = [:]
   def codeSlots = 30
@@ -249,7 +340,12 @@ def populateDiscovery(codeData, lock) {
     codeSlots = codeData.codes
   }
   (1..codeSlots).each { slot->
-    codes."slot${slot}" = codeData."code${slot}"
+    def childApp = findAssignedChildApp(lock, slot)
+    def knownCode = codeData."code${slot}"
+    codes."slot${slot}" = knownCode
+    if (childApp) {
+      childApp.setKnownCode(knownCode, lock)
+    }
   }
   state."lock${lock.id}".codes = codes
 }
