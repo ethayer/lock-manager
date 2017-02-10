@@ -93,7 +93,7 @@ def notificationPage() {
     section {
       paragraph "These settings will apply to all users.  Settings on individual users will override these settings"
 
-      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false)
+      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false, multiple: true)
 
       if (!recipients) {
         input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)

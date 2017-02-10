@@ -285,7 +285,7 @@ def notificationPage() {
   dynamicPage(name: "notificationPage", title: "Notification Settings") {
 
     section {
-      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false)
+      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false, multiple: true)
       if (!recipients) {
         input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
         paragraph "For multiple SMS recipients, separate phone numbers with a semicolon(;)"
