@@ -185,6 +185,9 @@ def initialize() {
   def children = getChildApps()
 
   initalizeLockData()
+  children.each { child ->
+    child.initalizeLockData()
+  }
   setAccess()
   subscribe(locks, "codeReport", updateCode)
   subscribe(locks, "reportAllCodes", pollCodeReport, [filterEvents:false])

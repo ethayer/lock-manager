@@ -123,7 +123,6 @@ def lockReset(lockId) {
 
 def rootPage() {
   //reset errors on each load
-  initalizeLockData()
   dynamicPage(name: 'rootPage', title: '', install: true, uninstall: true) {
     section('User Settings') {
       def title = 'Code (4 to 8 digits)'
