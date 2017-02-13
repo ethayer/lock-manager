@@ -141,7 +141,7 @@ def rootPage() {
           title = "Code (Must be ${lock.latestValue('pinLength')} digits)"
         }
       }
-      label title: "Name for User", defaultValue: app.label, required: false
+      label title: "Name for User", defaultValue: app.label, required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png'
 
       input(name: "userCode", type: "text", title: title, required: false, defaultValue: settings."userCode", refreshAfterSelection: true)
       input(name: "userSlot", type: "enum", options: parent.availableSlots(settings.userSlot), title: "Select slot", required: true, refreshAfterSelection: true )
@@ -150,20 +150,37 @@ def rootPage() {
       def actions = location.helloHome?.getPhrases()*.label
       if (actions) {
         actions.sort()
-        input name: 'userUnlockPhrase', type: 'enum', title: 'Hello Home Phrase', multiple: true,required: false, options: actions, refreshAfterSelection: true
+        input name: 'userUnlockPhrase', type: 'enum', title: 'Hello Home Phrase', multiple: true,required: false, options: actions, refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png'
       }
-      input(name: 'burnAfterInt', title: "How many uses before burn?", type: "number", required: false, description: 'Blank or zero is infinite')
-      href(name: 'toSchedulingPage', page: 'schedulingPage', title: 'Schedule (optional)', description: schedulingHrefDescription(), state: schedulingHrefDescription() ? 'complete' : '')
-      href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '')
+      input(name: 'burnAfterInt', title: "How many uses before burn?", type: "number", required: false, description: 'Blank or zero is infinite', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/fire.png')
+      href(name: 'toSchedulingPage', page: 'schedulingPage', title: 'Schedule (optional)', description: schedulingHrefDescription(), state: schedulingHrefDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/calendar.png')
+      href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
     }
     section('Locks') {
       initalizeLockData()
       parent.locks.each { lock->
-        href(name: "toLockPage${lock.id}", page: 'lockPage', params: [id: lock.id], description: lockPageDescription(lock.id), required: false, title: lock.displayName )
+        href(name: "toLockPage${lock.id}", page: 'lockPage', params: [id: lock.id], description: lockPageDescription(lock.id), required: false, title: lock.displayName, image: lockPageImage(lock) )
       }
     }
   }
 }
+
+def lockPageImage(lock) {
+  if (!state."lock${lock.id}".enabled || settings."lockDisabled${lock.id}") {
+    return 'https://dl.dropboxusercontent.com/u/54190708/LockManager/ban.png'
+  } else {
+    return 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png'
+  }
+}
+
+def lockInfoPageImage(lock) {
+  if (!state."lock${lock.id}".enabled || settings."lockDisabled${lock.id}") {
+    return 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-times.png'
+  } else {
+    return 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png'
+  }
+}
+
 def lockPage(params) {
   dynamicPage(name:"lockPage", title:"Lock Settings") {
     def lock = getLock(params)
@@ -173,7 +190,7 @@ def lockPage(params) {
     def usage = state."lock${lock.id}".usage
     if (!state."lock${lock.id}".enabled) {
       section {
-        paragraph "WARNING:\n\nThis user has been disabled.\nReason: ${state."lock${lock.id}".disabledReason}"
+        paragraph "WARNING:\n\nThis user has been disabled.\nReason: ${state."lock${lock.id}".disabledReason}", image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/ban.png'
         href(name: "reEnableUserLockPage", title: "Reset User", page: "reEnableUserLockPage", params: [id: lock.id], description: "Tap to reset")
       }
     }
@@ -185,8 +202,8 @@ def lockPage(params) {
       if( errorLoopCount > 0) {
         paragraph "Lock set failed try ${errorLoopCount}/10"
       }
-      input(name: "lockDisabled${lock.id}", type: "bool", title: "Disable lock for this user?", required: false, defaultValue: settings."lockDisabled${lock.id}", refreshAfterSelection: true )
-      href(name: "toLockResetPage", page: "lockResetPage", title: "Reset Lock", description: 'Reset lock data for this user.',  params: [id: lock.id] )
+      input(name: "lockDisabled${lock.id}", type: "bool", title: "Disable lock for this user?", required: false, defaultValue: settings."lockDisabled${lock.id}", refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/ban.png' )
+      href(name: "toLockResetPage", page: "lockResetPage", title: "Reset Lock", description: 'Reset lock data for this user.',  params: [id: lock.id], image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png' )
     }
   }
 }
@@ -284,19 +301,20 @@ def notificationPage() {
   dynamicPage(name: "notificationPage", title: "Notification Settings") {
 
     section {
-      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false, multiple: true)
+      if (phone == null && !notification && !sendevent && !recipients) {
+        input(name: "muteUser", title: "Mute this user?", type: "bool", required: false, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bell-slash-o.png')
+      }
+      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
       if (!recipients) {
         input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
         paragraph "For multiple SMS recipients, separate phone numbers with a semicolon(;)"
         input(name: "notification", type: "bool", title: "Send A Push Notification", description: "Notification", required: false, submitOnChange: true)
       }
       if (phone != null || notification || sendevent || recipients) {
-        input(name: "notifyAccess", title: "on User Entry", type: "bool", required: false)
-        input(name: "notifyLock", title: "on Lock", type: "bool", required: false)
-        input(name: "notifyAccessStart", title: "when granting access", type: "bool", required: false)
-        input(name: "notifyAccessEnd", title: "when revoking access", type: "bool", required: false)
-      } else {
-        input(name: "muteUser", title: "Mute this user?", type: "bool", required: false, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally')
+        input(name: "notifyAccess", title: "on User Entry", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+        input(name: "notifyLock", title: "on Lock", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+        input(name: "notifyAccessStart", title: "when granting access", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/check-circle-o.png')
+        input(name: "notifyAccessEnd", title: "when revoking access", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png')
       }
     }
 
@@ -323,7 +341,9 @@ def readableDateTime(date) {
 def getAllLocksUsage() {
   def usage = 0
   parent.locks.each { lock ->
-    usage = usage + state."lock${lock.id}".usage
+    if (state."lock${lock.id}"?.usage) {
+      usage = usage + state."lock${lock.id}".usage
+    }
   }
   return usage
 }
@@ -898,6 +918,5 @@ def getLockUserInfo(lock) {
     def reason = state."lock${lock.id}".disabledReason
     para += "\n ${reason}"
   }
-
   para
 }

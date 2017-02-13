@@ -21,14 +21,14 @@ preferences {
 def mainPage() {
   dynamicPage(name: 'mainPage', install: true, uninstall: true, submitOnChange: true) {
     section('Create') {
-      app(name: 'lockUsers', appName: "Lock User", namespace: "ethayer", title: "New User", multiple: true)
+      app(name: 'lockUsers', appName: "Lock User", namespace: "ethayer", title: "New User", multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
     }
     section('Locks') {
       if (locks) {
         def i = 0
         locks.each { lock->
           i++
-          href(name: "toLockInfoPage${i}", page: "lockInfoPage", params: [id: lock.id], required: false, title: lock.displayName )
+          href(name: "toLockInfoPage${i}", page: "lockInfoPage", params: [id: lock.id], required: false, title: lock.displayName, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png' )
         }
       }
     }
@@ -36,9 +36,9 @@ def mainPage() {
       // needs to run any time a lock is added
       initalizeLockData()
       input 'locks', 'capability.lockCodes', title: 'Select Locks', required: true, multiple: true, submitOnChange: true
-      href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '')
+      href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
       input(name: "overwriteMode", title: "Overwrite?", type: "bool", required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
-      href(name: "toInfoRefreshPage", page: "infoRefreshPage", title: "Refresh Lock Data", description: 'Tap to refresh')
+      href(name: "toInfoRefreshPage", page: "infoRefreshPage", title: "Refresh Lock Data", description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
     }
   }
 }
@@ -64,6 +64,7 @@ def lockInfoPage(params) {
           def child
           def usage
           def para
+          def image
           state."lock${lock.id}".codes.each { code->
             i++
             child = findAssignedChildApp(lock, i)
@@ -71,8 +72,11 @@ def lockInfoPage(params) {
             para = "Slot ${i}\nCode: ${setCode}"
             if (child) {
               para = para + child.getLockUserInfo(lock)
+              image = child.lockInfoPageImage(lock)
+            } else {
+              image = 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png'
             }
-            paragraph para
+            paragraph para, image: image
 
           }
         } else {
@@ -93,7 +97,7 @@ def notificationPage() {
     section {
       paragraph "These settings will apply to all users.  Settings on individual users will override these settings"
 
-      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false, multiple: true)
+      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
 
       if (!recipients) {
         input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
@@ -102,10 +106,10 @@ def notificationPage() {
       }
 
       if (phone != null || notification || sendevent) {
-        input(name: "notifyAccess", title: "on User Entry", type: "bool", required: false)
-        input(name: "notifyLock", title: "on Lock", type: "bool", required: false)
-        input(name: "notifyAccessStart", title: "when granting access", type: "bool", required: false)
-        input(name: "notifyAccessEnd", title: "when revoking access", type: "bool", required: false)
+        input(name: "notifyAccess", title: "on User Entry", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+        input(name: "notifyLock", title: "on Lock", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+        input(name: "notifyAccessStart", title: "when granting access", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/check-circle-o.png')
+        input(name: "notifyAccessEnd", title: "when revoking access", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png')
       }
     }
     section("Only During These Times (optional)") {
