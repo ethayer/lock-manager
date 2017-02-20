@@ -1,5 +1,5 @@
 definition(
-  name: 'Lock Manager',
+  name: 'Lock Manager2',
   namespace: 'ethayer',
   author: 'Erik Thayer',
   description: 'Manage locks and users',
@@ -12,16 +12,29 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 
 preferences {
-  page(name: 'mainPage', title: 'Users', install: true, uninstall: true, submitOnChange: true)
+  page(name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true)
   page(name: 'lockInfoPage')
   page(name: 'infoRefreshPage')
   page(name: 'notificationPage')
+  page(name: "keypadPage")
+}
+
+def smartTitle() {
+  def title = []
+  if (getUserApps()) {
+    title.push('Users')
+  }
+  if (getKeypadApps()) {
+    title.push('Keypads')
+  }
+  return fancyString(title)
 }
 
 def mainPage() {
   dynamicPage(name: 'mainPage', install: true, uninstall: true, submitOnChange: true) {
     section('Create') {
       app(name: 'lockUsers', appName: "Lock User", namespace: "ethayer", title: "New User", multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
+      app(name: 'keypads', appName: "Keypad", namespace: "ethayer", title: "New Keypad", multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
     }
     section('Locks') {
       if (locks) {
@@ -35,6 +48,7 @@ def mainPage() {
     section('Global Settings') {
       // needs to run any time a lock is added
       initalizeLockData()
+      href(name: "toKeypadPage", page: "keypadPage", title: "Keypad Settings (optional)")
       input 'locks', 'capability.lockCodes', title: 'Select Locks', required: true, multiple: true, submitOnChange: true
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
       input(name: "overwriteMode", title: "Overwrite?", type: "bool", required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
@@ -119,6 +133,25 @@ def notificationPage() {
   }
 }
 
+def keypadPage() {
+  dynamicPage(name: "keypadPage",title: "Keypad Settings (optional)") {
+    section("Settings") {
+      // TODO: put inputs here
+      input(name: "keypad", title: "Keypad", type: "capability.lockCodes", multiple: true, required: false)
+    }
+    def hhPhrases = location.getHelloHome()?.getPhrases()*.label
+    hhPhrases?.sort()
+    section("Routines", hideable: true, hidden: true) {
+      input(name: "armRoutine", title: "Arm/Away routine", type: "enum", options: hhPhrases, required: false)
+      input(name: "disarmRoutine", title: "Disarm routine", type: "enum", options: hhPhrases, required: false)
+      input(name: "stayRoutine", title: "Arm/Stay routine", type: "enum", options: hhPhrases, required: false)
+      input(name: "nightRoutine", title: "Arm/Night routine", type: "enum", options: hhPhrases, required: false)
+      input(name: "armDelay", title: "Arm Delay (in seconds)", type: "number", required: false)
+      input(name: "notifyIncorrectPin", title: "Notify you when incorrect code is used?", type: "bool", required: false)
+    }
+  }
+}
+
 def fancyString(listOfStrings) {
   listOfStrings.removeAll([null])
   def fancify = { list ->
@@ -190,8 +223,11 @@ def initialize() {
 
   initalizeLockData()
   children.each { child ->
-    child.initalizeLockData()
+    if (child.userSlot) {
+      child.initalizeLockData()
+    }
   }
+
   setAccess()
   subscribe(locks, "codeReport", updateCode)
   subscribe(locks, "reportAllCodes", pollCodeReport, [filterEvents:false])
@@ -246,14 +282,13 @@ def availableSlots(selectedSlot) {
 
 def pollCodeReport(evt) {
   def needPoll = false
-  def children = getChildApps()
   def codeData = new JsonSlurper().parseText(evt.data)
   def currentLock = locks.find{it.id == evt.deviceId}
 
   populateDiscovery(codeData, currentLock)
 
   log.debug 'checking children for errors'
-  children.each { child ->
+  getUserApps.each { child ->
     child.pollCodeReport(evt)
     if (child.isInErrorLoop(evt.deviceId)) {
       log.debug 'child is in error loop'
@@ -303,16 +338,17 @@ def removeUnmanagedCodes(evt) {
 }
 
 def setAccess() {
-  def children = getChildApps()
   def userArray
   def json
   locks.each { lock ->
     userArray = []
-    children.each { child ->
-      if (child.isActive(lock.id)) {
-        userArray << ["code${child.userSlot}", "${child.userCode}"]
-      } else {
-        userArray << ["code${child.userSlot}", ""]
+    getUserApps().each { child ->
+      if (child.userSlot) {
+        if (child.isActive(lock.id)) {
+          userArray << ["code${child.userSlot}", "${child.userCode}"]
+        } else {
+          userArray << ["code${child.userSlot}", ""]
+        }
       }
     }
     json = new groovy.json.JsonBuilder(userArray).toString()
@@ -358,12 +394,201 @@ def populateDiscovery(codeData, lock) {
 }
 
 def findAssignedChildApp(lock, slot) {
-  def children = getChildApps()
-  def childApp = false
-  children.each { child ->
+  def childApp
+  getUserApps().each { child ->
     if (child.userSlot?.toInteger() == slot) {
       childApp = child
     }
   }
   return childApp
+}
+
+def getUserApps() {
+  def userApps = []
+  def children = getChildApps()
+  children.each { child ->
+    if (child.userSlot) {
+      userApps.push(child)
+    }
+  }
+  log.debug 'yes'
+  log.debug userApps
+  return userApps
+}
+
+def getKeypadApps() {
+  def keypadApps = []
+  def children = getChildApps()
+  children.each { child ->
+    if (child.keypad) {
+      keypadApps.push(child)
+    }
+  }
+  return keypadApps
+}
+
+// KEYPAD /////////////////////////////////////////////////////////////////////
+
+def alarmStatusHandler(event) {
+  log.debug "Keypad manager caught alarm status change: "+event.value
+  if (event.value == "off"){
+    keypad?.setDisarmed()
+  }
+  else if (event.value == "away"){
+    keypad?.setArmedAway()
+  }
+  else if (event.value == "stay") {
+    keypad?.setArmedStay()
+  }
+}
+
+private sendSHMEvent(String shmState) {
+  def event = [
+        name:"alarmSystemStatus",
+        value: shmState,
+        displayed: true,
+        description: "System Status is ${shmState}"
+      ]
+  log.debug "test ${event}"
+  sendLocationEvent(event)
+}
+
+private execRoutine(armMode) {
+  if (armMode == 'away') {
+    location.helloHome?.execute(settings.armRoutine)
+  } else if (armMode == 'stay') {
+    location.helloHome?.execute(settings.stayRoutine)
+  } else if (armMode == 'off') {
+    location.helloHome?.execute(settings.disarmRoutine)
+  }
+}
+
+def codeEntryHandler(evt) {
+  //do stuff
+  log.debug "Caught code entry event! ${evt.value.value}"
+
+  def codeEntered = evt.value as String
+
+  def data = evt.data as String
+  def armMode = ''
+  def currentarmMode = keypad.currentValue("armMode")
+  def changedMode = 0
+
+  if (data == '0') {
+    armMode = 'off'
+  }
+  else if (data == '3') {
+    armMode = 'away'
+  }
+  else if (data == '1') {
+    armMode = 'stay'
+  }
+  else if (data == '2') {
+    armMode = 'stay' //Currently no separate night mode for SHM, set to 'stay'
+  } else {
+    log.error "${app.label}: Unexpected arm mode sent by keypad!: "+data
+    return []
+  }
+
+  def i = settings.maxUsers
+  def message = " "
+  while (i > 0) {
+    log.debug "i =" + i
+    def correctCode = settings."userCode${i}" as String
+
+    if (codeEntered == correctCode) {
+
+      log.debug "User Enabled: " + state."userState${i}".enabled
+
+      if (state."userState${i}".enabled == true) {
+        log.debug "Correct PIN entered. Change SHM state to ${armMode}"
+        //log.debug "Delay: ${armDelay}"
+        //log.debug "Data: ${data}"
+        //log.debug "armMode: ${armMode}"
+
+        def unlockUserName = settings."userName${i}"
+
+        if (data == "0") {
+          //log.debug "sendDisarmCommand"
+          runIn(0, "sendDisarmCommand")
+          message = "${evt.displayName} was disarmed by ${unlockUserName}"
+        }
+        else if (data == "1") {
+          //log.debug "sendStayCommand"
+          if(armDelay) {
+          	keypad.setExitDelay(armDelay)
+          }
+          runIn(armDelay, "sendStayCommand")
+          message = "${evt.displayName} was armed to 'Stay' by ${unlockUserName}"
+        }
+        else if (data == "2") {
+          //log.debug "sendNightCommand"
+          if(armDelay) {
+          	keypad.setExitDelay(armDelay)
+          }
+          runIn(armDelay, "sendNightCommand")
+          message = "${evt.displayName} was armed to 'Night' by ${unlockUserName}"
+        }
+        else if (data == "3") {
+          //log.debug "sendArmCommand"
+          if(armDelay) {
+          	keypad.setExitDelay(armDelay)
+          }
+          runIn(armDelay, "sendArmCommand")
+          message = "${evt.displayName} was armed to 'Away' by ${unlockUserName}"
+        }
+
+        if(settings."burnCode${i}") {
+          state."userState${i}".enabled = false
+          message += ".  Now burning code."
+        }
+
+        log.debug "${message}"
+        //log.debug "Initial Usage Count:" + state."userState${i}".usage
+        state."userState${i}".usage = state."userState${i}".usage + 1
+        //log.debug "Final Usage Count:" + state."userState${i}".usage
+        send(message)
+        i = 0
+      } else if (state."userState${i}".enabled == false){
+        log.debug "PIN Disabled"
+        //Could also call acknowledgeArmRequest() with a parameter of 4 to report invalid code. Opportunity to simplify code?
+        //keypad.sendInvalidKeycodeResponse()
+      }
+    }
+    changedMode = 1
+    i--
+  }
+  if (changedMode == 1 && i == 0) {
+    def errorMsg = "Incorrect Code Entered: ${codeEntered}"
+    if (notifyIncorrectPin) {
+      log.debug "Incorrect PIN"
+      send(errorMsg)
+    }
+    //Could also call acknowledgeArmRequest() with a parameter of 4 to report invalid code. Opportunity to simplify code?
+    keypad.sendInvalidKeycodeResponse()
+  }
+}
+def sendArmCommand() {
+  log.debug "Sending Arm Command."
+  keypad.acknowledgeArmRequest(3)
+  sendSHMEvent("away")
+  execRoutine("away")
+}
+def sendDisarmCommand() {
+  log.debug "Sending Disarm Command."
+  keypad.acknowledgeArmRequest(0)
+  sendSHMEvent("off")
+  execRoutine("off")
+}
+def sendStayCommand() {
+  log.debug "Sending Stay Command."
+  keypad.acknowledgeArmRequest(1)
+  sendSHMEvent("stay")
+  execRoutine("stay")
+}
+def sendNightCommand() {
+  log.debug "Sending Night Command."
+  keypad.acknowledgeArmRequest(2)
+  sendSHMEvent("stay")
+  execRoutine("stay")
 }

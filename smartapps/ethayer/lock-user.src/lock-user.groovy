@@ -1,11 +1,11 @@
 definition (
-  name: 'Lock User',
+  name: 'Lock User2',
   namespace: 'ethayer',
   author: 'Erik Thayer',
   description: 'App to manage users. This is a child app.',
   category: 'Safety & Security',
 
-  parent: 'ethayer:Lock Manager',
+  parent: 'ethayer:Lock Manager2',
   iconUrl: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png',
   iconX2Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png',
   iconX3Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png'
@@ -463,6 +463,21 @@ def isActive(lockId) {
       isNotBurned() &&
       isEnabled(lockId) &&
       userLockEnabled(lockId) &&
+      isCorrectDay() &&
+      isInCalendarRange() &&
+      isCorrectMode() &&
+      isInScheduledTime()
+     ) {
+    return true
+  } else {
+    return false
+  }
+}
+
+def isActiveKeypad() {
+  if (
+      isValidCode() &&
+      isNotBurned() &&
       isCorrectDay() &&
       isInCalendarRange() &&
       isCorrectMode() &&
