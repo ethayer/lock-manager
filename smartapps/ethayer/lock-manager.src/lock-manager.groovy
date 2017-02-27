@@ -12,43 +12,57 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 
 preferences {
-  page(name: 'mainPage', title: 'Users', install: true, uninstall: true, submitOnChange: true)
+  page(name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true)
   page(name: 'lockInfoPage')
   page(name: 'infoRefreshPage')
   page(name: 'notificationPage')
+  page(name: "keypadPage")
+}
+
+def smartTitle() {
+  def title = []
+  if (getUserApps()) {
+    title.push('Users')
+  }
+  if (getKeypadApps()) {
+    title.push('Keypads')
+  }
+  return fancyString(title)
 }
 
 def mainPage() {
   dynamicPage(name: 'mainPage', install: true, uninstall: true, submitOnChange: true) {
     section('Create') {
-      app(name: 'lockUsers', appName: "Lock User", namespace: "ethayer", title: "New User", multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
+      app(name: 'lockUsers', appName: 'Lock User', namespace: 'ethayer', title: 'New User', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
+      app(name: 'keypads', appName: 'Keypad', namespace: 'ethayer', title: 'New Keypad', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
     }
     section('Locks') {
       if (locks) {
         def i = 0
         locks.each { lock->
           i++
-          href(name: "toLockInfoPage${i}", page: "lockInfoPage", params: [id: lock.id], required: false, title: lock.displayName, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png' )
+          href(name: "toLockInfoPage${i}", page: 'lockInfoPage', params: [id: lock.id], required: false, title: lock.displayName, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png' )
         }
       }
     }
     section('Global Settings') {
       // needs to run any time a lock is added
       initalizeLockData()
-      input 'locks', 'capability.lockCodes', title: 'Select Locks', required: true, multiple: true, submitOnChange: true
+      href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad.png')
+      input 'locks', 'capability.lock', title: 'Select Locks', multiple: true, submitOnChange: true
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
-      input(name: "overwriteMode", title: "Overwrite?", type: "bool", required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
-      href(name: "toInfoRefreshPage", page: "infoRefreshPage", title: "Refresh Lock Data", description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
+      input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
+      href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
     }
   }
 }
 
 def infoRefreshPage() {
-  dynamicPage(name:"infoRefreshPage", title:"Lock Info") {
+  dynamicPage(name:'infoRefreshPage', title:'Lock Info') {
     section() {
       doPoll()
-      paragraph "Lock info refreshing soon."
-      href(name: "toMainPage", page: "mainPage", title: "Back")
+      paragraph 'Lock info refreshing soon.'
+      href(name: 'toMainPage', page: 'mainPage', title: 'Back')
     }
   }
 }
@@ -80,41 +94,55 @@ def lockInfoPage(params) {
 
           }
         } else {
-          paragraph "No Lock data received yet.  Requires custom device driver.  Will be populated on next poll event."
+          paragraph 'No Lock data received yet.  Requires custom device driver.  Will be populated on next poll event.'
           doPoll()
         }
       }
     } else {
       section() {
-        paragraph "Error: Can't find lock!"
+        paragraph 'Error: Can\'t find lock!'
       }
     }
   }
 }
 
 def notificationPage() {
-  dynamicPage(name: "notificationPage", title: "Global Notification Settings") {
+  dynamicPage(name: 'notificationPage', title: 'Global Notification Settings') {
     section {
-      paragraph "These settings will apply to all users.  Settings on individual users will override these settings"
+      paragraph 'These settings will apply to all users.  Settings on individual users will override these settings'
 
-      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
+      input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
 
       if (!recipients) {
-        input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
-        paragraph "For multiple SMS recipients, separate phone numbers with a semicolon(;)"
-        input(name: "notification", type: "bool", title: "Send A Push Notification", description: "Notification", required: false, submitOnChange: true)
+        input(name: 'phone', type: 'text', title: 'Text This Number', description: 'Phone number', required: false, submitOnChange: true)
+        paragraph 'For multiple SMS recipients, separate phone numbers with a semicolon(;)'
+        input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
       }
 
-      if (phone != null || notification || sendevent) {
-        input(name: "notifyAccess", title: "on User Entry", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
-        input(name: "notifyLock", title: "on Lock", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
-        input(name: "notifyAccessStart", title: "when granting access", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/check-circle-o.png')
-        input(name: "notifyAccessEnd", title: "when revoking access", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png')
+      if (phone != null || notification || sendevent || recipients) {
+        input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+        input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+        input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/check-circle-o.png')
+        input(name: 'notifyAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png')
       }
     }
-    section("Only During These Times (optional)") {
-      input(name: "notificationStartTime", type: "time", title: "Notify Starting At This Time", description: null, required: false)
-      input(name: "notificationEndTime", type: "time", title: "Notify Ending At This Time", description: null, required: false)
+    section('Only During These Times (optional)') {
+      input(name: 'notificationStartTime', type: 'time', title: 'Notify Starting At This Time', description: null, required: false)
+      input(name: 'notificationEndTime', type: 'time', title: 'Notify Ending At This Time', description: null, required: false)
+    }
+  }
+}
+
+def keypadPage() {
+  dynamicPage(name: 'keypadPage',title: 'Keypad Settings (optional)', install: true, uninstall: true) {
+    def actions = location.helloHome?.getPhrases()*.label
+    actions?.sort()
+    section("Settings") {
+      paragraph 'settings here are for all users. When any user enters their passcode, run these routines'
+      input(name: 'armRoutine', title: 'Arm/Away routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'disarmRoutine', title: 'Disarm routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'stayRoutine', title: 'Arm/Stay routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'nightRoutine', title: 'Arm/Night routine', type: 'enum', options: actions, required: false, multiple: true)
     }
   }
 }
@@ -141,25 +169,25 @@ def notificationPageDescription() {
     parts << "SMS to ${phone}"
   }
   if (settings.sendevent) {
-    parts << "Event Notification"
+    parts << 'Event Notification'
   }
   if (settings.notification) {
-    parts << "Push Notification"
+    parts << 'Push Notification'
   }
   msg += fancyString(parts)
   parts = []
 
   if (settings.notifyAccess) {
-    parts << "on entry"
+    parts << 'on entry'
   }
   if (settings.notifyLock) {
-    parts << "on lock"
+    parts << 'on lock'
   }
   if (settings.notifyAccessStart) {
-    parts << "when granting access"
+    parts << 'when granting access'
   }
   if (settings.notifyAccessEnd) {
-    parts << "when revoking access"
+    parts << 'when revoking access'
   }
   if (settings.notificationStartTime) {
     parts << "starting at ${settings.notificationStartTime}"
@@ -168,7 +196,7 @@ def notificationPageDescription() {
     parts << "ending at ${settings.notificationEndTime}"
   }
   if (parts.size()) {
-    msg += ": "
+    msg += ': '
     msg += fancyString(parts)
   }
   return msg
@@ -190,11 +218,14 @@ def initialize() {
 
   initalizeLockData()
   children.each { child ->
-    child.initalizeLockData()
+    if (child.userSlot) {
+      child.initalizeLockData()
+    }
   }
+
   setAccess()
-  subscribe(locks, "codeReport", updateCode)
-  subscribe(locks, "reportAllCodes", pollCodeReport, [filterEvents:false])
+  subscribe(locks, 'codeReport', updateCode)
+  subscribe(locks, 'reportAllCodes', pollCodeReport, [filterEvents:false])
   log.debug "there are ${children.size()} lock users"
 }
 
@@ -246,14 +277,14 @@ def availableSlots(selectedSlot) {
 
 def pollCodeReport(evt) {
   def needPoll = false
-  def children = getChildApps()
   def codeData = new JsonSlurper().parseText(evt.data)
   def currentLock = locks.find{it.id == evt.deviceId}
 
   populateDiscovery(codeData, currentLock)
 
   log.debug 'checking children for errors'
-  children.each { child ->
+  def userApps = getUserApps()
+  userApps.each { child ->
     child.pollCodeReport(evt)
     if (child.isInErrorLoop(evt.deviceId)) {
       log.debug 'child is in error loop'
@@ -302,17 +333,35 @@ def removeUnmanagedCodes(evt) {
   }
 }
 
+def keypadMatchingUser(usedCode){
+  def correctUser = false
+  def userApps = getUserApps()
+  userApps.each { userApp ->
+    def code
+    log.debug userApp.userCode
+    if (userApp.isActiveKeypad(1234)) {
+      code = userApp.userCode.take(4)
+      log.debug "code: ${code} used: ${usedCode}"
+      if (code.toInteger() == usedCode.toInteger()) {
+        correctUser = userApp
+      }
+    }
+  }
+  return correctUser
+}
+
 def setAccess() {
-  def children = getChildApps()
   def userArray
   def json
   locks.each { lock ->
     userArray = []
-    children.each { child ->
-      if (child.isActive(lock.id)) {
-        userArray << ["code${child.userSlot}", "${child.userCode}"]
-      } else {
-        userArray << ["code${child.userSlot}", ""]
+    getUserApps().each { child ->
+      if (child.userSlot) {
+        if (child.isActive(lock.id)) {
+          userArray << ["code${child.userSlot}", "${child.userCode}"]
+        } else {
+          userArray << ["code${child.userSlot}", ""]
+        }
       }
     }
     json = new groovy.json.JsonBuilder(userArray).toString()
@@ -358,12 +407,34 @@ def populateDiscovery(codeData, lock) {
 }
 
 def findAssignedChildApp(lock, slot) {
-  def children = getChildApps()
-  def childApp = false
-  children.each { child ->
+  def childApp
+  def userApps = getUserApps()
+  userApps.each { child ->
     if (child.userSlot?.toInteger() == slot) {
       childApp = child
     }
   }
   return childApp
+}
+
+def getUserApps() {
+  def userApps = []
+  def children = getChildApps()
+  children.each { child ->
+    if (child.userSlot) {
+      userApps.push(child)
+    }
+  }
+  return userApps
+}
+
+def getKeypadApps() {
+  def keypadApps = []
+  def children = getChildApps()
+  children.each { child ->
+    if (child.keypad) {
+      keypadApps.push(child)
+    }
+  }
+  return keypadApps
 }
