@@ -46,7 +46,7 @@ def rootPage() {
     }
     def actions = location.helloHome?.getPhrases()*.label
     actions?.sort()
-    section("Routines", hideable: true, hidden: true) {
+    section('Routines') {
       paragraph 'settings here are for this keypad only. Global keypad settings, use parent app.'
       input(name: 'runDefaultAlarm', title: 'Act as SHM device?', type: 'bool', defaultValue: true, description: 'Toggle this off if actions should not effect SHM' )
       input(name: 'armRoutine', title: 'Arm/Away routine', type: 'enum', options: actions, required: false)

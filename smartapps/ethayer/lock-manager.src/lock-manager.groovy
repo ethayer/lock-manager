@@ -283,7 +283,8 @@ def pollCodeReport(evt) {
   populateDiscovery(codeData, currentLock)
 
   log.debug 'checking children for errors'
-  getUserApps.each { child ->
+  def userApps = getUserApps()
+  userApps.each { child ->
     child.pollCodeReport(evt)
     if (child.isInErrorLoop(evt.deviceId)) {
       log.debug 'child is in error loop'
@@ -407,7 +408,8 @@ def populateDiscovery(codeData, lock) {
 
 def findAssignedChildApp(lock, slot) {
   def childApp
-  getUserApps().each { child ->
+  def userApps = getUserApps()
+  userApps.each { child ->
     if (child.userSlot?.toInteger() == slot) {
       childApp = child
     }
