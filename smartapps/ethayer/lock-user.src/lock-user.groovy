@@ -1,11 +1,11 @@
 definition (
-  name: 'Lock User2',
+  name: 'Lock User',
   namespace: 'ethayer',
   author: 'Erik Thayer',
   description: 'App to manage users. This is a child app.',
   category: 'Safety & Security',
 
-  parent: 'ethayer:Lock Manager2',
+  parent: 'ethayer:Lock Manager',
   iconUrl: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png',
   iconX2Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png',
   iconX3Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png'
@@ -21,6 +21,7 @@ preferences {
   page name: 'notificationPage'
   page name: 'reEnableUserLockPage'
   page name: 'lockResetPage'
+  page name: 'keypadPage'
 }
 
 def installed() {
@@ -150,11 +151,12 @@ def rootPage() {
       def actions = location.helloHome?.getPhrases()*.label
       if (actions) {
         actions.sort()
-        input name: 'userUnlockPhrase', type: 'enum', title: 'Hello Home Phrase', multiple: true,required: false, options: actions, refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png'
+        input name: 'userUnlockPhrase', type: 'enum', title: 'Hello Home Phrase', multiple: true, required: false, options: actions, refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png'
       }
-      input(name: 'burnAfterInt', title: "How many uses before burn?", type: "number", required: false, description: 'Blank or zero is infinite', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/fire.png')
+      input(name: 'burnAfterInt', title: 'How many uses before burn?', type: 'number', required: false, description: 'Blank or zero is infinite', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/fire.png')
       href(name: 'toSchedulingPage', page: 'schedulingPage', title: 'Schedule (optional)', description: schedulingHrefDescription(), state: schedulingHrefDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/calendar.png')
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
+      href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad.png')
     }
     section('Locks') {
       initalizeLockData()
@@ -191,7 +193,7 @@ def lockPage(params) {
     if (!state."lock${lock.id}".enabled) {
       section {
         paragraph "WARNING:\n\nThis user has been disabled.\nReason: ${state."lock${lock.id}".disabledReason}", image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/ban.png'
-        href(name: "reEnableUserLockPage", title: "Reset User", page: "reEnableUserLockPage", params: [id: lock.id], description: "Tap to reset")
+        href(name: 'reEnableUserLockPage', title: 'Reset User', page: 'reEnableUserLockPage', params: [id: lock.id], description: 'Tap to reset')
       }
     }
     section("${deviceLabel(lock)} settings for ${app.label}") {
@@ -202,8 +204,22 @@ def lockPage(params) {
       if( errorLoopCount > 0) {
         paragraph "Lock set failed try ${errorLoopCount}/10"
       }
-      input(name: "lockDisabled${lock.id}", type: "bool", title: "Disable lock for this user?", required: false, defaultValue: settings."lockDisabled${lock.id}", refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/ban.png' )
-      href(name: "toLockResetPage", page: "lockResetPage", title: "Reset Lock", description: 'Reset lock data for this user.',  params: [id: lock.id], image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png' )
+      input(name: "lockDisabled${lock.id}", type: 'bool', title: 'Disable lock for this user?', required: false, defaultValue: settings."lockDisabled${lock.id}", refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/ban.png' )
+      href(name: 'toLockResetPage', page: 'lockResetPage', title: 'Reset Lock', description: 'Reset lock data for this user.',  params: [id: lock.id], image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png' )
+    }
+  }
+}
+
+def keypadPage() {
+  dynamicPage(name: 'keypadPage',title: 'Keypad Settings (optional)', install: true, uninstall: true) {
+    def actions = location.helloHome?.getPhrases()*.label
+    actions?.sort()
+    section("Settings") {
+      paragraph 'settings here are for this user only. When this user enters their passcode, run these routines'
+      input(name: 'armRoutine', title: 'Arm/Away routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'disarmRoutine', title: 'Disarm routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'stayRoutine', title: 'Arm/Stay routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'nightRoutine', title: 'Arm/Night routine', type: 'enum', options: actions, required: false, multiple: true)
     }
   }
 }
@@ -474,7 +490,8 @@ def isActive(lockId) {
   }
 }
 
-def isActiveKeypad() {
+def isActiveKeypad(thing) {
+  log.debug "was here ${thing}"
   if (
       isValidCode() &&
       isNotBurned() &&
@@ -834,11 +851,11 @@ def getLock(params) {
 }
 
 def userNotificationSettings() {
-  if (phone != null || notification || sendevent || muteUser) {
+  if (phone != null || notification || sendevent || muteUser || recipients) {
     // user has it's own settings!
     return true
   }
-  // user doesn'r !
+  // user doesn't !
   return false
 }
 

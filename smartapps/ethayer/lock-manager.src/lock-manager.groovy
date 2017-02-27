@@ -1,5 +1,5 @@
 definition(
-  name: 'Lock Manager2',
+  name: 'Lock Manager',
   namespace: 'ethayer',
   author: 'Erik Thayer',
   description: 'Manage locks and users',
@@ -33,36 +33,36 @@ def smartTitle() {
 def mainPage() {
   dynamicPage(name: 'mainPage', install: true, uninstall: true, submitOnChange: true) {
     section('Create') {
-      app(name: 'lockUsers', appName: "Lock User", namespace: "ethayer", title: "New User", multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
-      app(name: 'keypads', appName: "Keypad", namespace: "ethayer", title: "New Keypad", multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
+      app(name: 'lockUsers', appName: 'Lock User', namespace: 'ethayer', title: 'New User', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
+      app(name: 'keypads', appName: 'Keypad', namespace: 'ethayer', title: 'New Keypad', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
     }
     section('Locks') {
       if (locks) {
         def i = 0
         locks.each { lock->
           i++
-          href(name: "toLockInfoPage${i}", page: "lockInfoPage", params: [id: lock.id], required: false, title: lock.displayName, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png' )
+          href(name: "toLockInfoPage${i}", page: 'lockInfoPage', params: [id: lock.id], required: false, title: lock.displayName, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png' )
         }
       }
     }
     section('Global Settings') {
       // needs to run any time a lock is added
       initalizeLockData()
-      href(name: "toKeypadPage", page: "keypadPage", title: "Keypad Settings (optional)")
-      input 'locks', 'capability.lockCodes', title: 'Select Locks', required: true, multiple: true, submitOnChange: true
+      href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad.png')
+      input 'locks', 'capability.lock', title: 'Select Locks', multiple: true, submitOnChange: true
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
-      input(name: "overwriteMode", title: "Overwrite?", type: "bool", required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
-      href(name: "toInfoRefreshPage", page: "infoRefreshPage", title: "Refresh Lock Data", description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
+      input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
+      href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
     }
   }
 }
 
 def infoRefreshPage() {
-  dynamicPage(name:"infoRefreshPage", title:"Lock Info") {
+  dynamicPage(name:'infoRefreshPage', title:'Lock Info') {
     section() {
       doPoll()
-      paragraph "Lock info refreshing soon."
-      href(name: "toMainPage", page: "mainPage", title: "Back")
+      paragraph 'Lock info refreshing soon.'
+      href(name: 'toMainPage', page: 'mainPage', title: 'Back')
     }
   }
 }
@@ -94,60 +94,55 @@ def lockInfoPage(params) {
 
           }
         } else {
-          paragraph "No Lock data received yet.  Requires custom device driver.  Will be populated on next poll event."
+          paragraph 'No Lock data received yet.  Requires custom device driver.  Will be populated on next poll event.'
           doPoll()
         }
       }
     } else {
       section() {
-        paragraph "Error: Can't find lock!"
+        paragraph 'Error: Can\'t find lock!'
       }
     }
   }
 }
 
 def notificationPage() {
-  dynamicPage(name: "notificationPage", title: "Global Notification Settings") {
+  dynamicPage(name: 'notificationPage', title: 'Global Notification Settings') {
     section {
-      paragraph "These settings will apply to all users.  Settings on individual users will override these settings"
+      paragraph 'These settings will apply to all users.  Settings on individual users will override these settings'
 
-      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
+      input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
 
       if (!recipients) {
-        input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
-        paragraph "For multiple SMS recipients, separate phone numbers with a semicolon(;)"
-        input(name: "notification", type: "bool", title: "Send A Push Notification", description: "Notification", required: false, submitOnChange: true)
+        input(name: 'phone', type: 'text', title: 'Text This Number', description: 'Phone number', required: false, submitOnChange: true)
+        paragraph 'For multiple SMS recipients, separate phone numbers with a semicolon(;)'
+        input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
       }
 
-      if (phone != null || notification || sendevent) {
-        input(name: "notifyAccess", title: "on User Entry", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
-        input(name: "notifyLock", title: "on Lock", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
-        input(name: "notifyAccessStart", title: "when granting access", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/check-circle-o.png')
-        input(name: "notifyAccessEnd", title: "when revoking access", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png')
+      if (phone != null || notification || sendevent || recipients) {
+        input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+        input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+        input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/check-circle-o.png')
+        input(name: 'notifyAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png')
       }
     }
-    section("Only During These Times (optional)") {
-      input(name: "notificationStartTime", type: "time", title: "Notify Starting At This Time", description: null, required: false)
-      input(name: "notificationEndTime", type: "time", title: "Notify Ending At This Time", description: null, required: false)
+    section('Only During These Times (optional)') {
+      input(name: 'notificationStartTime', type: 'time', title: 'Notify Starting At This Time', description: null, required: false)
+      input(name: 'notificationEndTime', type: 'time', title: 'Notify Ending At This Time', description: null, required: false)
     }
   }
 }
 
 def keypadPage() {
-  dynamicPage(name: "keypadPage",title: "Keypad Settings (optional)") {
+  dynamicPage(name: 'keypadPage',title: 'Keypad Settings (optional)', install: true, uninstall: true) {
+    def actions = location.helloHome?.getPhrases()*.label
+    actions?.sort()
     section("Settings") {
-      // TODO: put inputs here
-      input(name: "keypad", title: "Keypad", type: "capability.lockCodes", multiple: true, required: false)
-    }
-    def hhPhrases = location.getHelloHome()?.getPhrases()*.label
-    hhPhrases?.sort()
-    section("Routines", hideable: true, hidden: true) {
-      input(name: "armRoutine", title: "Arm/Away routine", type: "enum", options: hhPhrases, required: false)
-      input(name: "disarmRoutine", title: "Disarm routine", type: "enum", options: hhPhrases, required: false)
-      input(name: "stayRoutine", title: "Arm/Stay routine", type: "enum", options: hhPhrases, required: false)
-      input(name: "nightRoutine", title: "Arm/Night routine", type: "enum", options: hhPhrases, required: false)
-      input(name: "armDelay", title: "Arm Delay (in seconds)", type: "number", required: false)
-      input(name: "notifyIncorrectPin", title: "Notify you when incorrect code is used?", type: "bool", required: false)
+      paragraph 'settings here are for all users. When any user enters their passcode, run these routines'
+      input(name: 'armRoutine', title: 'Arm/Away routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'disarmRoutine', title: 'Disarm routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'stayRoutine', title: 'Arm/Stay routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'nightRoutine', title: 'Arm/Night routine', type: 'enum', options: actions, required: false, multiple: true)
     }
   }
 }
@@ -174,25 +169,25 @@ def notificationPageDescription() {
     parts << "SMS to ${phone}"
   }
   if (settings.sendevent) {
-    parts << "Event Notification"
+    parts << 'Event Notification'
   }
   if (settings.notification) {
-    parts << "Push Notification"
+    parts << 'Push Notification'
   }
   msg += fancyString(parts)
   parts = []
 
   if (settings.notifyAccess) {
-    parts << "on entry"
+    parts << 'on entry'
   }
   if (settings.notifyLock) {
-    parts << "on lock"
+    parts << 'on lock'
   }
   if (settings.notifyAccessStart) {
-    parts << "when granting access"
+    parts << 'when granting access'
   }
   if (settings.notifyAccessEnd) {
-    parts << "when revoking access"
+    parts << 'when revoking access'
   }
   if (settings.notificationStartTime) {
     parts << "starting at ${settings.notificationStartTime}"
@@ -201,7 +196,7 @@ def notificationPageDescription() {
     parts << "ending at ${settings.notificationEndTime}"
   }
   if (parts.size()) {
-    msg += ": "
+    msg += ': '
     msg += fancyString(parts)
   }
   return msg
@@ -229,8 +224,8 @@ def initialize() {
   }
 
   setAccess()
-  subscribe(locks, "codeReport", updateCode)
-  subscribe(locks, "reportAllCodes", pollCodeReport, [filterEvents:false])
+  subscribe(locks, 'codeReport', updateCode)
+  subscribe(locks, 'reportAllCodes', pollCodeReport, [filterEvents:false])
   log.debug "there are ${children.size()} lock users"
 }
 
@@ -337,6 +332,23 @@ def removeUnmanagedCodes(evt) {
   }
 }
 
+def keypadMatchingUser(usedCode){
+  def correctUser = false
+  def userApps = getUserApps()
+  userApps.each { userApp ->
+    def code
+    log.debug userApp.userCode
+    if (userApp.isActiveKeypad(1234)) {
+      code = userApp.userCode.take(4)
+      log.debug "code: ${code} used: ${usedCode}"
+      if (code.toInteger() == usedCode.toInteger()) {
+        correctUser = userApp
+      }
+    }
+  }
+  return correctUser
+}
+
 def setAccess() {
   def userArray
   def json
@@ -411,8 +423,6 @@ def getUserApps() {
       userApps.push(child)
     }
   }
-  log.debug 'yes'
-  log.debug userApps
   return userApps
 }
 
@@ -425,170 +435,4 @@ def getKeypadApps() {
     }
   }
   return keypadApps
-}
-
-// KEYPAD /////////////////////////////////////////////////////////////////////
-
-def alarmStatusHandler(event) {
-  log.debug "Keypad manager caught alarm status change: "+event.value
-  if (event.value == "off"){
-    keypad?.setDisarmed()
-  }
-  else if (event.value == "away"){
-    keypad?.setArmedAway()
-  }
-  else if (event.value == "stay") {
-    keypad?.setArmedStay()
-  }
-}
-
-private sendSHMEvent(String shmState) {
-  def event = [
-        name:"alarmSystemStatus",
-        value: shmState,
-        displayed: true,
-        description: "System Status is ${shmState}"
-      ]
-  log.debug "test ${event}"
-  sendLocationEvent(event)
-}
-
-private execRoutine(armMode) {
-  if (armMode == 'away') {
-    location.helloHome?.execute(settings.armRoutine)
-  } else if (armMode == 'stay') {
-    location.helloHome?.execute(settings.stayRoutine)
-  } else if (armMode == 'off') {
-    location.helloHome?.execute(settings.disarmRoutine)
-  }
-}
-
-def codeEntryHandler(evt) {
-  //do stuff
-  log.debug "Caught code entry event! ${evt.value.value}"
-
-  def codeEntered = evt.value as String
-
-  def data = evt.data as String
-  def armMode = ''
-  def currentarmMode = keypad.currentValue("armMode")
-  def changedMode = 0
-
-  if (data == '0') {
-    armMode = 'off'
-  }
-  else if (data == '3') {
-    armMode = 'away'
-  }
-  else if (data == '1') {
-    armMode = 'stay'
-  }
-  else if (data == '2') {
-    armMode = 'stay' //Currently no separate night mode for SHM, set to 'stay'
-  } else {
-    log.error "${app.label}: Unexpected arm mode sent by keypad!: "+data
-    return []
-  }
-
-  def i = settings.maxUsers
-  def message = " "
-  while (i > 0) {
-    log.debug "i =" + i
-    def correctCode = settings."userCode${i}" as String
-
-    if (codeEntered == correctCode) {
-
-      log.debug "User Enabled: " + state."userState${i}".enabled
-
-      if (state."userState${i}".enabled == true) {
-        log.debug "Correct PIN entered. Change SHM state to ${armMode}"
-        //log.debug "Delay: ${armDelay}"
-        //log.debug "Data: ${data}"
-        //log.debug "armMode: ${armMode}"
-
-        def unlockUserName = settings."userName${i}"
-
-        if (data == "0") {
-          //log.debug "sendDisarmCommand"
-          runIn(0, "sendDisarmCommand")
-          message = "${evt.displayName} was disarmed by ${unlockUserName}"
-        }
-        else if (data == "1") {
-          //log.debug "sendStayCommand"
-          if(armDelay) {
-          	keypad.setExitDelay(armDelay)
-          }
-          runIn(armDelay, "sendStayCommand")
-          message = "${evt.displayName} was armed to 'Stay' by ${unlockUserName}"
-        }
-        else if (data == "2") {
-          //log.debug "sendNightCommand"
-          if(armDelay) {
-          	keypad.setExitDelay(armDelay)
-          }
-          runIn(armDelay, "sendNightCommand")
-          message = "${evt.displayName} was armed to 'Night' by ${unlockUserName}"
-        }
-        else if (data == "3") {
-          //log.debug "sendArmCommand"
-          if(armDelay) {
-          	keypad.setExitDelay(armDelay)
-          }
-          runIn(armDelay, "sendArmCommand")
-          message = "${evt.displayName} was armed to 'Away' by ${unlockUserName}"
-        }
-
-        if(settings."burnCode${i}") {
-          state."userState${i}".enabled = false
-          message += ".  Now burning code."
-        }
-
-        log.debug "${message}"
-        //log.debug "Initial Usage Count:" + state."userState${i}".usage
-        state."userState${i}".usage = state."userState${i}".usage + 1
-        //log.debug "Final Usage Count:" + state."userState${i}".usage
-        send(message)
-        i = 0
-      } else if (state."userState${i}".enabled == false){
-        log.debug "PIN Disabled"
-        //Could also call acknowledgeArmRequest() with a parameter of 4 to report invalid code. Opportunity to simplify code?
-        //keypad.sendInvalidKeycodeResponse()
-      }
-    }
-    changedMode = 1
-    i--
-  }
-  if (changedMode == 1 && i == 0) {
-    def errorMsg = "Incorrect Code Entered: ${codeEntered}"
-    if (notifyIncorrectPin) {
-      log.debug "Incorrect PIN"
-      send(errorMsg)
-    }
-    //Could also call acknowledgeArmRequest() with a parameter of 4 to report invalid code. Opportunity to simplify code?
-    keypad.sendInvalidKeycodeResponse()
-  }
-}
-def sendArmCommand() {
-  log.debug "Sending Arm Command."
-  keypad.acknowledgeArmRequest(3)
-  sendSHMEvent("away")
-  execRoutine("away")
-}
-def sendDisarmCommand() {
-  log.debug "Sending Disarm Command."
-  keypad.acknowledgeArmRequest(0)
-  sendSHMEvent("off")
-  execRoutine("off")
-}
-def sendStayCommand() {
-  log.debug "Sending Stay Command."
-  keypad.acknowledgeArmRequest(1)
-  sendSHMEvent("stay")
-  execRoutine("stay")
-}
-def sendNightCommand() {
-  log.debug "Sending Night Command."
-  keypad.acknowledgeArmRequest(2)
-  sendSHMEvent("stay")
-  execRoutine("stay")
 }

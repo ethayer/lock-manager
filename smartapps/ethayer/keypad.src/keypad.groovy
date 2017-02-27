@@ -5,7 +5,7 @@ definition (
   description: 'App to manage keypads. This is a child app.',
   category: 'Safety & Security',
 
-  parent: 'ethayer:Lock Manager2',
+  parent: 'ethayer:Lock Manager',
   iconUrl: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png',
   iconX2Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png',
   iconX3Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png'
@@ -15,7 +15,7 @@ import groovy.json.JsonBuilder
 
 preferences {
   page name: 'rootPage'
-  page(name: "keypadPage")
+  page(name: 'keypadPage')
 }
 
 def installed() {
@@ -31,44 +31,44 @@ def updated() {
 def initialize() {
   // reset listeners
   unsubscribe()
-  unschedule()
-
+  atomicState.tries = 0
   if (keypad) {
-    subscribe(location,"alarmSystemStatus",alarmStatusHandler)
-    subscribe(keypad,"codeEntered",codeEntryHandler)
+    subscribe(location, 'alarmSystemStatus', alarmStatusHandler)
+    subscribe(keypad, 'codeEntered', codeEntryHandler)
   }
 }
 
 def rootPage() {
-  dynamicPage(name: "keypadPage",title: "Keypad Settings (optional)", install: true, uninstall: true) {
+  dynamicPage(name: 'keypadPage',title: 'Keypad Settings (optional)', install: true, uninstall: true) {
     section("Settings") {
       // TODO: put inputs here
-      input(name: "keypad", title: "Keypad", type: "capability.lockCodes", multiple: false, required: true)
+      input(name: 'keypad', title: 'Keypad', type: 'capability.lockCodes', multiple: false, required: true)
     }
-    def hhPhrases = location.getHelloHome()?.getPhrases()*.label
-    hhPhrases?.sort()
+    def actions = location.helloHome?.getPhrases()*.label
+    actions?.sort()
     section("Routines", hideable: true, hidden: true) {
       paragraph 'settings here are for this keypad only. Global keypad settings, use parent app.'
-      input(name: "armRoutine", title: "Arm/Away routine", type: "enum", options: hhPhrases, required: false)
-      input(name: "disarmRoutine", title: "Disarm routine", type: "enum", options: hhPhrases, required: false)
-      input(name: "stayRoutine", title: "Arm/Stay routine", type: "enum", options: hhPhrases, required: false)
-      input(name: "nightRoutine", title: "Arm/Night routine", type: "enum", options: hhPhrases, required: false)
-      input(name: "armDelay", title: "Arm Delay (in seconds)", type: "number", required: false)
-      input(name: "notifyIncorrectPin", title: "Notify you when incorrect code is used?", type: "bool", required: false)
+      input(name: 'runDefaultAlarm', title: 'Act as SHM device?', type: 'bool', defaultValue: true, description: 'Toggle this off if actions should not effect SHM' )
+      input(name: 'armRoutine', title: 'Arm/Away routine', type: 'enum', options: actions, required: false)
+      input(name: 'disarmRoutine', title: 'Disarm routine', type: 'enum', options: actions, required: false)
+      input(name: 'stayRoutine', title: 'Arm/Stay routine', type: 'enum', options: actions, required: false)
+      input(name: 'nightRoutine', title: 'Arm/Night routine', type: 'enum', options: actions, required: false)
+      input(name: 'armDelay', title: 'Arm Delay (in seconds)', type: 'number', required: false)
+      input(name: 'notifyIncorrectPin', title: 'Notify you when incorrect code is used?', type: 'bool', required: false)
+      input(name: 'attemptTollerance', title: 'How many times can incorrect code be used before notification?', type: 'number', defaultValue: 3, required: true)
     }
   }
 }
 
-
 def alarmStatusHandler(event) {
   log.debug "Keypad manager caught alarm status change: "+event.value
-  if (event.value == "off"){
+  if (runDefaultAlarm && event.value == "off"){
     keypad?.setDisarmed()
   }
-  else if (event.value == "away"){
+  else if (runDefaultAlarm && event.value == "away"){
     keypad?.setArmedAway()
   }
-  else if (event.value == "stay") {
+  else if (runDefaultAlarm && event.value == "stay") {
     keypad?.setArmedStay()
   }
 }
@@ -76,7 +76,7 @@ def alarmStatusHandler(event) {
 private sendSHMEvent(String shmState) {
   keypad.acknowledgeArmRequest(3)
   def event = [
-        name:"alarmSystemStatus",
+        name:'alarmSystemStatus',
         value: shmState,
         displayed: true,
         description: "System Status is ${shmState}"
@@ -85,13 +85,47 @@ private sendSHMEvent(String shmState) {
   sendLocationEvent(event)
 }
 
-private execRoutine(armMode) {
+private execRoutine(armMode, userApp) {
   if (armMode == 'away') {
-    location.helloHome?.execute(settings.armRoutine)
+    if (armRoutine) {
+      location.helloHome?.execute(armRoutine)
+    }
+    if (userApp.armRoutine) {
+      location.helloHome?.execute(armRoutine)
+    }
+    if (parent.armRoutine) {
+      location.helloHome?.execute(parent.armRoutine)
+    }
   } else if (armMode == 'stay') {
-    location.helloHome?.execute(settings.stayRoutine)
+    if (stayRoutine) {
+      location.helloHome?.execute(stayRoutine)
+    }
+    if (userApp.stayRoutine) {
+      location.helloHome?.execute(stayRoutine)
+    }
+    if (parent.stayRoutine) {
+      location.helloHome?.execute(parent.stayRoutine)
+    }
   } else if (armMode == 'off') {
-    location.helloHome?.execute(settings.disarmRoutine)
+    if (disarmRoutine) {
+      location.helloHome?.execute(disarmRoutine)
+    }
+    if (userApp.disarmRoutine) {
+      location.helloHome?.execute(userApp.disarmRoutine)
+    }
+    if (parent.disarmRoutine) {
+      location.helloHome?.execute(parent.disarmRoutine)
+    }
+  } else if (armMode == 'night') {
+    if (nightRoutine) {
+      location.helloHome?.execute(nightRoutine)
+    }
+    if (userApp.nightRoutine) {
+      location.helloHome?.execute(userApp.nightRoutine)
+    }
+    if (parent.nightRoutine) {
+      location.helloHome?.execute(parent.nightRoutine)
+    }
   }
 }
 
@@ -103,7 +137,7 @@ def codeEntryHandler(evt) {
 
   def data = evt.data as String
   def armMode = ''
-  def currentarmMode = keypad.currentValue("armMode")
+  def currentarmMode = keypad.currentValue('armMode')
   def changedMode = 0
 
   if (data == '0') {
@@ -122,90 +156,87 @@ def codeEntryHandler(evt) {
     return []
   }
 
-  def message = " "
+  def message = ''
 
-  def userApps = parent.getUserApps()
-  def correctUser = false
-  userApps.each { userApp ->
-    def code
-    log.debug userApp.userCode
-    if (userApp.isActiveKeypad()) {
-      code = userApp.userCode.take(4)
-      log.debug "code: ${code}"
-      if (code.toInteger() == codeEntered.toInteger()) {
-        correctUser = userApp
-      }
-    } else {
-      log.debug "NO ACTIVE!"
-    }
-  }
+  def correctUser = parent.keypadMatchingUser(codeEntered)
 
   if (correctUser) {
+    atomicState.tries = 0
     log.debug "Correct PIN entered. Change SHM state to ${armMode}"
     //log.debug "Delay: ${armDelay}"
     //log.debug "Data: ${data}"
     //log.debug "armMode: ${armMode}"
 
-    def unlockUserName = settings."userName${i}"
-
-    if (data == "0") {
+    if (data == '0') {
       //log.debug "sendDisarmCommand"
-      runIn(0, "sendDisarmCommand")
-      message = "${evt.displayName} was disarmed by ${unlockUserName}"
+      execRoutine('off', correctUser)
+      if (runDefaultAlarm) {
+        runIn(0, 'sendDisarmCommand')
+      }
+      message = "${evt.displayName} was disarmed by ${correctUser.label}"
     }
     else if (data == "1") {
       //log.debug "sendStayCommand"
-      if(armDelay) {
-        keypad.setExitDelay(armDelay)
+      execRoutine('stay', correctUser)
+      if (runDefaultAlarm) {
+        if(armDelay > 0) {
+          keypad.setExitDelay(armDelay)
+        }
+        runIn(armDelay, "sendStayCommand")
       }
-      runIn(armDelay, "sendStayCommand")
-      message = "${evt.displayName} was armed to 'Stay' by ${unlockUserName}"
+      message = "${evt.displayName} was armed to 'Stay' by ${correctUser.label}"
     }
     else if (data == "2") {
       //log.debug "sendNightCommand"
-      if(armDelay) {
-        keypad.setExitDelay(armDelay)
+      execRoutine('night', correctUser)
+      if (runDefaultAlarm) {
+        if(armDelay > 0) {
+          keypad.setExitDelay(armDelay)
+        }
+        runIn(armDelay, 'sendNightCommand')
       }
-      runIn(armDelay, "sendNightCommand")
-      message = "${evt.displayName} was armed to 'Night' by ${unlockUserName}"
+      message = "${evt.displayName} was armed to 'Night' by ${correctUser.label}"
     }
     else if (data == "3") {
       //log.debug "sendArmCommand"
-      if(armDelay) {
-        keypad.setExitDelay(armDelay)
+      execRoutine('away', correctUser)
+      if (runDefaultAlarm) {
+        if(armDelay > 0) {
+          keypad.setExitDelay(armDelay)
+        }
+        runIn(armDelay, "sendArmCommand")
       }
-      runIn(armDelay, "sendArmCommand")
-      message = "${evt.displayName} was armed to 'Away' by ${unlockUserName}"
+      message = "${evt.displayName} was armed to 'Away' by ${correctUser.label}"
     }
 
     log.debug "${message}"
-    send(message)
+    correctUser.send(message)
   } else {
-    log.debug "Incorrect code!"
-    // keypad.sendInvalidKeycodeResponse()
+    log.debug 'Incorrect code!'
+    atomicState.tries = atomicState.tries + 1
+    if (atomicState.tries >= attemptTollerance) {
+      keypad.sendInvalidKeycodeResponse()
+      atomicState.tries = 0
+    }
   }
 }
 def sendArmCommand() {
-  log.debug "Sending Arm Command."
+  log.debug 'Sending Arm Command.'
   keypad.acknowledgeArmRequest(3)
-  sendSHMEvent("away")
-  execRoutine("away")
+  sendSHMEvent('away')
 }
 def sendDisarmCommand() {
-  log.debug "Sending Disarm Command."
+  log.debug 'Sending Disarm Command.'
   keypad.acknowledgeArmRequest(0)
-  sendSHMEvent("off")
-  execRoutine("off")
+  sendSHMEvent('off')
 }
 def sendStayCommand() {
-  log.debug "Sending Stay Command."
+  log.debug 'Sending Stay Command.'
   keypad.acknowledgeArmRequest(1)
-  sendSHMEvent("stay")
-  execRoutine("stay")
+  sendSHMEvent('stay')
 }
 def sendNightCommand() {
-  log.debug "Sending Night Command."
+  log.debug 'Sending Night Command.'
   keypad.acknowledgeArmRequest(2)
-  sendSHMEvent("stay")
-  execRoutine("stay")
+  sendSHMEvent('stay')
 }
