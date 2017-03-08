@@ -40,16 +40,11 @@ def initialize() {
   unschedule()
 
   // setup data
-  initalizeLockData()
+  initializeLockData()
 
   // set listeners
-  subscribe(parent.locks, "codeReport", codeReturn)
-  subscribe(parent.locks, "lock", codeUsed)
   subscribe(location, locationHandler)
   subscribeToSchedule()
-
-  // ask for parent init
-  parent.setAccess()
 }
 
 def subscribeToSchedule() {
@@ -94,19 +89,22 @@ def calendarEnd() {
   }
 }
 
-def initalizeLockData() {
-  parent.locks.each { lock->
-    if (state."lock${lock.id}" == null) {
-      state."lock${lock.id}" = [:]
-      state."lock${lock.id}".code = false
-      state."lock${lock.id}".enabled = true
-      state."lock${lock.id}".access = false
-      state."lock${lock.id}".errorLoop = false
-      state."lock${lock.id}".errorLoopCount = 0
-      state."lock${lock.id}".disabledReason = ''
-      state."lock${lock.id}".usage = 0
+def initializeLockData() {
+  def lockApps = parent.getLockApps()
+  lockApps.each { lockApp ->
+    def lockId = lockApp.lock.id
+    if (state."lock${lockId}" == null) {
+      state."lock${lockId}" = [:]
+      state."lock${lockId}".enabled = true
+      state."lock${lockId}".usage = 0
     }
   }
+}
+
+def incrementLockUsage(lockId) {
+  // this is called by a lock app when this user
+  // used their code to lock the door
+  state."lock${lockId}".usage = state."lock${lockId}".usage + 1
 }
 
 def resetLockUsage(lockId) {
@@ -151,7 +149,8 @@ def rootPage() {
       def actions = location.helloHome?.getPhrases()*.label
       if (actions) {
         actions.sort()
-        input name: 'userUnlockPhrase', type: 'enum', title: 'Hello Home Phrase', multiple: true, required: false, options: actions, refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png'
+        input name: 'userUnlockPhrase', type: 'enum', title: 'Hello Home Phrase on unlock', multiple: true, required: false, options: actions, refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png'
+        input name: 'userLockPhrase', type: 'enum', title: 'Hello Home Phrase on lock', description: 'Available on select locks only', multiple: true, required: false, options: actions, refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png'
       }
       input(name: 'burnAfterInt', title: 'How many uses before burn?', type: 'number', required: false, description: 'Blank or zero is infinite', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/fire.png')
       href(name: 'toSchedulingPage', page: 'schedulingPage', title: 'Schedule (optional)', description: schedulingHrefDescription(), state: schedulingHrefDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/calendar.png')
@@ -159,7 +158,7 @@ def rootPage() {
       href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad.png')
     }
     section('Locks') {
-      initalizeLockData()
+      initializeLockData()
       parent.locks.each { lock->
         href(name: "toLockPage${lock.id}", page: 'lockPage', params: [id: lock.id], description: lockPageDescription(lock.id), required: false, title: lock.displayName, image: lockPageImage(lock) )
       }
@@ -676,159 +675,6 @@ def endDateTime() {
 def rightNow() {
   def now = new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSZ", location.timeZone)
   return Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSSZ", now)
-}
-
-def codeUsed(evt) {
-  log.debug("codeUsed evt.value: " + evt.value + ". evt.data: " + evt.data)
-  def message = null
-  def lockId = evt.deviceId
-  if(evt.value == "unlocked" && evt.data) {
-    def codeData = new JsonSlurper().parseText(evt.data)
-    if(codeData.usedCode && codeData.usedCode.isNumber() && codeData.usedCode.toInteger() == userSlot.toInteger()) {
-      // check the status of the lock, helpful for some schlage locks.
-      runIn(10, doPoll)
-
-      message = "${evt.displayName} was unlocked by ${app.label}"
-      state."lock${lockId}".usage = state."lock${lockId}".usage + 1
-      if (!isNotBurned()) {
-        message += ".  Now burning code."
-      }
-      if (userUnlockPhrase) {
-        location.helloHome.execute(userUnlockPhrase)
-      }
-    }
-  } else if(evt.value == "locked" && settings.notifyLock) {
-    // message = "${evt.displayName} has been locked"
-    // TODO: Handle what to do when the lock is locked
-  }
-
-  if (message) {
-    log.debug("Sending message: " + message)
-    send(message)
-  }
-}
-
-def codeReturn(evt) {
-  def codeNumber = evt.data.replaceAll("\\D+","")
-  def codeSlot = evt.integerValue.toInteger()
-  def lock = evt.device
-
-  if (userSlot.toInteger() == codeSlot) {
-    if (codeNumber == "") {
-      if (state."lock${lock.id}".access == true) {
-        log.debug "Lock is ${state."lock${lock.id}".access} setting to false!"
-        state."lock${lock.id}".access = false
-        if (notifyAccessEnd || parent.notifyAccessEnd) {
-          def message = "${app.label} no longer has access to ${evt.displayName}"
-          if (codeNumber.isNumber()) {
-            state."lock${lock.id}".codes."slot${codeSlot}" = codeNumber
-          }
-          send(message)
-        }
-      }
-    } else if (state."lock${lock.id}".access == false) {
-      state."lock${lock.id}".access = true
-      if (notifyAccessStart || parent.notifyAccessStart) {
-        def message = "${app.label} now has access to ${evt.displayName}"
-        if (codeNumber.isNumber() && codeNumber.toInteger() != userCode.toInteger()) {
-          log.debug "code: ${codeNumber} should be ${userCode.toInteger()}"
-          log.debug 'set message to null'
-          // number is set to the wrong value!
-          message = null
-        }
-        if (message) {
-          send(message)
-        }
-      }
-    }
-  }
-}
-
-def pollCodeReport(evt) {
-  def codeData = new JsonSlurper().parseText(evt.data)
-
-  def lock = parent.locks.find{it.id == evt.deviceId}
-  def active = isActive(lock.id)
-  def currentCode = codeData."code${userSlot}"
-  def array = []
-
-  if (active) {
-    if (currentCode != userCode) {
-      array << ["code${userSlot}", userCode]
-    }
-  } else {
-    if (currentCode) {
-      // Code is set, We should be disabled.
-      array << ["code${userSlot}", '']
-    }
-  }
-
-
-  def json = new groovy.json.JsonBuilder(array).toString()
-  if (json != '[]') {
-    //Lock is in an error state
-    state."lock${lock.id}".errorLoop = true
-    def errorNumber = state."lock${lock.id}".errorLoopCount + 1
-    if (errorNumber <= 10) {
-      log.debug "sendCodes fix is: ${json} Error: ${errorNumber}/10"
-      state."lock${lock.id}".errorLoopCount = errorNumber
-      lock.updateCodes(json)
-    } else {
-      // reset code
-      array = []
-      array << ["code${userSlot}", '']
-      json = new groovy.json.JsonBuilder(array).toString()
-
-      log.debug "kill fix is: ${json}"
-      lock.updateCodes(json)
-
-      // set user to disabled state
-      if (state."lock${lock.id}".enabled) {
-        state."lock${lock.id}".enabled = false
-        state."lock${lock.id}".errorLoop = false
-        state."lock${lock.id}".disabledReason = "Controller failed to set code"
-        send("Controller failed to set code for ${app.label}")
-      }
-    }
-  } else {
-    // reset disabled state, set was successful!
-    state."lock${lock.id}".errorLoop = false
-    state."lock${lock.id}".errorLoopCount = 0
-  }
-}
-
-def isInErrorLoop(lockId) {
-  def errorInLoop = false
-  if (state."lock${lockId}".errorLoop) {
-    // Child is in error state
-    errorInLoop = true
-  }
-  return errorInLoop
-}
-
-def errorLoopArray() {
-  def loopArray = []
-  parent.locks.each { lock ->
-    if (state."lock${lock.id}".errorLoop) {
-      // Child is in error state
-      loopArray << lock.id
-    }
-  }
-  return loopArray
-}
-
-def doPoll() {
-  parent.locks.poll()
-}
-
-def setKnownCode(currentCode, lock) {
-  def setCode
-  if (currentCode.isNumber()) {
-    setCode = currentCode
-  } else if (!currentCode) {
-    setCode = false
-  }
-  state."lock${lock.id}".code = setCode
 }
 
 def getLockById(params) {

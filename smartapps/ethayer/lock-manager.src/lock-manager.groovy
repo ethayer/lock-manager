@@ -37,9 +37,7 @@ def mainPage() {
     }
     section('Global Settings') {
       // needs to run any time a lock is added
-      initalizeLockData()
       href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad.png')
-      input 'locks', 'capability.lock', title: 'Select Locks', multiple: true, submitOnChange: true
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
       href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
@@ -205,26 +203,7 @@ def updated() {
 
 def initialize() {
   def children = getChildApps()
-
-  initalizeLockData()
-  children.each { child ->
-    if (child.userSlot) {
-      child.initalizeLockData()
-    }
-  }
-
-  setAccess()
-  subscribe(locks, 'codeReport', updateCode)
-  subscribe(locks, 'reportAllCodes', pollCodeReport, [filterEvents:false])
   log.debug "there are ${children.size()} lock users"
-}
-
-def initalizeLockData() {
-  locks.each { lock->
-    if (state."lock${lock.id}" == null) {
-      state."lock${lock.id}" = [:]
-    }
-  }
 }
 
 def getLock(params) {
@@ -265,64 +244,6 @@ def availableSlots(selectedSlot) {
   return options
 }
 
-def pollCodeReport(evt) {
-  def needPoll = false
-  def codeData = new JsonSlurper().parseText(evt.data)
-  def currentLock = locks.find{it.id == evt.deviceId}
-
-  populateDiscovery(codeData, currentLock)
-
-  log.debug 'checking children for errors'
-  def userApps = getUserApps()
-  userApps.each { child ->
-    child.pollCodeReport(evt)
-    if (child.isInErrorLoop(evt.deviceId)) {
-      log.debug 'child is in error loop'
-      needPoll = true
-    }
-  }
-  def unmangedCodesNotReady = false
-  if (overwriteMode) {
-    unmangedCodesNotReady = removeUnmanagedCodes(evt)
-  }
-  if (needPoll || unmangedCodesNotReady) {
-    log.debug 'asking for poll!'
-    runIn(20, doPoll)
-  }
-}
-
-def removeUnmanagedCodes(evt) {
-  def codeData = new JsonSlurper().parseText(evt.data)
-  def lock = locks.find{it.id == evt.deviceId}
-  def array = []
-  def codes = [:]
-  def codeSlots = 30
-  if (codeData.codes) {
-    codeSlots = codeData.codes
-  }
-
-  (1..codeSlots).each { slot ->
-    def child = findAssignedChildApp(lock, slot)
-    if (!child) {
-      def currentCode = codeData."code${slot}"
-      // there is no app associated
-      if (currentCode) {
-        // Code is set, We should be disabled.
-        array << ["code${slot}", '']
-      }
-    }
-  }
-  def json = new groovy.json.JsonBuilder(array).toString()
-  if (json != '[]') {
-    //Lock has codes we don't want
-    lock.updateCodes(json)
-    return true
-  } else {
-    //Lock is clean
-    return false
-  }
-}
-
 def keypadMatchingUser(usedCode){
   def correctUser = false
   def userApps = getUserApps()
@@ -338,62 +259,6 @@ def keypadMatchingUser(usedCode){
     }
   }
   return correctUser
-}
-
-def setAccess() {
-  def userArray
-  def json
-  locks.each { lock ->
-    userArray = []
-    getUserApps().each { child ->
-      if (child.userSlot) {
-        if (child.isActive(lock.id)) {
-          userArray << ["code${child.userSlot}", "${child.userCode}"]
-        } else {
-          userArray << ["code${child.userSlot}", ""]
-        }
-      }
-    }
-    json = new groovy.json.JsonBuilder(userArray).toString()
-    log.debug json
-    lock.updateCodes(json)
-  }
-  runIn(60, doPoll)
-}
-
-def doPoll() {
-  locks.poll()
-}
-
-def updateCode(evt) {
-  def codeNumber = evt.data.replaceAll("\\D+","")
-  def codeSlot = evt.integerValue.toInteger()
-  def lock = evt.device
-
-  // set parent known code
-  state."lock${lock.id}".codes[codeSlot] = codeNumber
-
-  def childApp = findAssignedChildApp(lock, codeSlot)
-  if (childApp) {
-    childApp.setKnownCode(codeNumber, lock)
-  }
-}
-
-def populateDiscovery(codeData, lock) {
-  def codes = [:]
-  def codeSlots = 30
-  if (codeData.codes) {
-    codeSlots = codeData.codes
-  }
-  (1..codeSlots).each { slot->
-    def childApp = findAssignedChildApp(lock, slot)
-    def knownCode = codeData."code${slot}"
-    codes."slot${slot}" = knownCode
-    if (childApp) {
-      childApp.setKnownCode(knownCode, lock)
-    }
-  }
-  state."lock${lock.id}".codes = codes
 }
 
 def findAssignedChildApp(lock, slot) {
@@ -427,4 +292,15 @@ def getKeypadApps() {
     }
   }
   return keypadApps
+}
+
+def getLockApps() {
+  def lockApps = []
+  def children = getChildApps()
+  children.each { child ->
+    if (child.lock) {
+      lockApps.push(child)
+    }
+  }
+  return lockApps
 }
