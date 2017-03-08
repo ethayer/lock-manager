@@ -19,20 +19,10 @@ preferences {
   page(name: "keypadPage")
 }
 
-def smartTitle() {
-  def title = []
-  if (getUserApps()) {
-    title.push('Users')
-  }
-  if (getKeypadApps()) {
-    title.push('Keypads')
-  }
-  return fancyString(title)
-}
-
 def mainPage() {
   dynamicPage(name: 'mainPage', install: true, uninstall: true, submitOnChange: true) {
     section('Create') {
+      app(name: 'locks', appName: 'Lock', namespace: 'ethayer', title: 'New Lock', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
       app(name: 'lockUsers', appName: 'Lock User', namespace: 'ethayer', title: 'New User', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
       app(name: 'keypads', appName: 'Keypad', namespace: 'ethayer', title: 'New Keypad', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
     }
