@@ -43,6 +43,7 @@ def mainPage() {
     section("Settings") {
       setupLockData()
       def actions = location.helloHome?.getPhrases()*.label
+      label title: "Name for Lock", defaultValue: lock?.label, required: false
       input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
       input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
@@ -137,7 +138,7 @@ def makeRequest() {
       requestSlot = slot
     }
   }
-  if (requestSlot) {
+  if (lock && requestSlot) {
     // there is an unknown code!
     lock.requestCode(requestSlot)
   } else {
