@@ -14,9 +14,12 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 
 preferences {
+  page name: 'landingPage'
+  page name: 'setupPage'
   page name: 'mainPage'
   page name: 'notificationPage'
   page name: 'helloHomePage'
+  page name: 'lockInfoPage'
 }
 
 def installed() {
@@ -38,18 +41,41 @@ def initialize() {
   setupLockData()
 }
 
+def landingPage() {
+  if (lock) {
+    mainPage()
+  } else {
+    setupPage()
+  }
+}
+
+def setupPage() {
+  dynamicPage(name: "setupPage", title: "Setup Lock", nextPage: "mainPage", uninstall: true) {
+    section("Choose devices for this lock") {
+      input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
+      input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
+    }
+  }
+}
+
 def mainPage() {
   dynamicPage(name: "mainPage", title: "Lock Settings", install: true, uninstall: true) {
     section("Settings") {
       setupLockData()
       def actions = location.helloHome?.getPhrases()*.label
-      label title: "Name for Lock", defaultValue: lock?.label, required: false
-      input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
-      input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
+      if (lock) {
+        href(name: 'toLockInfoPage', page: 'lockInfoPage', required: false, title: 'Lock Info', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png' )
+      }
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
+      href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png')
       if (actions) {
         href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png')
       }
+    }
+    section('Setup', hideable: true, hidden: true) {
+      label title: 'Label', defaultValue: "Lock: ${lock.label}", required: true, description: 'recommended to start with Lock:'
+      input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
+      input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
     }
   }
 }
@@ -103,6 +129,40 @@ def helloHomePage() {
   }
 }
 
+def lockInfoPage() {
+  dynamicPage(name:"lockInfoPage", title:"Lock Info") {
+    if (lock) {
+      section("${lock.displayName}") {
+        if (!state.initializeComplete) {
+          paragraph 'App is learning codes.  They will appear here when received.'
+        }
+        if (state.codes) {
+          def i = 0
+          def setCode = ''
+          def usage
+          def para
+          def image
+          def sortedCodes = state.codes.sort{it.value.slot}
+          sortedCodes.each { data ->
+            data = data.value
+            if (data.codeState != 'unknown') {
+              def userApp = findSlotUserApp(data.slot)
+              para = "Slot ${data.slot}\nCode: ${data.code}"
+              if (userApp) {
+                para = para + userApp.getLockUserInfo(lock)
+                image = userApp.lockInfoPageImage(lock)
+              } else {
+                image = 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png'
+              }
+              paragraph para, image: image
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 def setupLockData() {
   def lockUsers = parent.getUserApps()
   lockUsers.each { lockUser ->
@@ -112,26 +172,32 @@ def setupLockData() {
   if (state.codes == null) {
     // new install!  Start learning!
     state.codes = [:]
-    setupCodeValues()
+    state.initializeComplete = false
   }
+  def codeSlots = 30
+  (1..codeSlots).each { slot ->
+    if (state.codes["slot${slot}"] == null) {
+      state.initializeComplete = false
+
+      state.codes["slot${slot}"] = [:]
+      state.codes["slot${slot}"].slot = slot
+      state.codes["slot${slot}"].code = null
+      state.codes["slot${slot}"].codeState = 'unknown'
+    }
+  }
+  setupCodeValues()
 }
 
 def setupCodeValues() {
-  def codeSlots = 3
   state.supportsKeypadData = true
-  state.initializeComplete = false
-
-  (1..codeSlots).each { slot ->
-    state.codes["slot${slot}"] = [:]
-    state.codes["slot${slot}"]['code'] = null
-    state.codes["slot${slot}"]['codeState'] = 'unknown'
+  if (!state.initializeComplete) {
+    makeRequest()
   }
-  makeRequest()
 }
 
 def makeRequest() {
   def requestSlot = false
-  def codeSlots = 3
+  def codeSlots = 30
   (1..codeSlots).each { slot ->
     def codeState = state.codes["slot${slot}"]['codeState']
     if (codeState != 'known') {
@@ -142,6 +208,7 @@ def makeRequest() {
     // there is an unknown code!
     lock.requestCode(requestSlot)
   } else {
+    state.initializeComplete = true
     log.debug 'no request to make'
   }
 }
@@ -156,8 +223,6 @@ def updateCode(event) {
   } else {
     code = ''
   }
-
-  log.debug "code: ${code} slot: ${slot}"
   state.codes["slot${slot}"]['code'] = code
   state.codes["slot${slot}"]['codeState'] = 'known'
 
@@ -196,7 +261,6 @@ def codeUsed(evt) {
   if (action == 'unlocked') {
     // door was unlocked
     if (userApp) {
-      log.debug 'by a user!'
       message = "${lock.label} was unlocked by ${userApp.label}"
       userApp.incrementLockUsage(lock.id)
       if (!userApp.isNotBurned()) {

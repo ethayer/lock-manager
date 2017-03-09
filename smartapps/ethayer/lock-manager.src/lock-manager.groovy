@@ -13,7 +13,6 @@ import groovy.json.JsonBuilder
 
 preferences {
   page(name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true)
-  page(name: 'lockInfoPage')
   page(name: 'infoRefreshPage')
   page(name: 'notificationPage')
   page(name: "keypadPage")
@@ -41,16 +40,6 @@ def mainPage() {
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
       href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
-    }
-  }
-}
-
-def infoRefreshPage() {
-  dynamicPage(name:'infoRefreshPage', title:'Lock Info') {
-    section() {
-      doPoll()
-      paragraph 'Lock info refreshing soon.'
-      href(name: 'toMainPage', page: 'mainPage', title: 'Back')
     }
   }
 }
