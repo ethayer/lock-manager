@@ -19,7 +19,6 @@ preferences {
   page name: 'mainPage'
   page name: 'notificationPage'
   page name: 'helloHomePage'
-  page name: 'lockInfoPage'
 }
 
 def installed() {
@@ -63,9 +62,6 @@ def mainPage() {
     section("Settings") {
       setupLockData()
       def actions = location.helloHome?.getPhrases()*.label
-      if (lock) {
-        href(name: 'toLockInfoPage', page: 'lockInfoPage', required: false, title: 'Lock Info', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png' )
-      }
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
       href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png')
       if (actions) {
@@ -129,42 +125,6 @@ def helloHomePage() {
   }
 }
 
-def lockInfoPage() {
-  dynamicPage(name:"lockInfoPage", title:"Lock Info") {
-    if (lock) {
-      section("${lock.displayName}") {
-        if (!state.initializeComplete) {
-          paragraph 'App is learning codes.  They will appear here when received.'
-        }
-        if (state.codes) {
-          def setCode = ''
-          def usage
-          def para
-          def image
-          def sortedCodes = state.codes.sort{it.value.slot}
-          sortedCodes.each { data ->
-            data = data.value
-            if (data.codeState != 'unknown') {
-              def userApp = findSlotUserApp(data.slot)
-              para = "Slot ${data.slot}"
-              if (data.code) {
-                para = para + "\nCode: ${data.code}"
-              }
-              if (userApp) {
-                para = para + userApp.getLockUserInfo(lock)
-                image = userApp.lockInfoPageImage(lock)
-              } else {
-                image = 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png'
-              }
-              paragraph para, image: image
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
 def setupLockData() {
   def lockUsers = parent.getUserApps()
   lockUsers.each { lockUser ->
@@ -184,6 +144,7 @@ def setupLockData() {
       state.codes["slot${slot}"] = [:]
       state.codes["slot${slot}"].slot = slot
       state.codes["slot${slot}"].code = null
+      state.codes["slot${slot}"].attempts = 0
       state.codes["slot${slot}"].codeState = 'unknown'
     }
   }
@@ -210,8 +171,9 @@ def makeRequest() {
     // there is an unknown code!
     lock.requestCode(requestSlot)
   } else {
-    state.initializeComplete = true
     log.debug 'no request to make'
+    state.initializeComplete = true
+    setCodes()
   }
 }
 
@@ -318,6 +280,42 @@ def codeUsed(evt) {
       userApp.send(message)
     } else if (action == 'locked' && userApp.notifyLock) {
       userApp.send(message)
+    }
+  }
+}
+
+def setCodes() {
+  def setCode = false
+  def setSlot = false
+  state.codes.each { -> data
+    data = data.value
+    def lockUser = findSlotUserApp(data.slot)
+    if (lockUser) {
+      if (lockUser.isActive(lock.id)) {
+        // is active, should be set
+        state.codes["slot${data.slot}"].correctValue = lockUser.userCode
+      } else {
+        // is inactive, should not be set
+        state.codes["slot${data.slot}"].correctValue = null
+      }
+    } else if (overwriteMode) {
+      state.codes["slot${data.slot}"].correctValue = null
+    } else {
+      // do nothing!
+    }
+  }
+  loadCodes()
+}
+
+def loadCodes() {
+  def array = []
+  state.codes.each { -> data
+    data = data.value
+    if (data.code != data.correctValue) {
+      if (data.attempts <= 10) {
+        array << ["code${data.slot}", data.correctValue]
+        state.codes["slot${data.slot}"].attempts = data.attempts + 1  
+      }
     }
   }
 }
