@@ -148,10 +148,7 @@ def setupLockData() {
       state.codes["slot${slot}"].codeState = 'unknown'
     }
   }
-  setupCodeValues()
-}
 
-def setupCodeValues() {
   makeRequest()
 }
 
@@ -181,16 +178,25 @@ def updateCode(event) {
   if (data.code.isNumber()) {
     code = data.code
   } else {
+    // It's easier on logic if code is empty to be null
     code = null
   }
+
+  def previousCode = state.codes["slot${slot}"]['code']
+
   state.codes["slot${slot}"]['code'] = code
   state.codes["slot${slot}"]['codeState'] = 'known'
 
   log.debug "slot:${slot} code:${code}"
 
   // check logic to see if all codes are in known state
-  runIn(2, makeRequest)
-  codeInform(slot, code)
+  if (!state.initializeComplete) {
+    runIn(5, makeRequest)
+  }
+  if (previousCode != code) {
+    // code changed, let's inform!
+    codeInform(slot, code)
+  }
 }
 
 def codeUsed(evt) {
@@ -299,7 +305,7 @@ def setCodes() {
       // do nothing!
     }
   }
-  loadCodes()
+  runIn(5, loadCodes)
 }
 
 def loadCodes() {
