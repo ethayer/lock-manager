@@ -137,7 +137,6 @@ def lockInfoPage() {
           paragraph 'App is learning codes.  They will appear here when received.'
         }
         if (state.codes) {
-          def i = 0
           def setCode = ''
           def usage
           def para
@@ -147,7 +146,10 @@ def lockInfoPage() {
             data = data.value
             if (data.codeState != 'unknown') {
               def userApp = findSlotUserApp(data.slot)
-              para = "Slot ${data.slot}\nCode: ${data.code}"
+              para = "Slot ${data.slot}"
+              if (data.code) {
+                para = para + "\nCode: ${data.code}"
+              }
               if (userApp) {
                 para = para + userApp.getLockUserInfo(lock)
                 image = userApp.lockInfoPageImage(lock)
@@ -419,4 +421,12 @@ def sendMessage(message) {
       }
     }
   }
+}
+
+def isCodeComplete() {
+  return state.initializeComplete
+}
+
+def codeData() {
+  return state.codes
 }

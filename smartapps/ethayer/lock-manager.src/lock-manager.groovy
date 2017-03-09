@@ -15,6 +15,7 @@ preferences {
   page(name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true)
   page(name: 'infoRefreshPage')
   page(name: 'notificationPage')
+  page(name: 'lockInfoPage')
   page(name: "keypadPage")
 }
 
@@ -26,11 +27,12 @@ def mainPage() {
       app(name: 'keypads', appName: 'Keypad', namespace: 'ethayer', title: 'New Keypad', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
     }
     section('Locks') {
-      if (locks) {
+      def lockApps = getLockApps()
+      if (lockApps) {
         def i = 0
-        locks.each { lock->
+        lockApps.each { lockApp ->
           i++
-          href(name: "toLockInfoPage${i}", page: 'lockInfoPage', params: [id: lock.id], required: false, title: lock.displayName, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png' )
+          href(name: "toLockInfoPage${i}", page: 'lockInfoPage', params: [id: lockApp.lock.id], required: false, title: lockApp.label, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png' )
         }
       }
     }
@@ -46,33 +48,38 @@ def mainPage() {
 
 def lockInfoPage(params) {
   dynamicPage(name:"lockInfoPage", title:"Lock Info") {
-    def lock = getLock(params)
-    if (lock) {
-      section("${lock.displayName}") {
-        if (state."lock${lock.id}".codes != null) {
-          def i = 0
+    log.debug 'go?'
+    def lockApp = getLockAppByIndex(params)
+    if (lockApp) {
+      section("${lockApp.label}") {
+        def complete = lockApp.isCodeComplete()
+        if (!complete) {
+          paragraph 'App is learning codes.  They will appear here when received.'
+        }
+        def codeData = lockApp.codeData()
+        if (codeData) {
           def setCode = ''
-          def child
           def usage
           def para
           def image
-          state."lock${lock.id}".codes.each { code->
-            i++
-            child = findAssignedChildApp(lock, i)
-            setCode = state."lock${lock.id}".codes."slot${i}"
-            para = "Slot ${i}\nCode: ${setCode}"
-            if (child) {
-              para = para + child.getLockUserInfo(lock)
-              image = child.lockInfoPageImage(lock)
-            } else {
-              image = 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png'
+          def sortedCodes = codeData.sort{it.value.slot}
+          sortedCodes.each { data ->
+            data = data.value
+            if (data.codeState != 'unknown') {
+              def userApp = lockApp.findSlotUserApp(data.slot)
+              para = "Slot ${data.slot}"
+              if (data.code) {
+                para = para + "\nCode: ${data.code}"
+              }
+              if (userApp) {
+                para = para + userApp.getLockUserInfo(lockApp.lock)
+                image = userApp.lockInfoPageImage(lockApp.lock)
+              } else {
+                image = 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png'
+              }
+              paragraph para, image: image
             }
-            paragraph para, image: image
-
           }
-        } else {
-          paragraph 'No Lock data received yet.  Requires custom device driver.  Will be populated on next poll event.'
-          doPoll()
         }
       }
     } else {
@@ -195,7 +202,7 @@ def initialize() {
   log.debug "there are ${children.size()} lock users"
 }
 
-def getLock(params) {
+def getLockAppByIndex(params) {
   def id = ''
   // Assign params to id.  Sometimes parameters are double nested.
   if (params.id) {
@@ -206,7 +213,19 @@ def getLock(params) {
     id = state.lastLock
   }
   state.lastLock = id
-  return locks.find{it.id == id}
+
+  def lockApp = false
+  def lockApps = getLockApps()
+  if (lockApps) {
+    def i = 0
+    lockApps.each { app ->
+      if (app.lock.id == state.lastLock) {
+        lockApp = app
+      }
+    }
+  }
+
+  return lockApp
 }
 
 def availableSlots(selectedSlot) {
@@ -239,7 +258,7 @@ def keypadMatchingUser(usedCode){
   userApps.each { userApp ->
     def code
     log.debug userApp.userCode
-    if (userApp.isActiveKeypad(1234)) {
+    if (userApp.isActiveKeypad()) {
       code = userApp.userCode.take(4)
       log.debug "code: ${code} used: ${usedCode}"
       if (code.toInteger() == usedCode.toInteger()) {

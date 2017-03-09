@@ -489,8 +489,7 @@ def isActive(lockId) {
   }
 }
 
-def isActiveKeypad(thing) {
-  log.debug "was here ${thing}"
+def isActiveKeypad() {
   if (
       isValidCode() &&
       isNotBurned() &&
