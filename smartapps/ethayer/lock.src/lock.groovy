@@ -135,12 +135,12 @@ def setupLockData() {
     // new install!  Start learning!
     state.codes = [:]
     state.initializeComplete = false
+    state.supportsKeypadData = true
   }
   def codeSlots = 30
   (1..codeSlots).each { slot ->
     if (state.codes["slot${slot}"] == null) {
       state.initializeComplete = false
-
       state.codes["slot${slot}"] = [:]
       state.codes["slot${slot}"].slot = slot
       state.codes["slot${slot}"].code = null
@@ -152,10 +152,7 @@ def setupLockData() {
 }
 
 def setupCodeValues() {
-  state.supportsKeypadData = true
-  if (!state.initializeComplete) {
-    makeRequest()
-  }
+  makeRequest()
 }
 
 def makeRequest() {
@@ -179,23 +176,21 @@ def makeRequest() {
 
 def updateCode(event) {
   def data = new JsonSlurper().parseText(event.data)
-  log.debug data
   def slot = event.value.toInteger()
   def code
   if (data.code.isNumber()) {
     code = data.code
   } else {
-    code = ''
+    code = null
   }
   state.codes["slot${slot}"]['code'] = code
   state.codes["slot${slot}"]['codeState'] = 'known'
 
-  log.debug state
+  log.debug "slot:${slot} code:${code}"
 
   // check logic to see if all codes are in known state
-  runIn(10, makeRequest)
+  runIn(2, makeRequest)
   codeInform(slot, code)
-
 }
 
 def codeUsed(evt) {
@@ -285,9 +280,9 @@ def codeUsed(evt) {
 }
 
 def setCodes() {
-  def setCode = false
-  def setSlot = false
-  state.codes.each { -> data
+  def codes = state.codes
+  def sortedCodes = codes.sort{it.value.slot}
+  sortedCodes.each { data ->
     data = data.value
     def lockUser = findSlotUserApp(data.slot)
     if (lockUser) {
@@ -308,15 +303,40 @@ def setCodes() {
 }
 
 def loadCodes() {
+  log.debug 'running load codes'
   def array = []
-  state.codes.each { -> data
+  def codes = state.codes
+  def sortedCodes = codes.sort{it.value.slot}
+  sortedCodes.each { data ->
     data = data.value
     if (data.code != data.correctValue) {
       if (data.attempts <= 10) {
-        array << ["code${data.slot}", data.correctValue]
-        state.codes["slot${data.slot}"].attempts = data.attempts + 1  
+        def code
+        if (data.correctValue) {
+          code = data.correctValue
+        } else {
+          code = ''
+        }
+        array << ["code${data.slot}", code]
+        state.codes["slot${data.slot}"].attempts = data.attempts + 1
+      } else {
+        state.codes["slot${data.slot}"].attempts = 0
+        def userApp = findSlotUserApp(data.slot)
+        if (userApp) {
+          userApp.disableLock(lock.id)
+        }
       }
+    } else {
+      state.codes["slot${data.slot}"].attempts = 0
     }
+  }
+  def json = new groovy.json.JsonBuilder(array).toString()
+  if (json != '[]') {
+    log.debug "update: ${json}"
+    lock.updateCodes(json)
+    runIn(30, setCodes)
+  } else {
+    log.debug 'No codes to set'
   }
 }
 
@@ -427,4 +447,13 @@ def isCodeComplete() {
 
 def codeData() {
   return state.codes
+}
+
+def slotData(slot) {
+  state.codes["slot${slot}"]
+}
+
+def enableUser(slot) {
+  state.codes["slot${slot}"].attempts = 0
+  makeRequest()
 }

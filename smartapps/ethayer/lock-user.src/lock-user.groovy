@@ -98,6 +98,7 @@ def initializeLockData() {
       state."lock${lockId}".enabled = true
       state."lock${lockId}".usage = 0
     }
+    lockApp.setCodes()
   }
 }
 
@@ -114,10 +115,9 @@ def resetLockUsage(lockId) {
 
 def lockReset(lockId) {
   state."lock${lockId}".enabled = true
-  state."lock${lockId}".access = false
-  state."lock${lockId}".errorLoop = false
-  state."lock${lockId}".errorLoopCount = 0
   state."lock${lockId}".disabledReason = ''
+  def lockApp = getLockApp(lockId)
+  lockApp.enableUser(userSlot)
 }
 
 def rootPage() {
@@ -159,8 +159,10 @@ def rootPage() {
     }
     section('Locks') {
       initializeLockData()
-      parent.locks.each { lock->
-        href(name: "toLockPage${lock.id}", page: 'lockPage', params: [id: lock.id], description: lockPageDescription(lock.id), required: false, title: lock.displayName, image: lockPageImage(lock) )
+      def lockApps = parent.getLockApps()
+
+      lockApps.each { app ->
+        href(name: "toLockPage${app.lock.id}", page: 'lockPage', params: [id: app.lock.id], description: lockPageDescription(app.lock.id), required: false, title: app.lock.label, image: lockPageImage(app.lock) )
       }
     }
   }
@@ -185,9 +187,10 @@ def lockInfoPageImage(lock) {
 def lockPage(params) {
   dynamicPage(name:"lockPage", title:"Lock Settings") {
     def lock = getLock(params)
-    def lockCode = state."lock${lock.id}".code
-    def lockAccessable = state."lock${lock.id}".access
-    def errorLoopCount = state."lock${lock.id}".errorLoopCount
+    def lockApp = getLockApp(lock.id)
+    log.debug lockApp
+    def slotData = lockApp.slotData(userSlot)
+
     def usage = state."lock${lock.id}".usage
     if (!state."lock${lock.id}".enabled) {
       section {
@@ -196,12 +199,12 @@ def lockPage(params) {
       }
     }
     section("${deviceLabel(lock)} settings for ${app.label}") {
-      if (lockCode) {
-        paragraph "Lock is currently set to ${lockCode}"
+      if (slotData.code) {
+        paragraph "Lock is currently set to ${slotData.code}"
       }
       paragraph "User unlock count: ${usage}"
-      if( errorLoopCount > 0) {
-        paragraph "Lock set failed try ${errorLoopCount}/10"
+      if(slotData.attempts > 0) {
+        paragraph "Lock set failed try ${slotData.attempts}/10"
       }
       input(name: "lockDisabled${lock.id}", type: 'bool', title: 'Disable lock for this user?', required: false, defaultValue: settings."lockDisabled${lock.id}", refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/ban.png' )
       href(name: 'toLockResetPage', page: 'lockResetPage', title: 'Reset Lock', description: 'Reset lock data for this user.',  params: [id: lock.id], image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png' )
@@ -680,6 +683,17 @@ def getLockById(params) {
   return parent.locks.find{it.id == id}
 }
 
+def getLockApp(lockId) {
+  def lockApp = false
+  def lockApps = parent.getLockApps()
+  lockApps.each { app ->
+    if (app.lock.id == lockId) {
+      lockApp = app
+    }
+  }
+  return lockApp
+}
+
 def getLock(params) {
   def id = ''
   // Assign params to id.  Sometimes parameters are double nested.
@@ -690,9 +704,10 @@ def getLock(params) {
   } else if (state.lastLock) {
     id = state.lastLock
   }
-
   state.lastLock = id
-  return parent.locks.find{it.id == id}
+  def lockApp = getLockApp(state.lastLock)
+
+  return lockApp.lock
 }
 
 def userNotificationSettings() {
@@ -782,6 +797,11 @@ def sendMessageViaUser(msg) {
       }
     }
   }
+}
+
+def disableLock(lockID) {
+  state."lock${lockID}".enabled = false
+  state."lock${lockID}".disabledReason = 'Controller failed to set user code.'
 }
 
 def getLockUserInfo(lock) {

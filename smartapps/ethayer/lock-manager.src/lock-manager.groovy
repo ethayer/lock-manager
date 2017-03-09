@@ -48,7 +48,6 @@ def mainPage() {
 
 def lockInfoPage(params) {
   dynamicPage(name:"lockInfoPage", title:"Lock Info") {
-    log.debug 'go?'
     def lockApp = getLockAppByIndex(params)
     if (lockApp) {
       section("${lockApp.label}") {
