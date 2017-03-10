@@ -327,11 +327,12 @@ def setAccess() {
 }
 
 def debuggerOn() {
-  return true
+  return false
 }
 
 def debugger(message) {
-  if (true) {
+  def doDebugger = debuggerOn()
+  if (doDebugger) {
     return log.debug(message)
   }
 }
