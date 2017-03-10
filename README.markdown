@@ -9,10 +9,10 @@ Incomplete List of features:
 * Run Hello Home phrases based on lock/unlock events.
 * Manage Hello Home phrases based on keypad inputs.
 
-This app works using 3 child apps and 1 parent app.  It is reccomended that you install all 4 apps, however if you do not use keypad devices, it is not required to install the keypad child app.
+This app works using 3 child apps and 1 parent app.  It is recommended that you install all 4 apps, however if you do not use keypad devices, it is not required to install the keypad child app.
 
-**Note:** If upgrading from any beta version, it is required to uninstall the app completly before installing.  The archetecture of this app has changed in
-a way that is incompatable with previous versions.
+**Note:** If upgrading from any beta version, it is required to uninstall the app completely before installing.  The architecture of this app has changed in
+a way that is incompatible with previous versions.
 
 ### How To Install
 [User Guide](https://dl.dropboxusercontent.com/u/54190708/LockManager/v1/guide.pdf)
@@ -30,7 +30,7 @@ One I've run into so far is garyd9's DTH for schlage locks, which I have include
 
 ### Please donate
 
-Donations are completly optional, but if this made your life easier, please consider donating.
+Donations are completely optional, but if this made your life easier, please consider donating.
 
 * Paypal- <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=LDYNH7HNKBWXJ&lc=US&item_name=Lock%20Code%20Manager%20Donation&item_number=40123&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted"><img src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" alt="[paypal]" /></a>
 
