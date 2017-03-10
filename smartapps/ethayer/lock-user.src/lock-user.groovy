@@ -390,9 +390,10 @@ def readableDateTime(date) {
 
 def getAllLocksUsage() {
   def usage = 0
-  parent.locks.each { lock ->
-    if (state."lock${lock.id}"?.usage) {
-      usage = usage + state."lock${lock.id}".usage
+  def lockApps = parent.getLockApps()
+  lockApps.each { lockApp ->
+    if (state."lock${lockApp.lock.id}"?.usage) {
+      usage = usage + state."lock${lockApp.lock.id}".usage
     }
   }
   return usage
