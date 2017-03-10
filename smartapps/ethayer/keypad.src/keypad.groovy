@@ -19,12 +19,12 @@ preferences {
 }
 
 def installed() {
-  log.debug "Installed with settings: ${settings}"
+  debugger("Installed with settings: ${settings}")
   initialize()
 }
 
 def updated() {
-  log.debug "Updated with settings: ${settings}"
+  debugger("Updated with settings: ${settings}")
   initialize()
 }
 
@@ -81,7 +81,7 @@ private sendSHMEvent(String shmState) {
         displayed: true,
         description: "System Status is ${shmState}"
       ]
-  log.debug "test ${event}"
+  debugger("test ${event}")
   sendLocationEvent(event)
 }
 
@@ -131,7 +131,7 @@ private execRoutine(armMode, userApp) {
 
 def codeEntryHandler(evt) {
   //do stuff
-  log.debug "Caught code entry event! ${evt.value.value}"
+  debugger("Caught code entry event! ${evt.value.value}")
 
   def codeEntered = evt.value as String
 
@@ -162,7 +162,7 @@ def codeEntryHandler(evt) {
 
   if (correctUser) {
     atomicState.tries = 0
-    log.debug "Correct PIN entered. Change SHM state to ${armMode}"
+    debugger("Correct PIN entered. Change SHM state to ${armMode}")
     //log.debug "Delay: ${armDelay}"
     //log.debug "Data: ${data}"
     //log.debug "armMode: ${armMode}"
@@ -209,10 +209,10 @@ def codeEntryHandler(evt) {
       message = "${evt.displayName} was armed to 'Away' by ${correctUser.label}"
     }
 
-    log.debug "${message}"
+    debugger(message)
     correctUser.send(message)
   } else {
-    log.debug 'Incorrect code!'
+    debugger('Incorrect code!')
     atomicState.tries = atomicState.tries + 1
     if (atomicState.tries >= attemptTollerance) {
       keypad.sendInvalidKeycodeResponse()
@@ -221,22 +221,29 @@ def codeEntryHandler(evt) {
   }
 }
 def sendArmCommand() {
-  log.debug 'Sending Arm Command.'
+  debugger('Sending Arm Command.')
   keypad.acknowledgeArmRequest(3)
   sendSHMEvent('away')
 }
 def sendDisarmCommand() {
-  log.debug 'Sending Disarm Command.'
+  debugger('Sending Disarm Command.')
   keypad.acknowledgeArmRequest(0)
   sendSHMEvent('off')
 }
 def sendStayCommand() {
-  log.debug 'Sending Stay Command.'
+  debugger('Sending Stay Command.')
   keypad.acknowledgeArmRequest(1)
   sendSHMEvent('stay')
 }
 def sendNightCommand() {
-  log.debug 'Sending Night Command.'
+  debugger('Sending Night Command.')
   keypad.acknowledgeArmRequest(2)
   sendSHMEvent('stay')
+}
+
+def debugger(message) {
+  def doDebugger = parent.debuggerOn()
+  if (doDebugger) {
+    log.debug(message)
+  }
 }

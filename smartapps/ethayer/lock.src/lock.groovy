@@ -17,6 +17,7 @@ preferences {
   page name: 'landingPage'
   page name: 'setupPage'
   page name: 'mainPage'
+  page name: 'errorPage'
   page name: 'notificationPage'
   page name: 'helloHomePage'
 }
@@ -42,14 +43,33 @@ def initialize() {
 
 def landingPage() {
   if (lock) {
-    mainPage()
+    def unique = isUniqueLock()
+    if (unique){
+      mainPage()
+    } else {
+      errorPage()
+    }
   } else {
     setupPage()
   }
 }
 
+def isUniqueLock() {
+  def unique = true
+  if (!state.installComplete) {
+    // only look if we're not initialized yet.
+    def lockApps = parent.getLockApps()
+    lockApps.each { lockApp ->
+      if (lockApp.lock.id == lock.id) {
+        unique = false
+      }
+    }
+  }
+  return unique
+}
+
 def setupPage() {
-  dynamicPage(name: "setupPage", title: "Setup Lock", nextPage: "mainPage", uninstall: true) {
+  dynamicPage(name: "setupPage", title: "Setup Lock", nextPage: "landingPage", uninstall: true) {
     section("Choose devices for this lock") {
       input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
       input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
@@ -69,6 +89,18 @@ def mainPage() {
     }
     section('Setup', hideable: true, hidden: true) {
       label title: 'Label', defaultValue: "Lock: ${lock.label}", required: true, description: 'recommended to start with Lock:'
+      input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
+      input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
+    }
+  }
+}
+
+def errorPage() {
+  dynamicPage(name: "errorPage", title: "Lock Duplicate", uninstall: true, nextPage: 'landingPage') {
+    section("Oops!") {
+      paragraph 'The lock that you selected is already installed. Please choose a different Lock or choose Remove'
+    }
+    section("Choose devices for this lock") {
       input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
       input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
     }
@@ -135,10 +167,10 @@ def setupLockData() {
     // new install!  Start learning!
     state.codes = [:]
     state.initializeComplete = false
+    state.installComplete = true
     state.supportsKeypadData = true
     state.pinLength = false
     if (lock.hasAttribute('pinLength')) {
-      debugger('set pinLength')
       state.pinLength = lock.latestValue('pinLength')
     }
   }

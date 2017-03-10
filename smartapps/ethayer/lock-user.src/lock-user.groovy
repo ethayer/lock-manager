@@ -159,6 +159,7 @@ def mainPage() {
         text = 'inactive'
       }
       paragraph "${text}/${usage}"
+      input(name: "userCode", type: "text", title: userCodeInputTitle(), required: false, defaultValue: settings."userCode", refreshAfterSelection: true)
     }
     section('Additional Settings') {
       def actions = location.helloHome?.getPhrases()*.label
@@ -183,7 +184,6 @@ def mainPage() {
     section('Setup', hideable: true, hidden: true) {
       label(title: "Name for App", defaultValue: 'User: ' + userName, required: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png')
       input name: 'userName', title: "Name for user", required: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png'
-      input(name: "userCode", type: "text", title: userCodeInputTitle, required: false, defaultValue: settings."userCode", refreshAfterSelection: true)
       input(name: "userSlot", type: "enum", options: parent.availableSlots(settings.userSlot), title: "Select slot", required: true, refreshAfterSelection: true )
     }
   }
