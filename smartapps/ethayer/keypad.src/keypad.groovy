@@ -169,7 +169,6 @@ def codeEntryHandler(evt) {
 
     if (data == '0') {
       //log.debug "sendDisarmCommand"
-      execRoutine('off', correctUser)
       if (runDefaultAlarm) {
         runIn(0, 'sendDisarmCommand')
       }
@@ -177,7 +176,6 @@ def codeEntryHandler(evt) {
     }
     else if (data == "1") {
       //log.debug "sendStayCommand"
-      execRoutine('stay', correctUser)
       if (runDefaultAlarm) {
         if(armDelay > 0) {
           keypad.setExitDelay(armDelay)
@@ -188,7 +186,6 @@ def codeEntryHandler(evt) {
     }
     else if (data == "2") {
       //log.debug "sendNightCommand"
-      execRoutine('night', correctUser)
       if (runDefaultAlarm) {
         if(armDelay > 0) {
           keypad.setExitDelay(armDelay)
@@ -199,7 +196,6 @@ def codeEntryHandler(evt) {
     }
     else if (data == "3") {
       //log.debug "sendArmCommand"
-      execRoutine('away', correctUser)
       if (runDefaultAlarm) {
         if(armDelay > 0) {
           keypad.setExitDelay(armDelay)
@@ -224,21 +220,25 @@ def sendArmCommand() {
   debugger('Sending Arm Command.')
   keypad.acknowledgeArmRequest(3)
   sendSHMEvent('away')
+  execRoutine('away', correctUser)
 }
 def sendDisarmCommand() {
   debugger('Sending Disarm Command.')
   keypad.acknowledgeArmRequest(0)
   sendSHMEvent('off')
+  execRoutine('off', correctUser)
 }
 def sendStayCommand() {
   debugger('Sending Stay Command.')
   keypad.acknowledgeArmRequest(1)
   sendSHMEvent('stay')
+  execRoutine('stay', correctUser)
 }
 def sendNightCommand() {
   debugger('Sending Night Command.')
   keypad.acknowledgeArmRequest(2)
   sendSHMEvent('stay')
+  execRoutine('night', correctUser)
 }
 
 def debugger(message) {
