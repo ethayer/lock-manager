@@ -21,6 +21,7 @@ preferences {
   page name: 'notificationPage'
   page name: 'helloHomePage'
   page name: 'infoRefreshPage'
+  page name: 'askAlexaPage'
 }
 
 def installed() {
@@ -128,17 +129,18 @@ def notificationPage() {
       if (!state.supportsKeypadData) {
         paragraph 'This lock only reports manual messages.\n It does not support code on lock or lock on keypad.'
       }
-      if (phone == null && !notification && !sendevent && !recipients) {
-        input(name: "muteLock", title: "Mute this lock?", type: "bool", required: false, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bell-slash-o.png')
+      if (phone == null && !notification && !recipients) {
+        input(name: "muteLock", title: "Mute this lock?", type: "bool", required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bell-slash-o.png')
       }
       if (!muteLock) {
         input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
+        href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'askAlexaPage', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/Alexa.png')
         if (!recipients) {
           input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
           paragraph "For multiple SMS recipients, separate phone numbers with a semicolon(;)"
           input(name: "notification", type: "bool", title: "Send A Push Notification", description: "Notification", required: false, submitOnChange: true)
         }
-        if (phone != null || notification || sendevent || recipients) {
+        if (phone != null || notification || recipients) {
           input(name: "notifyMaunualLock", title: "On Manual Turn (Lock)", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
           input(name: "notifyMaunualUnlock", title: "On Manual Turn (Unlock)", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
           if (state.supportsKeypadData) {
@@ -152,6 +154,22 @@ def notificationPage() {
         input(name: "notificationStartTime", type: "time", title: "Notify Starting At This Time", description: null, required: false)
         input(name: "notificationEndTime", type: "time", title: "Notify Ending At This Time", description: null, required: false)
       }
+    }
+  }
+}
+
+def askAlexaPage() {
+  dynamicPage(name: "askAlexaPage", title: "Ask Alexa Message Settings") {
+    section('Que Messages with the Ask Alexa app') {
+      input(name: "alexaMaunualLock", title: "On Manual Turn (Lock)", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+      input(name: "alexaMaunualUnlock", title: "On Manual Turn (Unlock)", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+      if (state.supportsKeypadData) {
+        input(name: "alexaKeypadLock", title: "On Keypad Press to Lock", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+      }
+    }
+    section("Only During These Times (optional)") {
+      input(name: "alexaStartTime", type: "time", title: "Notify Starting At This Time", description: null, required: false)
+      input(name: "alexaEndTime", type: "time", title: "Notify Ending At This Time", description: null, required: false)
     }
   }
 }
@@ -298,11 +316,15 @@ def codeUsed(evt) {
       }
     } else if (manualUse) {
       // unlocked manually
+
       if (manualUnlockRoutine) {
         location.helloHome.execute(manualUnlockRoutine)
       }
+      message = "${lock.label} was unlocked manually"
       if (notifyMaunualUnlock) {
-        message = "${lock.label} was unlocked manually"
+        send(message)
+      }
+      if (alexaMaunualUnlock) {
         send(message)
       }
     }
@@ -316,22 +338,28 @@ def codeUsed(evt) {
       }
     }
     if (data && data.usedCode == 0) {
+      message = "${lock.label} was locked by keypad"
       if (keypadLockRoutine) {
         location.helloHome.execute(keypadLockRoutine)
       }
       if (notifyKeypadLock) {
-        message = "${lock.label} was locked by keypad"
         send(message)
+      }
+      if (alexaKeypadLock) {
+        askAlexa(message)
       }
     }
     if (manualUse) {
       // locked manually
+      message = "${lock.label} was locked manually"
       if (manualLockRoutine) {
         location.helloHome.execute(manualLockRoutine)
       }
       if (notifyMaunualLock) {
-        message = "${lock.label} was locked manually"
         send(message)
+      }
+      if (alexaManualLock) {
+        askAlexa(message)
       }
     }
   }
@@ -339,10 +367,20 @@ def codeUsed(evt) {
   // decide if we should send a message per the userApp
   if (userApp && message) {
     debugger("Sending message: " + message)
-    if (action == 'unlocked' && userApp.notifyAccess) {
-      userApp.send(message)
-    } else if (action == 'locked' && userApp.notifyLock) {
-      userApp.send(message)
+    if (action == 'unlocked') {
+      if (userApp.notifyAccess || parent.notifyAccess) {
+        userApp.send(message)
+      }
+      if (userApp.alexaAccess || parent.alexaAccess) {
+        userApp.sendAskAlexa(message)
+      }
+    } else if (action == 'locked') {
+      if (userApp.notifyLock || parent.notifyLock) {
+        userApp.send(message)
+      }
+      if (userApp.alexaLock || parent.alexaLock) {
+        userApp.sendAskAlexa(message)
+      }
     }
   }
 }
@@ -491,26 +529,52 @@ def send(message) {
   }
 }
 def sendMessage(message) {
-  if (recipients) {
-    sendNotificationToContacts(message, recipients)
-  } else {
-    if (notification) {
-      sendPush(message)
+  if (!muteLock) {
+    if (recipients) {
+      sendNotificationToContacts(message, recipients)
     } else {
-      sendNotificationEvent(message)
-    }
-    if (phone) {
-      if ( phone.indexOf(";") > 1){
-        def phones = phone.split(";")
-        for ( def i = 0; i < phones.size(); i++) {
-          sendSms(phones[i], message)
+      if (notification) {
+        sendPush(message)
+      } else {
+        sendNotificationEvent(message)
+      }
+      if (phone) {
+        if ( phone.indexOf(";") > 1){
+          def phones = phone.split(";")
+          for ( def i = 0; i < phones.size(); i++) {
+            sendSms(phones[i], message)
+          }
+        }
+        else {
+          sendSms(phone, message)
         }
       }
-      else {
-        sendSms(phone, message)
+    }
+  } else {
+    sendNotificationEvent(message)
+  }
+}
+
+def askAlexa(message) {
+  if (!muteLock) {
+    if (alexaStartTime != null && alexaEndTime != null) {
+      def start = timeToday(alexaStartTime)
+      def stop = timeToday(alexaEndTime)
+      def now = new Date()
+      if (start.before(now) && stop.after(now)){
+        sendAskAlexa(message)
       }
+    } else {
+      sendAskAlexa(message)
     }
   }
+}
+def sendAskAlexa(message) {
+  sendLocationEvent(name: 'AskAlexaMsgQueue',
+                    value: 'LockManager/Lock',
+                    isStateChange: true,
+                    descriptionText: message,
+                    unit: "Lock//${lock.label}")
 }
 
 def isCodeComplete() {

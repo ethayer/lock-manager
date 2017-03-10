@@ -12,11 +12,12 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 
 preferences {
-  page(name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true)
-  page(name: 'infoRefreshPage')
-  page(name: 'notificationPage')
-  page(name: 'lockInfoPage')
-  page(name: "keypadPage")
+  page name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true
+  page name: 'infoRefreshPage'
+  page name: 'notificationPage'
+  page name: 'lockInfoPage'
+  page name: 'keypadPage'
+  page name: 'askAlexaPage'
 }
 
 def mainPage() {
@@ -102,14 +103,14 @@ def notificationPage() {
       paragraph 'These settings will apply to all users.  Settings on individual users will override these settings'
 
       input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
-
+      href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'askAlexaPage', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/Alexa.png')
       if (!recipients) {
         input(name: 'phone', type: 'text', title: 'Text This Number', description: 'Phone number', required: false, submitOnChange: true)
         paragraph 'For multiple SMS recipients, separate phone numbers with a semicolon(;)'
         input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
       }
 
-      if (phone != null || notification || sendevent || recipients) {
+      if (phone != null || notification || recipients) {
         input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
         input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
         input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/check-circle-o.png')
@@ -119,6 +120,22 @@ def notificationPage() {
     section('Only During These Times (optional)') {
       input(name: 'notificationStartTime', type: 'time', title: 'Notify Starting At This Time', description: null, required: false)
       input(name: 'notificationEndTime', type: 'time', title: 'Notify Ending At This Time', description: null, required: false)
+    }
+  }
+}
+
+def askAlexaPage() {
+  dynamicPage(name: 'askAlexaPage', title: 'Ask Alexa Message Settings') {
+    section('Que Messages with the Ask Alexa app') {
+      paragraph 'These settings apply to all users.  These settings are overridable on the user level'
+      input(name: 'alexaAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+      input(name: 'alexaLock', title: 'on Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+      input(name: 'alexaAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/check-circle-o.png')
+      input(name: 'alexaAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png')
+    }
+    section('Only During These Times (optional)') {
+      input(name: 'alexaStartTime', type: 'time', title: 'Notify Starting At This Time', description: null, required: false)
+      input(name: 'alexaEndTime', type: 'time', title: 'Notify Ending At This Time', description: null, required: false)
     }
   }
 }
@@ -158,8 +175,8 @@ def notificationPageDescription() {
   if (settings.phone) {
     parts << "SMS to ${phone}"
   }
-  if (settings.sendevent) {
-    parts << 'Event Notification'
+  if (settings.recipients) {
+    parts << 'Sent to Address Book'
   }
   if (settings.notification) {
     parts << 'Push Notification'

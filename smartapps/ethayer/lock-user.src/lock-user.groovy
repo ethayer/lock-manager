@@ -24,6 +24,7 @@ preferences {
   page name: 'reEnableUserLockPage'
   page name: 'lockResetPage'
   page name: 'keypadPage'
+  page name: 'askAlexaPage'
 }
 
 def installed() {
@@ -348,40 +349,59 @@ def calendarPage() {
 }
 
 def notificationPage() {
-  dynamicPage(name: "notificationPage", title: "Notification Settings") {
+  dynamicPage(name: 'notificationPage', title: 'Notification Settings') {
 
     section {
-      if (phone == null && !notification && !sendevent && !recipients) {
-        input(name: "muteUser", title: "Mute this user?", type: "bool", required: false, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bell-slash-o.png')
+      if (phone == null && !notification && !recipients) {
+        input(name: 'muteUser', title: 'Mute this user?', type: 'bool', required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bell-slash-o.png')
       }
-      input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
-      if (!recipients) {
-        input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
-        paragraph "For multiple SMS recipients, separate phone numbers with a semicolon(;)"
-        input(name: "notification", type: "bool", title: "Send A Push Notification", description: "Notification", required: false, submitOnChange: true)
-      }
-      if (phone != null || notification || sendevent || recipients) {
-        input(name: "notifyAccess", title: "on User Entry", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
-        input(name: "notifyLock", title: "on Lock", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
-        input(name: "notifyAccessStart", title: "when granting access", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/check-circle-o.png')
-        input(name: "notifyAccessEnd", title: "when revoking access", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png')
+      if (!muteUser) {
+        input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
+        href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'askAlexaPage', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/Alexa.png')
+        if (!recipients) {
+          input(name: 'phone', type: 'text', title: 'Text This Number', description: 'Phone number', required: false, submitOnChange: true)
+          paragraph 'For multiple SMS recipients, separate phone numbers with a semicolon(;)'
+          input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
+        }
+        if (phone != null || notification || recipients) {
+          input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+          input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+          input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/check-circle-o.png')
+          input(name: 'notifyAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png')
+        }
       }
     }
-
-    section("Only During These Times (optional)") {
-      input(name: "notificationStartTime", type: "time", title: "Notify Starting At This Time", description: null, required: false)
-      input(name: "notificationEndTime", type: "time", title: "Notify Ending At This Time", description: null, required: false)
+    if (!muteUser) {
+      section('Only During These Times (optional)') {
+        input(name: 'notificationStartTime', type: 'time', title: 'Notify Starting At This Time', description: null, required: false)
+        input(name: 'notificationEndTime', type: 'time', title: 'Notify Ending At This Time', description: null, required: false)
+      }
     }
   }
 }
 
-public smartThingsDateFormat() { "yyyy-MM-dd'T'HH:mm:ss.SSSZ" }
+def askAlexaPage() {
+  dynamicPage(name: 'askAlexaPage', title: 'Ask Alexa Message Settings') {
+    section('Que Messages with the Ask Alexa app') {
+      input(name: 'alexaAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+      input(name: 'alexaLock', title: 'on Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+      input(name: 'alexaAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/check-circle-o.png')
+      input(name: 'alexaAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png')
+    }
+    section('Only During These Times (optional)') {
+      input(name: 'alexaStartTime', type: 'time', title: 'Notify Starting At This Time', description: null, required: false)
+      input(name: 'alexaEndTime', type: 'time', title: 'Notify Ending At This Time', description: null, required: false)
+    }
+  }
+}
+
+public smartThingsDateFormat() { 'yyyy-MM-dd'T'HH:mm:ss.SSSZ' }
 
 public humanReadableStartDate() {
-  new Date().parse(smartThingsDateFormat(), startTime).format("h:mm a", timeZone(startTime))
+  new Date().parse(smartThingsDateFormat(), startTime).format('h:mm a', timeZone(startTime))
 }
 public humanReadableEndDate() {
-  new Date().parse(smartThingsDateFormat(), endTime).format("h:mm a", timeZone(endTime))
+  new Date().parse(smartThingsDateFormat(), endTime).format('h:mm a', timeZone(endTime))
 }
 
 def readableDateTime(date) {
@@ -417,30 +437,30 @@ def calendarHrefDescription() {
 
 def notificationPageDescription() {
   def parts = []
-  def msg = ""
+  def msg = ''
   if (settings.phone) {
     parts << "SMS to ${phone}"
   }
-  if (settings.sendevent) {
-    parts << "Event Notification"
-  }
   if (settings.notification) {
-    parts << "Push Notification"
+    parts << 'Push Notification'
+  }
+  if (settings.recipients) {
+    parts << 'Sent to Address Book'
   }
   msg += fancyString(parts)
   parts = []
 
   if (settings.notifyAccess) {
-    parts << "on entry"
+    parts << 'on entry'
   }
   if (settings.notifyLock) {
-    parts << "on lock"
+    parts << 'on lock'
   }
   if (settings.notifyAccessStart) {
-    parts << "when granting access"
+    parts << 'when granting access'
   }
   if (settings.notifyAccessEnd) {
-    parts << "when revoking access"
+    parts << 'when revoking access'
   }
   if (settings.notificationStartTime) {
     parts << "starting at ${settings.notificationStartTime}"
@@ -449,7 +469,7 @@ def notificationPageDescription() {
     parts << "ending at ${settings.notificationEndTime}"
   }
   if (parts.size()) {
-    msg += ": "
+    msg += ': '
     msg += fancyString(parts)
   }
   if (muteUser) {
@@ -744,7 +764,7 @@ def getLock(params) {
 }
 
 def userNotificationSettings() {
-  if (phone != null || notification || sendevent || muteUser || recipients) {
+  if (phone != null || notification || muteUser || recipients) {
     // user has it's own settings!
     return true
   }
@@ -849,4 +869,59 @@ def getLockUserInfo(lock) {
     para += "\n ${reason}"
   }
   para
+}
+
+// User Ask Alexa
+
+def userAlexaSettings() {
+  if (alexaAccess || alexaLock || alexaAccessStart || alexaAccessEnd || alexaStartTime || alexaEndTime) {
+    // user has it's own settings!
+    return true
+  }
+  // user doesn't !
+  return false
+}
+
+def askAlexa(msg) {
+  if (userAlexaSettings()) {
+    checkIfAlexaUser(msg)
+  } else {
+    checkIfAlexaGlobal(msg)
+  }
+}
+
+def checkIfAlexaUser(message) {
+  if (!muteUser) {
+    if (alexaStartTime != null && alexaEndTime != null) {
+      def start = timeToday(alexaStartTime)
+      def stop = timeToday(alexaEndTime)
+      def now = new Date()
+      if (start.before(now) && stop.after(now)){
+        sendAskAlexa(message)
+      }
+    } else {
+      sendAskAlexa(message)
+    }
+  }
+}
+
+def checkIfAlexaGlobal(message) {
+  if (parent.alexaStartTime != null && parent.alexaEndTime != null) {
+    def start = timeToday(parent.alexaStartTime)
+    def stop = timeToday(parent.alexaEndTime)
+    def now = new Date()
+    if (start.before(now) && stop.after(now)){
+      sendAskAlexa(message)
+    }
+  } else {
+    sendAskAlexa(message)
+  }
+}
+
+def sendAskAlexa(message) {
+  sendLocationEvent(name: 'AskAlexaMsgQueue',
+                    value: 'LockManager/User',
+                    isStateChange: true,
+                    descriptionText: message,
+                    unit: "User//${userName}")
 }
