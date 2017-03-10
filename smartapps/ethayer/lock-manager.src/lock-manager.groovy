@@ -42,7 +42,6 @@ def mainPage() {
       href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad.png')
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
-      href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
     }
   }
 }
@@ -53,8 +52,12 @@ def lockInfoPage(params) {
     if (lockApp) {
       section("${lockApp.label}") {
         def complete = lockApp.isCodeComplete()
+        def refreshComplete = lockApp.isRefreshComplete()
         if (!complete) {
           paragraph 'App is learning codes.  They will appear here when received.'
+        }
+        if (!refreshComplete) {
+          paragraph 'App is in refresh mode.'
         }
         def codeData = lockApp.codeData()
         if (codeData) {
@@ -76,6 +79,9 @@ def lockInfoPage(params) {
                 image = userApp.lockInfoPageImage(lockApp.lock)
               } else {
                 image = 'https://dl.dropboxusercontent.com/u/54190708/LockManager/times-circle-o.png'
+              }
+              if (data.codeState == 'refresh') {
+                para = para +'\nPending refresh...'
               }
               paragraph para, image: image
             }

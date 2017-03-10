@@ -20,6 +20,7 @@ preferences {
   page name: 'errorPage'
   page name: 'notificationPage'
   page name: 'helloHomePage'
+  page name: 'infoRefreshPage'
 }
 
 def installed() {
@@ -85,6 +86,11 @@ def mainPage() {
       href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png')
       if (actions) {
         href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png')
+        if (state.initializeComplete && state.refreshComplete) {
+          href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
+        } else {
+          paragraph 'Lock is loading data'
+        }
       }
     }
     section('Setup', hideable: true, hidden: true) {
@@ -103,6 +109,14 @@ def errorPage() {
     section("Choose devices for this lock") {
       input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
       input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
+    }
+  }
+}
+def infoRefreshPage() {
+  dynamicPage(name: 'infoRefreshPage', title: "Lock Info Refresh", nextPage: 'landingPage') {
+    refreshMode()
+    section("Ok!") {
+      paragraph 'Lock is now in refresh mode'
     }
   }
 }
@@ -156,6 +170,15 @@ def helloHomePage() {
   }
 }
 
+def refreshMode() {
+  def codeSlots = 30
+  (1..codeSlots).each { slot ->
+    state.codes["slot${slot}"].codeState = 'refresh'
+  }
+  state.refreshComplete = false
+  makeRequest()
+}
+
 def setupLockData() {
   debugger('run lock data setup')
   def lockUsers = parent.getUserApps()
@@ -168,6 +191,7 @@ def setupLockData() {
     state.codes = [:]
     state.initializeComplete = false
     state.installComplete = true
+    state.refreshComplete = true
     state.supportsKeypadData = true
     state.pinLength = false
     if (lock.hasAttribute('pinLength')) {
@@ -203,6 +227,7 @@ def makeRequest() {
     lock.requestCode(requestSlot)
   } else {
     debugger('no request to make')
+    state.refreshComplete = true
     state.initializeComplete = true
     setCodes()
   }
@@ -227,7 +252,7 @@ def updateCode(event) {
   debugger("Recieved: s:${slot} c:${code}")
 
   // check logic to see if all codes are in known state
-  if (!state.initializeComplete) {
+  if (!state.initializeComplete || !state.refreshComplete) {
     runIn(5, makeRequest)
   }
   if (previousCode != code) {
@@ -342,7 +367,7 @@ def setCodes() {
       // do nothing!
     }
   }
-  if (state.initializeComplete) {
+  if (state.initializeComplete && state.refreshComplete) {
     runIn(5, loadCodes)
   } else {
     debugger('initialize not yet complete!')
@@ -490,6 +515,10 @@ def sendMessage(message) {
 
 def isCodeComplete() {
   return state.initializeComplete
+}
+
+def isRefreshComplete() {
+  return state.refreshComplete
 }
 
 def codeData() {
