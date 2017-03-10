@@ -14,7 +14,9 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 
 preferences {
-  page name: 'rootPage'
+  page name: 'landingPage'
+  page name: 'setupPage'
+  page name: 'mainPage'
   page name: 'lockPage', title: 'Manage Lock', install: false, uninstall: false
   page name: 'schedulingPage', title: 'Schedule User', install: false, uninstall: false
   page name: 'calendarPage', title: 'Calendar', install: false, uninstall: false
@@ -41,6 +43,7 @@ def initialize() {
 
   // setup data
   initializeLockData()
+  inilializeLocks()
 
   // set listeners
   subscribe(location, locationHandler)
@@ -98,7 +101,13 @@ def initializeLockData() {
       state."lock${lockId}".enabled = true
       state."lock${lockId}".usage = 0
     }
-    lockApp.setCodes()
+  }
+}
+
+def inilializeLocks() {
+  def lockApps = parent.getLockApps()
+  lockApps.each { lockApp ->
+    lockApp.setupLockData()
   }
 }
 
@@ -120,11 +129,28 @@ def lockReset(lockId) {
   lockApp.enableUser(userSlot)
 }
 
-def rootPage() {
+def landingPage() {
+  if (userName) {
+    mainPage()
+  } else {
+    setupPage()
+  }
+}
+
+def setupPage() {
+  dynamicPage(name: "setupPage", title: "Setup Lock", nextPage: "mainPage", uninstall: true) {
+    section("Choose devices for this lock") {
+      input(name: 'userName', title: "Name for User", required: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png')
+      input(name: "userCode", type: "text", title: userCodeInputTitle(), required: false, defaultValue: settings."userCode", refreshAfterSelection: true)
+      input(name: "userSlot", type: "enum", options: parent.availableSlots(settings.userSlot), title: "Select slot", required: true, refreshAfterSelection: true )
+    }
+  }
+}
+
+def mainPage() {
   //reset errors on each load
-  dynamicPage(name: 'rootPage', title: '', install: true, uninstall: true) {
+  dynamicPage(name: 'mainPage', title: '', install: true, uninstall: true) {
     section('User Settings') {
-      def title = 'Code (4 to 8 digits)'
       def usage = getAllLocksUsage()
       def text
       if (isActive()) {
@@ -132,18 +158,7 @@ def rootPage() {
       } else {
         text = 'inactive'
       }
-
       paragraph "${text}/${usage}"
-      parent.locks.each { lock->
-        // set required pin length if a lock requires it
-        if (lock.hasAttribute('pinLength')) {
-          title = "Code (Must be ${lock.latestValue('pinLength')} digits)"
-        }
-      }
-      label title: "Name for User", defaultValue: app.label, required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png'
-
-      input(name: "userCode", type: "text", title: title, required: false, defaultValue: settings."userCode", refreshAfterSelection: true)
-      input(name: "userSlot", type: "enum", options: parent.availableSlots(settings.userSlot), title: "Select slot", required: true, refreshAfterSelection: true )
     }
     section('Additional Settings') {
       def actions = location.helloHome?.getPhrases()*.label
@@ -165,7 +180,24 @@ def rootPage() {
         href(name: "toLockPage${app.lock.id}", page: 'lockPage', params: [id: app.lock.id], description: lockPageDescription(app.lock.id), required: false, title: app.lock.label, image: lockPageImage(app.lock) )
       }
     }
+    section('Setup', hideable: true, hidden: true) {
+      label(title: "Name for App", defaultValue: 'User: ' + userName, required: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png')
+      input name: 'userName', title: "Name for user", required: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png'
+      input(name: "userCode", type: "text", title: userCodeInputTitle, required: false, defaultValue: settings."userCode", refreshAfterSelection: true)
+      input(name: "userSlot", type: "enum", options: parent.availableSlots(settings.userSlot), title: "Select slot", required: true, refreshAfterSelection: true )
+    }
   }
+}
+
+def userCodeInputTitle() {
+  def title = 'Code 4-8 digits'
+  lockApps.each { lockApp ->
+    def pinLength = lockApp.pinLength()
+    if (pinLength) {
+      title = "Code (Must be ${lockApp.lock.latestValue('pinLength')} digits)"
+    }
+  }
+  return title
 }
 
 def lockPageImage(lock) {
@@ -242,12 +274,12 @@ def reEnableUserLockPage(params) {
   // do reset
   def lock = getLock(params)
   lockReset(lock.id)
-  dynamicPage(name:"reEnableUserLockPage", title:"User re-enabled") {
+  dynamicPage(name:'reEnableUserLockPage', title:'User re-enabled') {
     section {
-      paragraph "Lock has been reset."
+      paragraph 'Lock has been reset.'
     }
     section {
-      href(name: "toRootPage", title: "Back To Setup", page: "rootPage")
+      href(name: 'toMainPage', title: 'Back To Setup', page: 'mainPage')
     }
   }
 }
@@ -256,32 +288,32 @@ def lockResetPage(params) {
   // do reset
   def lock = getLock(params)
   resetLockUsage(lock.id)
-  dynamicPage(name:"lockResetPage", title:"Lock reset") {
+  dynamicPage(name:'lockResetPage', title:'Lock reset') {
     section {
-      paragraph "Lock has been reset."
+      paragraph 'Lock has been reset.'
     }
     section {
-      href(name: "toRootPage", title: "Back To Setup", page: "rootPage")
+      href(name: 'toMainPage', title: 'Back To Setup', page: 'mainPage')
     }
   }
 }
 
 def schedulingPage() {
-  dynamicPage(name: "schedulingPage", title: "Rules For Access Scheduling") {
+  dynamicPage(name: 'schedulingPage', title: 'Rules For Access Scheduling') {
 
     section {
-      href(name: "toCalendarPage", title: "Calendar", page: "calendarPage", description: calendarHrefDescription(), state: calendarHrefDescription() ? "complete" : "")
+      href(name: 'toCalendarPage', title: 'Calendar', page: 'calendarPage', description: calendarHrefDescription(), state: calendarHrefDescription() ? 'complete' : '')
     }
 
     section {
-      input(name: "days", type: "enum", title: "Allow User Access On These Days", description: "Every day", required: false, multiple: true, options: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], submitOnChange: true)
+      input(name: 'days', type: 'enum', title: 'Allow User Access On These Days', description: 'Every day', required: false, multiple: true, options: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], submitOnChange: true)
     }
     section {
-      input(name: "modeStart", title: "Allow Access only when in this mode", type: "mode", required: false, mutliple: false, submitOnChange: true)
+      input(name: 'modeStart', title: 'Allow Access only when in this mode', type: 'mode', required: false, mutliple: false, submitOnChange: true)
     }
     section {
-      input(name: "startTime", type: "time", title: "Start Time", description: null, required: false)
-      input(name: "endTime", type: "time", title: "End Time", description: null, required: false)
+      input(name: 'startTime', type: 'time', title: 'Start Time', description: null, required: false)
+      input(name: 'endTime', type: 'time', title: 'End Time', description: null, required: false)
     }
   }
 }

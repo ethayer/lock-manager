@@ -28,6 +28,7 @@ def mainPage() {
     }
     section('Locks') {
       def lockApps = getLockApps()
+      lockApps = lockApps.sort{ it.lock.id }
       if (lockApps) {
         def i = 0
         lockApps.each { lockApp ->
@@ -310,4 +311,21 @@ def getLockApps() {
     }
   }
   return lockApps
+}
+
+def setAccess() {
+  def lockApps = getLockApps()
+  lockApps.each { lockApp ->
+    lockApp.setCodes()
+  }
+}
+
+def debuggerOn() {
+  return true
+}
+
+def debugger(message) {
+  if (true) {
+    return log.debug(message)
+  }
 }

@@ -22,12 +22,12 @@ preferences {
 }
 
 def installed() {
-  log.debug "Installed with settings: ${settings}"
+  debugger("Installed with settings: ${settings}")
   initialize()
 }
 
 def updated() {
-  log.debug "Updated with settings: ${settings}"
+  debugger("Updated with settings: ${settings}")
   initialize()
 }
 
@@ -35,7 +35,7 @@ def initialize() {
   // reset listeners
   unsubscribe()
   unschedule()
-  subscribe(lock, 'codeReport', updateCode)
+  subscribe(lock, 'codeReport', updateCode, [filterEvents:false])
   subscribe(lock, "lock", codeUsed)
   setupLockData()
 }
@@ -60,7 +60,6 @@ def setupPage() {
 def mainPage() {
   dynamicPage(name: "mainPage", title: "Lock Settings", install: true, uninstall: true) {
     section("Settings") {
-      setupLockData()
       def actions = location.helloHome?.getPhrases()*.label
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
       href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png')
@@ -126,6 +125,7 @@ def helloHomePage() {
 }
 
 def setupLockData() {
+  debugger('run lock data setup')
   def lockUsers = parent.getUserApps()
   lockUsers.each { lockUser ->
     // initialize data attributes for this lock.
@@ -136,6 +136,11 @@ def setupLockData() {
     state.codes = [:]
     state.initializeComplete = false
     state.supportsKeypadData = true
+    state.pinLength = false
+    if (lock.hasAttribute('pinLength')) {
+      debugger('set pinLength')
+      state.pinLength = lock.latestValue('pinLength')
+    }
   }
   def codeSlots = 30
   (1..codeSlots).each { slot ->
@@ -148,7 +153,6 @@ def setupLockData() {
       state.codes["slot${slot}"].codeState = 'unknown'
     }
   }
-
   makeRequest()
 }
 
@@ -163,9 +167,10 @@ def makeRequest() {
   }
   if (lock && requestSlot) {
     // there is an unknown code!
+    debugger("request ${requestSlot}")
     lock.requestCode(requestSlot)
   } else {
-    log.debug 'no request to make'
+    debugger('no request to make')
     state.initializeComplete = true
     setCodes()
   }
@@ -187,7 +192,7 @@ def updateCode(event) {
   state.codes["slot${slot}"]['code'] = code
   state.codes["slot${slot}"]['codeState'] = 'known'
 
-  log.debug "slot:${slot} code:${code}"
+  debugger("Recieved: s:${slot} c:${code}")
 
   // check logic to see if all codes are in known state
   if (!state.initializeComplete) {
@@ -226,7 +231,7 @@ def codeUsed(evt) {
   if (action == 'unlocked') {
     // door was unlocked
     if (userApp) {
-      message = "${lock.label} was unlocked by ${userApp.label}"
+      message = "${lock.label} was unlocked by ${userApp.userName}"
       userApp.incrementLockUsage(lock.id)
       if (!userApp.isNotBurned()) {
         message += ".  Now burning code."
@@ -248,7 +253,7 @@ def codeUsed(evt) {
   if (action == 'locked') {
     // door was locked
     if (userApp) {
-      message = "${lock.label} was locked by ${userApp.label}"
+      message = "${lock.label} was locked by ${userApp.userName}"
       if (userApp.userLockPhrase) {
         location.helloHome.execute(userApp.userLockPhrase)
       }
@@ -276,7 +281,7 @@ def codeUsed(evt) {
 
   // decide if we should send a message per the userApp
   if (userApp && message) {
-    log.debug("Sending message: " + message)
+    debugger("Sending message: " + message)
     if (action == 'unlocked' && userApp.notifyAccess) {
       userApp.send(message)
     } else if (action == 'locked' && userApp.notifyLock) {
@@ -305,11 +310,15 @@ def setCodes() {
       // do nothing!
     }
   }
-  runIn(5, loadCodes)
+  if (state.initializeComplete) {
+    runIn(5, loadCodes)
+  } else {
+    debugger('initialize not yet complete!')
+  }
 }
 
 def loadCodes() {
-  log.debug 'running load codes'
+  debugger('running load codes')
   def array = []
   def codes = state.codes
   def sortedCodes = codes.sort{it.value.slot}
@@ -338,11 +347,11 @@ def loadCodes() {
   }
   def json = new groovy.json.JsonBuilder(array).toString()
   if (json != '[]') {
-    log.debug "update: ${json}"
+    debugger("update: ${json}")
     lock.updateCodes(json)
     runIn(30, setCodes)
   } else {
-    log.debug 'No codes to set'
+    debugger('No codes to set')
   }
 }
 
@@ -366,7 +375,7 @@ def codeInform(slot, code) {
     def userCode = userApp.userCode
     if (isActive) {
       if (userCode == code) {
-        message = "${userApp.label} now has access to ${lock.label}"
+        message = "${userApp.userName} now has access to ${lock.label}"
         if (userApp.notifyAccessStart || parent.notifyAccessStart) {
           userApp.send(message)
         }
@@ -375,7 +384,7 @@ def codeInform(slot, code) {
       }
     } else {
       if (!code) {
-        message = "${userApp.label} no longer has access to ${lock.label}"
+        message = "${userApp.userName} no longer has access to ${lock.label}"
         if (userApp.notifyAccessEnd || parent.notifyAccessEnd) {
           userApp.send(message)
         }
@@ -384,7 +393,7 @@ def codeInform(slot, code) {
         // it should be deleted!
       }
     }
-    log.debug message
+    debugger(message)
   }
 }
 
@@ -462,4 +471,15 @@ def slotData(slot) {
 def enableUser(slot) {
   state.codes["slot${slot}"].attempts = 0
   makeRequest()
+}
+
+def pinLength() {
+  return state.pinLength
+}
+
+def debugger(message) {
+  def doDebugger = parent.debuggerOn()
+  if (doDebugger) {
+    log.debug(message)
+  }
 }
