@@ -95,20 +95,20 @@ def mainPage() {
     }
     section('Setup', hideable: true, hidden: true) {
       label title: 'Label', defaultValue: "Lock: ${lock.label}", required: true, description: 'recommended to start with Lock:'
-      input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
-      input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
+      input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
+      input(name: 'contactSensor', title: 'Which contact sensor?', type: "capability.contactSensor", multiple: false, required: false)
     }
   }
 }
 
 def errorPage() {
-  dynamicPage(name: "errorPage", title: "Lock Duplicate", uninstall: true, nextPage: 'landingPage') {
-    section("Oops!") {
+  dynamicPage(name: 'errorPage', title: 'Lock Duplicate', uninstall: true, nextPage: 'landingPage') {
+    section('Oops!') {
       paragraph 'The lock that you selected is already installed. Please choose a different Lock or choose Remove'
     }
-    section("Choose devices for this lock") {
-      input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
-      input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
+    section('Choose devices for this lock') {
+      input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
+      input(name: 'contactSensor', title: 'Which contact sensor?', type: 'capability.contactSensor', multiple: false, required: false)
     }
   }
 }
@@ -122,53 +122,53 @@ def infoRefreshPage() {
 }
 
 def notificationPage() {
-  dynamicPage(name: "notificationPage", title: "Notification Settings") {
+  dynamicPage(name: 'notificationPage', title: 'Notification Settings') {
     section {
       paragraph 'Some options only work on select locks'
       if (!state.supportsKeypadData) {
         paragraph 'This lock only reports manual messages.\n It does not support code on lock or lock on keypad.'
       }
       if (phone == null && !notification && !recipients) {
-        input(name: "muteLock", title: "Mute this lock?", type: "bool", required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bell-slash-o.png')
+        input(name: 'muteLock', title: 'Mute this lock?', type: 'bool', required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bell-slash-o.png')
       }
       if (!muteLock) {
-        input("recipients", "contact", title: "Send notifications to", submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
+        input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
         href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'askAlexaPage', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/Alexa.png')
         if (!recipients) {
-          input(name: "phone", type: "text", title: "Text This Number", description: "Phone number", required: false, submitOnChange: true)
-          paragraph "For multiple SMS recipients, separate phone numbers with a semicolon(;)"
-          input(name: "notification", type: "bool", title: "Send A Push Notification", description: "Notification", required: false, submitOnChange: true)
+          input(name: 'phone', type: 'text', title: 'Text This Number', description: 'Phone number', required: false, submitOnChange: true)
+          paragraph 'For multiple SMS recipients, separate phone numbers with a semicolon(;)'
+          input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
         }
         if (phone != null || notification || recipients) {
-          input(name: "notifyMaunualLock", title: "On Manual Turn (Lock)", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
-          input(name: "notifyMaunualUnlock", title: "On Manual Turn (Unlock)", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+          input(name: 'notifyMaunualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+          input(name: 'notifyMaunualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
           if (state.supportsKeypadData) {
-            input(name: "notifyKeypadLock", title: "On Keypad Press to Lock", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+            input(name: 'notifyKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
           }
         }
       }
     }
     if (!muteLock) {
-      section("Only During These Times (optional)") {
-        input(name: "notificationStartTime", type: "time", title: "Notify Starting At This Time", description: null, required: false)
-        input(name: "notificationEndTime", type: "time", title: "Notify Ending At This Time", description: null, required: false)
+      section('Only During These Times (optional)') {
+        input(name: 'notificationStartTime', type: 'time', title: 'Notify Starting At This Time', description: null, required: false)
+        input(name: 'notificationEndTime', type: 'time', title: 'Notify Ending At This Time', description: null, required: false)
       }
     }
   }
 }
 
 def askAlexaPage() {
-  dynamicPage(name: "askAlexaPage", title: "Ask Alexa Message Settings") {
+  dynamicPage(name: 'askAlexaPage', title: 'Ask Alexa Message Settings') {
     section('Que Messages with the Ask Alexa app') {
-      input(name: "alexaMaunualLock", title: "On Manual Turn (Lock)", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
-      input(name: "alexaMaunualUnlock", title: "On Manual Turn (Unlock)", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+      input(name: 'alexaMaunualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+      input(name: 'alexaMaunualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
       if (state.supportsKeypadData) {
-        input(name: "alexaKeypadLock", title: "On Keypad Press to Lock", type: "bool", required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+        input(name: 'alexaKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
       }
     }
-    section("Only During These Times (optional)") {
-      input(name: "alexaStartTime", type: "time", title: "Notify Starting At This Time", description: null, required: false)
-      input(name: "alexaEndTime", type: "time", title: "Notify Ending At This Time", description: null, required: false)
+    section('Only During These Times (optional)') {
+      input(name: 'alexaStartTime', type: 'time', title: 'Notify Starting At This Time', description: null, required: false)
+      input(name: 'alexaEndTime', type: 'time', title: 'Notify Ending At This Time', description: null, required: false)
     }
   }
 }
@@ -177,7 +177,7 @@ def helloHomePage() {
   dynamicPage(name: 'helloHomePage',title: 'Keypad Settings (optional)', install: true, uninstall: true) {
     def actions = location.helloHome?.getPhrases()*.label
     actions?.sort()
-    section("Hello Home Phrases") {
+    section('Hello Home Phrases') {
       input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
       input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
       if (state.supportsKeypadData) {
@@ -308,7 +308,8 @@ def codeUsed(evt) {
       message = "${lock.label} was unlocked by ${userApp.userName}"
       userApp.incrementLockUsage(lock.id)
       if (!userApp.isNotBurned()) {
-        message += ".  Now burning code."
+        parent.setAccess()
+        message += '.  Now burning code.'
       }
       if (userApp.userUnlockPhrase) {
         location.helloHome.execute(userApp.userUnlockPhrase)
@@ -494,7 +495,7 @@ def codeInform(slot, code) {
 
 def doorOpenCheck() {
   def currentState = contact.contactState
-  if (currentState?.value == "open") {
+  if (currentState?.value == 'open') {
     def msg = "${contact.displayName} is open.  Scheduled lock failed."
     log.info msg
     if (sendPushMessage) {
@@ -538,8 +539,8 @@ def sendMessage(message) {
         sendNotificationEvent(message)
       }
       if (phone) {
-        if ( phone.indexOf(";") > 1){
-          def phones = phone.split(";")
+        if ( phone.indexOf(';') > 1){
+          def phones = phone.split(';')
           for ( def i = 0; i < phones.size(); i++) {
             sendSms(phones[i], message)
           }

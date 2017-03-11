@@ -339,7 +339,7 @@ def getLockApps() {
 def setAccess() {
   def lockApps = getLockApps()
   lockApps.each { lockApp ->
-    lockApp.setCodes()
+    lockApp.makeRequest()
   }
 }
 
