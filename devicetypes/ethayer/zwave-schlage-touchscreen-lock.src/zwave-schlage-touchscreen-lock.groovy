@@ -58,7 +58,7 @@
 metadata
 {
 	// Automatically generated. Make future change here.
-	definition (name: "Z-Wave Schlage Touchscreen Lock Reporting", namespace: "garyd9", author: "Gary D")
+	definition (name: "Z-Wave Schlage Touchscreen Lock", namespace: "garyd9", author: "Gary D")
     {
 		capability "Actuator"
 		capability "Lock"

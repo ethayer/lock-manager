@@ -2,7 +2,7 @@ definition (
   name: 'Lock',
   namespace: 'ethayer',
   author: 'Erik Thayer',
-  description: 'App to manage keypads. This is a child app.',
+  description: 'App to manage locks. This is a child app.',
   category: 'Safety & Security',
 
   parent: 'ethayer:Lock Manager',
