@@ -84,14 +84,13 @@ def mainPage() {
     section("Settings") {
       def actions = location.helloHome?.getPhrases()*.label
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
-      href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png')
       if (actions) {
         href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png')
-        if (state.initializeComplete && state.refreshComplete) {
-          href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
-        } else {
-          paragraph 'Lock is loading data'
-        }
+      }
+      if (state.initializeComplete && state.refreshComplete) {
+        href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
+      } else {
+        paragraph 'Lock is loading data'
       }
     }
     section('Setup', hideable: true, hidden: true) {
