@@ -213,6 +213,9 @@ def setupLockData() {
     // initialize data attributes for this lock.
     lockUser.initializeLockData()
   }
+  if (state.requestCount == null) {
+    state.requestCount = 0
+  }
   if (state.codes == null) {
     // new install!  Start learning!
     state.codes = [:]
