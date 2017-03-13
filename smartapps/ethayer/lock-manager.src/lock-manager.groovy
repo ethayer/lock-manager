@@ -42,7 +42,10 @@ def mainPage() {
       // needs to run any time a lock is added
       href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad.png')
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
+    }
+    section('Advanced', hideable: true, hidden: true) {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
+      input(name: 'enableDebug', title: 'Enable IDE debug messages?', type: 'bool', required: true, defaultValue: false, description: 'Show activity from Lock Manger in logs for debugging.')
     }
   }
 }
@@ -54,11 +57,15 @@ def lockInfoPage(params) {
       section("${lockApp.label}") {
         def complete = lockApp.isCodeComplete()
         def refreshComplete = lockApp.isRefreshComplete()
-        if (!complete) {
-          paragraph 'App is learning codes.  They will appear here when received.'
-        }
-        if (!refreshComplete) {
-          paragraph 'App is in refresh mode.'
+        if (lockApp.isInLockErrorMode()) {
+          paragraph 'Lock info was unable to load. There may be an issue with the lock.  Please check batteries or connection and try to refresh lock data again.'
+        } else {
+          if (!complete) {
+            paragraph 'App is learning codes.  They will appear here when received.'
+          }
+          if (!refreshComplete) {
+            paragraph 'App is in refresh mode.'
+          }
         }
         def codeData = lockApp.codeData()
         if (codeData) {
@@ -344,12 +351,13 @@ def setAccess() {
 }
 
 def debuggerOn() {
-  return false
+  // needed for child apps
+  return enableDebug
 }
 
 def debugger(message) {
   def doDebugger = debuggerOn()
-  if (doDebugger) {
+  if (enableDebug) {
     return log.debug(message)
   }
 }
