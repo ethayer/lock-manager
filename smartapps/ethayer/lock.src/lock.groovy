@@ -93,7 +93,7 @@ def mainPage() {
       label title: 'Label', defaultValue: "Lock: ${lock.label}", required: true, description: 'recommended to start with Lock:'
       input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
       input(name: 'contactSensor', title: 'Which contact sensor?', type: "capability.contactSensor", multiple: false, required: false)
-      if (isInit()) {
+      if (state.refreshComplete) {
         href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to request code refresh.  Not avalible on all locks.', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
       } else {
         paragraph 'Lock is loading data'
