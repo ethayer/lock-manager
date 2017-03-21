@@ -57,15 +57,11 @@ def lockInfoPage(params) {
       section("${lockApp.label}") {
         def complete = lockApp.isCodeComplete()
         def refreshComplete = lockApp.isRefreshComplete()
-        if (lockApp.isInLockErrorMode()) {
-          paragraph 'Lock info was unable to load. There may be an issue with the lock.  Please check batteries or connection and try to refresh lock data again.'
-        } else {
-          if (!complete) {
-            paragraph 'App is learning codes.  They will appear here when received.'
-          }
-          if (!refreshComplete) {
-            paragraph 'App is in refresh mode.'
-          }
+        if (!complete) {
+          paragraph 'App is learning codes.  They will appear here when received.\n Lock may require special DTH to work properly'
+        }
+        if (!refreshComplete) {
+          paragraph 'App is in refresh mode.'
         }
         def codeData = lockApp.codeData()
         if (codeData) {

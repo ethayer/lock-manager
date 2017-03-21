@@ -39,6 +39,7 @@ def initialize() {
   unsubscribe()
   unschedule()
   subscribe(lock, 'codeReport', updateCode, [filterEvents:false])
+  subscribe(lock, "reportAllCodes", pollCodeReport, [filterEvents:false])
   subscribe(lock, "lock", codeUsed)
   setupLockData()
 }
@@ -82,25 +83,21 @@ def setupPage() {
 def mainPage() {
   dynamicPage(name: "mainPage", title: "Lock Settings", install: true, uninstall: true) {
     section("Settings") {
-      if (state.infoErrorMode) {
-        paragraph 'Lock info was unable to load. There may be an issue with the lock.  Please check batteries or connection and try to refresh lock data again.'
-      }
       def actions = location.helloHome?.getPhrases()*.label
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
       if (actions) {
         href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png')
-      }
-      if (isInit() || state.infoErrorMode) {
-        href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to refresh', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
-        debugger("info mode: ${state.infoErrorMode}")
-      } else {
-        paragraph 'Lock is loading data'
       }
     }
     section('Setup', hideable: true, hidden: true) {
       label title: 'Label', defaultValue: "Lock: ${lock.label}", required: true, description: 'recommended to start with Lock:'
       input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
       input(name: 'contactSensor', title: 'Which contact sensor?', type: "capability.contactSensor", multiple: false, required: false)
+      if (isInit()) {
+        href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to request code refresh.  Not avalible on all locks.', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
+      } else {
+        paragraph 'Lock is loading data'
+      }
     }
   }
 }
@@ -121,10 +118,10 @@ def errorPage() {
   }
 }
 def infoRefreshPage() {
-  dynamicPage(name: 'infoRefreshPage', title: "Lock Info Refresh", nextPage: 'landingPage') {
+  dynamicPage(name: 'infoRefreshPage', title: 'Lock Info Refresh', nextPage: 'landingPage') {
     refreshMode()
-    section("Ok!") {
-      paragraph 'Lock is now in refresh mode'
+    section('Refresh Initiated') {
+      paragraph 'Lock is now in refresh mode.'
     }
   }
 }
@@ -196,18 +193,23 @@ def helloHomePage() {
 }
 
 def refreshMode() {
-  def codeSlots = 30
+  def codeSlots = lockCodeSlots()
   (1..codeSlots).each { slot ->
     state.codes["slot${slot}"].codeState = 'refresh'
   }
   state.requestCount = 0
   state.refreshComplete = false
-  state.infoErrorMode = false
   makeRequest()
+}
+
+def queSetupLockData() {
+  runIn(10, setupLockData)
 }
 
 def setupLockData() {
   debugger('run lock data setup')
+  // get report from lock -> reportAllCodes()
+
   def lockUsers = parent.getUserApps()
   lockUsers.each { lockUser ->
     // initialize data attributes for this lock.
@@ -229,9 +231,12 @@ def setupLockData() {
       state.pinLength = lock.latestValue('pinLength')
     }
   }
-  def codeSlots = 30
+  def codeSlots = lockCodeSlots()
+  def needPoll = false
   (1..codeSlots).each { slot ->
     if (state.codes["slot${slot}"] == null) {
+      needPoll = true
+
       state.initializeComplete = false
       state.codes["slot${slot}"] = [:]
       state.codes["slot${slot}"].slot = slot
@@ -240,12 +245,18 @@ def setupLockData() {
       state.codes["slot${slot}"].codeState = 'unknown'
     }
   }
-  makeRequest()
+
+  if (needPoll) {
+    log.debug('needs poll')
+    lock.poll()
+  }
+
+  setCodes()
 }
 
 def makeRequest() {
   def requestSlot = false
-  def codeSlots = 30
+  def codeSlots = lockCodeSlots()
   (1..codeSlots).each { slot ->
     def codeState = state.codes["slot${slot}"]['codeState']
     if (codeState != 'known') {
@@ -260,14 +271,15 @@ def makeRequest() {
     lock.requestCode(requestSlot)
   } else if (!withinAllowed()){
     debugger('Codes not retreived in reasonable time')
-    debugger('Is the lock online?')
-    state.infoErrorMode = true
+    debugger('Is the lock requestCode avalible for this lock?')
+    state.refreshComplete = true
+    // run a poll and reset everthing
+    lock.poll()
   } else {
     debugger('no request to make')
     state.requestCount = 0
     state.refreshComplete = true
     state.initializeComplete = true
-    state.infoErrorMode = false
     setCodes()
   }
 }
@@ -277,8 +289,7 @@ def withinAllowed() {
 }
 
 def allowedAttempts() {
-  // will be code slots x2
-  return 30 * 2
+  return lockCodeSlots() * 2
 }
 
 def updateCode(event) {
@@ -300,13 +311,41 @@ def updateCode(event) {
   debugger("Recieved: s:${slot} c:${code}")
 
   // check logic to see if all codes are in known state
-  if (!state.initializeComplete || !state.refreshComplete) {
+  if (!state.refreshComplete) {
     runIn(5, makeRequest)
   }
   if (previousCode != code) {
     // code changed, let's inform!
     codeInform(slot, code)
   }
+}
+
+def pollCodeReport(evt) {
+  def codeData = new JsonSlurper().parseText(evt.data)
+  state.codeSlots = codeData.codes
+
+  def codeSlots = lockCodeSlots()
+  debugger("Recieved: ${codeData}")
+  (1..codeSlots).each { slot->
+    def code = codeData."code${slot}"
+    if (code.isNumber()) {
+      // do nothing, looks good!
+    } else {
+      // It's easier on logic if code is empty to be null
+      code = null
+    }
+
+    def previousCode = state.codes["slot${slot}"]['code']
+
+    state.codes["slot${slot}"]['code'] = code
+    if (!state.refreshComplete) {
+      // don't change state if in refresh mode
+      state.codes["slot${slot}"]['codeState'] = 'known'
+    }
+  }
+  state.initializeComplete = true
+  // Set codes loaded, set new codes.
+  setCodes()
 }
 
 def codeUsed(evt) {
@@ -417,6 +456,7 @@ def codeUsed(evt) {
 }
 
 def setCodes() {
+  debugger('run code logic')
   def codes = state.codes
   def sortedCodes = codes.sort{it.value.slot}
   sortedCodes.each { data ->
@@ -430,7 +470,7 @@ def setCodes() {
         // is inactive, should not be set
         state.codes["slot${data.slot}"].correctValue = null
       }
-    } else if (overwriteMode) {
+    } else if (parent.overwriteMode) {
       state.codes["slot${data.slot}"].correctValue = null
     } else {
       // do nothing!
@@ -616,6 +656,14 @@ def isRefreshComplete() {
   return state.refreshComplete
 }
 
+def lockCodeSlots() {
+  def codeSlots = 30
+  if (state?.codeSlots?.isNumber()) {
+    codeSlots = state.codeSlots
+  }
+  return codeSlots
+}
+
 def codeData() {
   return state.codes
 }
@@ -631,10 +679,6 @@ def enableUser(slot) {
 
 def pinLength() {
   return state.pinLength
-}
-
-def isInLockErrorMode() {
-  return state.infoErrorMode
 }
 
 def debugger(message) {

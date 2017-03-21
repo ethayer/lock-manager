@@ -51,6 +51,13 @@ def initialize() {
   subscribeToSchedule()
 }
 
+def uninstalled() {
+  unschedule()
+
+  // prompt locks to delete this user
+  inilializeLocks()
+}
+
 def subscribeToSchedule() {
   if (startTime) {
     // sechedule time of start!
@@ -94,6 +101,7 @@ def calendarEnd() {
 }
 
 def initializeLockData() {
+  debugger('Initialize lock data for user.')
   def lockApps = parent.getLockApps()
   lockApps.each { lockApp ->
     def lockId = lockApp.lock.id
@@ -106,9 +114,10 @@ def initializeLockData() {
 }
 
 def inilializeLocks() {
+  debugger('User asking for lock init')
   def lockApps = parent.getLockApps()
   lockApps.each { lockApp ->
-    lockApp.setupLockData()
+    lockApp.queSetupLockData()
   }
 }
 
@@ -924,4 +933,11 @@ def sendAskAlexa(message) {
                     isStateChange: true,
                     descriptionText: message,
                     unit: "User//${userName}")
+}
+
+def debugger(message) {
+  def doDebugger = parent.debuggerOn()
+  if (doDebugger) {
+    log.debug(message)
+  }
 }
