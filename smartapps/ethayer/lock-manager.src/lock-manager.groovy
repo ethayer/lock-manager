@@ -92,6 +92,13 @@ def lockInfoPage(params) {
           }
         }
       }
+
+      section('Lock Settings') {
+        def pinLength = lockApp.pinLength()
+        if (pinLength) {
+          paragraph "Required Length: ${pinLength}"
+        }
+      }
     } else {
       section() {
         paragraph 'Error: Can\'t find lock!'
