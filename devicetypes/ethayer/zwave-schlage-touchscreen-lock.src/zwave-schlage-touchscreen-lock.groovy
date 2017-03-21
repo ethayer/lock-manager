@@ -1315,7 +1315,6 @@ def setAlarmMode(def newValue = null)
 			case "Kick":
 				newMode = 0x3
 				break
-			case "unknown_alarmMode":
 			default:
 				// don't send a mode - instead request the current state
 				cmds = secureSequence([zwave.configurationV2.configurationGet(parameterNumber: 0x7)], 5000)
