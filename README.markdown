@@ -11,22 +11,20 @@ Incomplete List of features:
 
 This app works using 3 child apps and 1 parent app.  It is recommended that you install all 4 apps, however if you do not use keypad devices, it is not required to install the keypad child app.
 
-**Note:** If upgrading from any beta version, it is required to uninstall the app completely before installing.  The architecture of this app has changed in
-a way that is incompatible with previous versions.
-
 ### How To Install
-[User Guide](https://dl.dropboxusercontent.com/u/54190708/LockManager/v1/guide.pdf)
+[User Guide](https://dl.dropboxusercontent.com/u/54190708/LockManager/v1.1/guide.pdf)
 
+
+### Questions?
+Ask in the [Community Forum](https://community.smartthings.com/t/release-lock-manager/63022).
+
+### Suggestions/Bugs?
+Create a Ticket in the [Issue Tracker](https://github.com/ethayer/lock-manager/issues).
+(yes, even for feature requests)
+
+Pull Requests are welcome.
 
 ##
-
-### Version 1
-
-This app no longer requires a custom device handler, however it does require a device handler that follows best standards.  Some out of date device handlers do not report codes with the correct state attributes.
-
-One I've run into so far is garyd9's DTH for schlage locks, which I have included a copy of in this repo with the corrected event response.  I am not maintaining this code, however it works and I wanted to make it easy for people to install.
-
-
 
 ### Please donate
 
