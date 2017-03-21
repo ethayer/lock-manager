@@ -1268,82 +1268,69 @@ def setAutoLock()
 	setOnOffParameter("autoLock", 0xF)
 }
 
-def setAlarmMode()
+def setAlarmMode(def newValue = null)
 {
+
 	def cs = device.currentValue("alarmMode")
-	def newMode = null
+	def newMode = 0x0
 
-	switch (cs)
+	def cmds = null
+
+	if (newValue == null)
 	{
-		case "Off_alarmMode":
-			newMode = "Alert"
-			break
+		switch (cs)
+		{
+			case "Off_alarmMode":
+				newMode = 0x1
+				break
+			case "Alert_alarmMode":
+				newMode = 0x2
+				break
+			case "Tamper_alarmMode":
+				newMode = 0x3
+				break
+			case "Kick_alarmMode":
+				newMode = 0x0
+				break
+			case "unknown_alarmMode":
+			default:
+				// don't send a mode - instead request the current state
+				cmds = secureSequence([zwave.configurationV2.configurationGet(parameterNumber: 0x7)], 5000)
 
-		case "Alert_alarmMode":
-			newMode = "Tamper"
-			break
-
-		case "Tamper_alarmMode":
-			newMode = "Kick"
-			break;
-
-		case "Kick_alarmMode":
-			newMode = "Off"
-			break;
-
-		case "unknown_alarmMode":
-		default:
-			break;
-	}
-	if (newMode == null)
-	{
-		// don't send a mode - instead request the current state
-		def cmds = secureSequence([zwave.configurationV2.configurationGet(parameterNumber: 0x7)], 5000)
-		cmds
-		log.debug "setAlarmMode sending ${cmds.inspect()}"
+		}
 	}
 	else
 	{
-		setAlarmMode(newMode)
+		switch (newValue)
+		{
+			case "Off":
+				newMode = 0x0
+				break
+			case "Alert":
+				newMode = 0x1
+				break
+			case "Tamper":
+				newMode = 0x2
+				break
+			case "Kick":
+				newMode = 0x3
+				break
+			case "unknown_alarmMode":
+			default:
+				// don't send a mode - instead request the current state
+				cmds = secureSequence([zwave.configurationV2.configurationGet(parameterNumber: 0x7)], 5000)
+
+		}
 	}
-
-}
-
-def setAlarmMode(newValue)
-{
-	def mode = null
-	switch (newValue)
-	{
-		case "Off":
-			mode = 0x0
-			break
-
-		case "Alert":
-			mode = 0x1
-			break
-
-		case "Tamper":
-			mode = 0x2
-			break;
-
-		case "Kick":
-			mode = 0x3
-			break;
-		default:
-			break;
-	}
-	if (mode != null)
+	if (cmds == null)
 	{
 		// change the alarmSensitivity to the 'unknown' value - it will get refreshed after the alarm mode is done changing
 		sendEvent(name: 'alarmSensitivity', value: 0, displayed: false )
-		def cmds = secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 7, size: 1, configurationValue: [mode])],5000)
-		log.debug "setAlarmMode sending ${cmds.inspect()}"
-		cmds
+		cmds = secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 7, size: 1, configurationValue: [newMode])],5000)
 	}
-	else
-	{
-		log.error "setAlarmMode received unknown mode ${newValue}"
-	}
+
+	log.debug "setAlarmMode sending ${cmds.inspect()}"
+	cmds
 }
 
 def setPinLength(newValue)
