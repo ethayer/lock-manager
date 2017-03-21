@@ -1270,41 +1270,80 @@ def setAutoLock()
 
 def setAlarmMode()
 {
-
 	def cs = device.currentValue("alarmMode")
-	def newMode = 0x0
-
-	def cmds = null
+	def newMode = null
 
 	switch (cs)
 	{
 		case "Off_alarmMode":
-			newMode = 0x1
+			newMode = "Alert"
 			break
+
 		case "Alert_alarmMode":
-			newMode = 0x2
+			newMode = "Tamper"
 			break
+
 		case "Tamper_alarmMode":
-			newMode = 0x3
-			break
+			newMode = "Kick"
+			break;
+
 		case "Kick_alarmMode":
-			newMode = 0x0
-			break
+			newMode = "Off"
+			break;
+
 		case "unknown_alarmMode":
 		default:
-			// don't send a mode - instead request the current state
-			cmds = secureSequence([zwave.configurationV2.configurationGet(parameterNumber: 0x7)], 5000)
-
+			break;
 	}
-	if (cmds == null)
+	if (newMode == null)
+	{
+		// don't send a mode - instead request the current state
+		def cmds = secureSequence([zwave.configurationV2.configurationGet(parameterNumber: 0x7)], 5000)
+		cmds
+		log.debug "setAlarmMode sending ${cmds.inspect()}"
+	}
+	else
+	{
+		setAlarmMode(newMode)
+	}
+
+}
+
+def setAlarmMode(newValue)
+{
+	def mode = null
+	switch (newValue)
+	{
+		case "Off":
+			mode = 0x0
+			break
+
+		case "Alert":
+			mode = 0x1
+			break
+
+		case "Tamper":
+			mode = 0x2
+			break;
+
+		case "Kick":
+			mode = 0x3
+			break;
+		default:
+			break;
+	}
+	if (mode != null)
 	{
 		// change the alarmSensitivity to the 'unknown' value - it will get refreshed after the alarm mode is done changing
 		sendEvent(name: 'alarmSensitivity', value: 0, displayed: false )
-		cmds = secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 7, size: 1, configurationValue: [newMode])],5000)
+		def cmds = secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 7, size: 1, configurationValue: [mode])],5000)
+		log.debug "setAlarmMode sending ${cmds.inspect()}"
+		cmds
 	}
-
-	log.debug "setAlarmMode sending ${cmds.inspect()}"
-	cmds
+	else
+	{
+		log.error "setAlarmMode received unknown mode ${newValue}"
+	}
 }
 
 def setPinLength(newValue)
