@@ -105,7 +105,7 @@ def mainPage() {
     }
     section('Setup', hideable: true, hidden: true) {
       input(name: 'keypad', title: 'Keypad', type: 'capability.lockCodes', multiple: false, required: true)
-      label title: 'Label', defaultValue: "Keypad: ${keypad.label}", required: true, description: 'recommended to start with Lock:'
+      label title: 'Label', defaultValue: "Keypad: ${keypad.label}", required: true, description: 'recommended to start with Keypad:'
     }
   }
 }
