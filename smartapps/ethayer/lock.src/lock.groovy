@@ -250,7 +250,6 @@ def setupLockData() {
     log.debug('needs poll')
     lock.poll()
   }
-
   setCodes()
 }
 
@@ -338,8 +337,8 @@ def pollCodeReport(evt) {
     def previousCode = state.codes["slot${slot}"]['code']
 
     state.codes["slot${slot}"]['code'] = code
-    if (!state.refreshComplete) {
-      // don't change state if in refresh mode
+    if (state.codes["slot${slot}"]['codeState'] != 'refresh') {
+      // don't change state if code in refresh mode
       state.codes["slot${slot}"]['codeState'] = 'known'
     }
   }
