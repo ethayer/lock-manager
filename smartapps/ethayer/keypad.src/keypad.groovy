@@ -95,10 +95,10 @@ def mainPage() {
     section('Routines') {
       paragraph 'settings here are for this keypad only. Global keypad settings, use parent app.'
       input(name: 'runDefaultAlarm', title: 'Act as SHM device?', type: 'bool', defaultValue: true, description: 'Toggle this off if actions should not effect SHM' )
-      input(name: 'armRoutine', title: 'Arm/Away routine', type: 'enum', options: actions, required: false)
-      input(name: 'disarmRoutine', title: 'Disarm routine', type: 'enum', options: actions, required: false)
-      input(name: 'stayRoutine', title: 'Arm/Stay routine', type: 'enum', options: actions, required: false)
-      input(name: 'nightRoutine', title: 'Arm/Night routine', type: 'enum', options: actions, required: false)
+      input(name: 'armRoutine', title: 'Arm/Away routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'disarmRoutine', title: 'Disarm routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'stayRoutine', title: 'Arm/Stay routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'nightRoutine', title: 'Arm/Night routine', type: 'enum', options: actions, required: false, multiple: true)
       input(name: 'armDelay', title: 'Arm Delay (in seconds)', type: 'number', required: false)
       input(name: 'notifyIncorrectPin', title: 'Notify you when incorrect code is used?', type: 'bool', required: false)
       input(name: 'attemptTollerance', title: 'How many times can incorrect code be used before notification?', type: 'number', defaultValue: 3, required: true)
