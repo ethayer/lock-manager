@@ -129,9 +129,7 @@ def codeEntryHandler(evt) {
 
   def codeEntered = evt.value as String
   def data = evt.data as Integer
-
   def currentarmMode = keypad.currentValue('armMode')
-
   def correctUser = parent.keypadMatchingUser(codeEntered)
 
   if (correctUser) {
@@ -256,7 +254,7 @@ def sendSHMEvent(armMode) {
         displayed: true,
         description: "System Status is ${armMode}"
       ]
-  debugger("test ${event}")
+  debugger("Event: ${event}")
   if (runDefaultAlarm) {
     sendLocationEvent(event)
   }
