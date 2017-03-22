@@ -246,7 +246,7 @@ def setupLockData() {
     }
   }
 
-  if (needPoll) {
+  if (needPoll || !state.initializeComplete) {
     log.debug('needs poll')
     lock.poll()
   }
