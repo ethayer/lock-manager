@@ -14,8 +14,10 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 
 preferences {
-  page name: 'rootPage'
-  page(name: 'keypadPage')
+  page name: 'landingPage'
+  page name: 'setupPage'
+  page name: 'mainPage'
+  page name: 'errorPage'
 }
 
 def installed() {
@@ -32,18 +34,62 @@ def initialize() {
   // reset listeners
   unsubscribe()
   atomicState.tries = 0
+  atomicState.installComplete = true
+
   if (keypad) {
     subscribe(location, 'alarmSystemStatus', alarmStatusHandler)
     subscribe(keypad, 'codeEntered', codeEntryHandler)
   }
 }
 
-def rootPage() {
-  dynamicPage(name: 'keypadPage',title: 'Keypad Settings (optional)', install: true, uninstall: true) {
-    section("Settings") {
-      // TODO: put inputs here
-      input(name: 'keypad', title: 'Keypad', type: 'capability.lockCodes', multiple: false, required: true)
+def isUniqueKeypad() {
+  def unique = true
+  if (!atomicState.installComplete) {
+    // only look if we're not initialized yet.
+    def keypadApps = parent.getKeypadApps()
+    keypadApps.each { keypadApp ->
+      if (keypadApp.keypad.id == keypad.id) {
+        unique = false
+      }
     }
+  }
+  return unique
+}
+
+def landingPage() {
+  if (keypad) {
+    def unique = isUniqueKeypad()
+    if (unique){
+      mainPage()
+    } else {
+      errorPage()
+    }
+  } else {
+    setupPage()
+  }
+}
+
+def setupPage() {
+  dynamicPage(name: 'setupPage', title: 'Setup Keypad', nextPage: 'landingPage', uninstall: true) {
+    section('Choose keypad for this app') {
+      input(name: 'keypad', title: 'Which keypad?', type: 'capability.lockCodes', multiple: false, required: true)
+    }
+  }
+}
+
+def errorPage() {
+  dynamicPage(name: 'errorPage', title: 'Keypad Duplicate', uninstall: true, nextPage: 'landingPage') {
+    section('Oops!') {
+      paragraph 'The keypad that you selected is already installed. Please choose a different keypad or choose Remove'
+    }
+    section('Choose keypad for this app') {
+      input(name: 'keypad', title: 'Which keypad?', type: 'capability.lockCodes', multiple: false, required: true)
+    }
+  }
+}
+
+def mainPage() {
+  dynamicPage(name: 'mainPage',title: 'Keypad Settings (optional)', install: true, uninstall: true) {
     def actions = location.helloHome?.getPhrases()*.label
     actions?.sort()
     section('Routines') {
@@ -57,41 +103,115 @@ def rootPage() {
       input(name: 'notifyIncorrectPin', title: 'Notify you when incorrect code is used?', type: 'bool', required: false)
       input(name: 'attemptTollerance', title: 'How many times can incorrect code be used before notification?', type: 'number', defaultValue: 3, required: true)
     }
+    section('Setup', hideable: true, hidden: true) {
+      input(name: 'keypad', title: 'Keypad', type: 'capability.lockCodes', multiple: false, required: true)
+      label title: 'Label', defaultValue: "Keypad: ${keypad.label}", required: true, description: 'recommended to start with Lock:'
+    }
   }
 }
 
 def alarmStatusHandler(event) {
-  log.debug "Keypad manager caught alarm status change: "+event.value
-  if (runDefaultAlarm && event.value == "off"){
+  debugger("Keypad manager caught alarm status change: ${event.value}")
+  if (runDefaultAlarm && event.value == 'off'){
     keypad?.setDisarmed()
   }
-  else if (runDefaultAlarm && event.value == "away"){
+  else if (runDefaultAlarm && event.value == 'away'){
     keypad?.setArmedAway()
   }
-  else if (runDefaultAlarm && event.value == "stay") {
+  else if (runDefaultAlarm && event.value == 'stay') {
     keypad?.setArmedStay()
   }
 }
 
-private sendSHMEvent(String shmState) {
-  keypad.acknowledgeArmRequest(3)
-  def event = [
-        name:'alarmSystemStatus',
-        value: shmState,
-        displayed: true,
-        description: "System Status is ${shmState}"
-      ]
-  debugger("test ${event}")
-  sendLocationEvent(event)
+def codeEntryHandler(evt) {
+  //do stuff
+  debugger("Caught code entry event! ${evt.value.value}")
+
+  def codeEntered = evt.value as String
+  def data = evt.data as Integer
+
+  def currentarmMode = keypad.currentValue('armMode')
+
+  def correctUser = parent.keypadMatchingUser(codeEntered)
+
+  if (correctUser) {
+    atomicState.tries = 0
+    debugger('Correct PIN entered.')
+    armCommand(data, correctUser, codeEntered)
+  } else {
+    debugger('Incorrect code!')
+    atomicState.tries = atomicState.tries + 1
+    if (atomicState.tries >= attemptTollerance) {
+      keypad.sendInvalidKeycodeResponse()
+      atomicState.tries = 0
+    }
+  }
 }
 
-private execRoutine(armMode, userApp) {
+def armCommand(value, correctUser, enteredCode) {
+  def armMode
+  def action
+  keypad.acknowledgeArmRequest(value)
+  switch (value) {
+    case 0:
+      armMode = 'off'
+      action = 'disarmed'
+      break
+    case 1:
+      armMode = 'stay'
+      action = 'armed to \'Stay\''
+      break
+    case 2:
+      armMode = 'night'
+      action = 'armed to \'Night\''
+      break
+    case 3:
+      armMode = 'away'
+      action = 'armed to \'Away\''
+      break
+    default:
+      log.error "${app.label}: Unexpected arm mode sent by keypad!"
+      armMode = false
+      break
+  }
+
+  // only delay on ARM actions
+  def useDelay = 0
+  if (armMode != 'off') {
+    useDelay = armDelay
+  }
+
+  if (useDelay > 0) {
+    keypad.setExitDelay(useDelay)
+  }
+  if (armMode) {
+    // set values for delayed event
+    atomicState.codeEntered = enteredCode
+    atomicState.armMode = armMode
+
+    runIn(useDelay, execRoutine)
+  }
+
+  def message = "${keypad.label} was ${action} by ${correctUser.label}"
+
+  debugger(message)
+  correctUser.send(message)
+}
+
+def execRoutine() {
+  debugger('executing keypad actions')
+  def armMode = atomicState.armMode
+  def userApp = parent.keypadMatchingUser(atomicState.codeEntered)
+
+  sendSHMEvent(armMode)
+
+  // run hello home actions
   if (armMode == 'away') {
     if (armRoutine) {
       location.helloHome?.execute(armRoutine)
     }
     if (userApp.armRoutine) {
-      location.helloHome?.execute(armRoutine)
+      location.helloHome?.execute(userApp.armRoutine)
     }
     if (parent.armRoutine) {
       location.helloHome?.execute(parent.armRoutine)
@@ -101,7 +221,7 @@ private execRoutine(armMode, userApp) {
       location.helloHome?.execute(stayRoutine)
     }
     if (userApp.stayRoutine) {
-      location.helloHome?.execute(stayRoutine)
+      location.helloHome?.execute(userApp.stayRoutine)
     }
     if (parent.stayRoutine) {
       location.helloHome?.execute(parent.stayRoutine)
@@ -129,116 +249,17 @@ private execRoutine(armMode, userApp) {
   }
 }
 
-def codeEntryHandler(evt) {
-  //do stuff
-  debugger("Caught code entry event! ${evt.value.value}")
-
-  def codeEntered = evt.value as String
-
-  def data = evt.data as String
-  def armMode = ''
-  def currentarmMode = keypad.currentValue('armMode')
-  def changedMode = 0
-
-  if (data == '0') {
-    armMode = 'off'
+def sendSHMEvent(armMode) {
+  def event = [
+        name:'alarmSystemStatus',
+        value: armMode,
+        displayed: true,
+        description: "System Status is ${armMode}"
+      ]
+  debugger("test ${event}")
+  if (runDefaultAlarm) {
+    sendLocationEvent(event)
   }
-  else if (data == '3') {
-    armMode = 'away'
-  }
-  else if (data == '1') {
-    armMode = 'stay'
-  }
-  else if (data == '2') {
-    armMode = 'stay' //Currently no separate night mode for SHM, set to 'stay'
-  } else {
-    log.error "${app.label}: Unexpected arm mode sent by keypad!: "+data
-    return []
-  }
-
-  def message = ''
-
-  def correctUser = parent.keypadMatchingUser(codeEntered)
-
-  if (correctUser) {
-    atomicState.tries = 0
-    debugger("Correct PIN entered. Change SHM state to ${armMode}")
-    //log.debug "Delay: ${armDelay}"
-    //log.debug "Data: ${data}"
-    //log.debug "armMode: ${armMode}"
-
-    if (data == '0') {
-      //log.debug "sendDisarmCommand"
-      if (runDefaultAlarm) {
-        runIn(0, 'sendDisarmCommand')
-      }
-      message = "${evt.displayName} was disarmed by ${correctUser.label}"
-    }
-    else if (data == "1") {
-      //log.debug "sendStayCommand"
-      if (runDefaultAlarm) {
-        if(armDelay > 0) {
-          keypad.setExitDelay(armDelay)
-        }
-        runIn(armDelay, "sendStayCommand")
-      }
-      message = "${evt.displayName} was armed to 'Stay' by ${correctUser.label}"
-    }
-    else if (data == "2") {
-      //log.debug "sendNightCommand"
-      if (runDefaultAlarm) {
-        if(armDelay > 0) {
-          keypad.setExitDelay(armDelay)
-        }
-        runIn(armDelay, 'sendNightCommand')
-      }
-      message = "${evt.displayName} was armed to 'Night' by ${correctUser.label}"
-    }
-    else if (data == "3") {
-      //log.debug "sendArmCommand"
-      if (runDefaultAlarm) {
-        if(armDelay > 0) {
-          keypad.setExitDelay(armDelay)
-        }
-        runIn(armDelay, "sendArmCommand")
-      }
-      message = "${evt.displayName} was armed to 'Away' by ${correctUser.label}"
-    }
-
-    debugger(message)
-    correctUser.send(message)
-  } else {
-    debugger('Incorrect code!')
-    atomicState.tries = atomicState.tries + 1
-    if (atomicState.tries >= attemptTollerance) {
-      keypad.sendInvalidKeycodeResponse()
-      atomicState.tries = 0
-    }
-  }
-}
-def sendArmCommand() {
-  debugger('Sending Arm Command.')
-  keypad.acknowledgeArmRequest(3)
-  sendSHMEvent('away')
-  execRoutine('away', correctUser)
-}
-def sendDisarmCommand() {
-  debugger('Sending Disarm Command.')
-  keypad.acknowledgeArmRequest(0)
-  sendSHMEvent('off')
-  execRoutine('off', correctUser)
-}
-def sendStayCommand() {
-  debugger('Sending Stay Command.')
-  keypad.acknowledgeArmRequest(1)
-  sendSHMEvent('stay')
-  execRoutine('stay', correctUser)
-}
-def sendNightCommand() {
-  debugger('Sending Night Command.')
-  keypad.acknowledgeArmRequest(2)
-  sendSHMEvent('stay')
-  execRoutine('night', correctUser)
 }
 
 def debugger(message) {

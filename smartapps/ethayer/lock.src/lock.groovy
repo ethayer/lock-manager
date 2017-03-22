@@ -44,19 +44,6 @@ def initialize() {
   setupLockData()
 }
 
-def landingPage() {
-  if (lock) {
-    def unique = isUniqueLock()
-    if (unique){
-      mainPage()
-    } else {
-      errorPage()
-    }
-  } else {
-    setupPage()
-  }
-}
-
 def isUniqueLock() {
   def unique = true
   if (!state.installComplete) {
@@ -69,6 +56,19 @@ def isUniqueLock() {
     }
   }
   return unique
+}
+
+def landingPage() {
+  if (lock) {
+    def unique = isUniqueLock()
+    if (unique){
+      mainPage()
+    } else {
+      errorPage()
+    }
+  } else {
+    setupPage()
+  }
 }
 
 def setupPage() {
@@ -117,6 +117,7 @@ def errorPage() {
     }
   }
 }
+
 def infoRefreshPage() {
   dynamicPage(name: 'infoRefreshPage', title: 'Lock Info Refresh', nextPage: 'landingPage') {
     refreshMode()
