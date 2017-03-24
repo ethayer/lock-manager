@@ -90,7 +90,7 @@ def mainPage() {
       }
     }
     section('Setup', hideable: true, hidden: true) {
-      label title: 'Label', defaultValue: "Lock: ${lock.label}", required: true, description: 'recommended to start with Lock:'
+      label title: 'Label', defaultValue: "Lock: ${lock.label}", required: false, description: 'recommended to start with Lock:'
       input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
       input(name: 'contactSensor', title: 'Which contact sensor?', type: "capability.contactSensor", multiple: false, required: false)
       if (state.refreshComplete) {
@@ -273,7 +273,7 @@ def makeRequest() {
     debugger('Codes not retreived in reasonable time')
     debugger('Is the lock requestCode avalible for this lock?')
     state.refreshComplete = true
-    
+
     // run a poll and reset everthing
     lock.poll()
   } else {
