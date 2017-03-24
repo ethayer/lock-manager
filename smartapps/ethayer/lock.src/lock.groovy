@@ -209,7 +209,6 @@ def queSetupLockData() {
 
 def setupLockData() {
   debugger('run lock data setup')
-  // get report from lock -> reportAllCodes()
 
   def lockUsers = parent.getUserApps()
   lockUsers.each { lockUser ->
@@ -248,7 +247,8 @@ def setupLockData() {
   }
 
   if (needPoll || !state.initializeComplete) {
-    log.debug('needs poll')
+    debugger('needs poll')
+    // get report from lock -> reportAllCodes()
     lock.poll()
   }
   setCodes()
@@ -273,6 +273,7 @@ def makeRequest() {
     debugger('Codes not retreived in reasonable time')
     debugger('Is the lock requestCode avalible for this lock?')
     state.refreshComplete = true
+    
     // run a poll and reset everthing
     lock.poll()
   } else {
