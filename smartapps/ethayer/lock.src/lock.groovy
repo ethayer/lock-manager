@@ -332,10 +332,10 @@ def pollCodeReport(evt) {
     if (code != null) { //check to make sure code isn't already null, which will cause .isNumber() to error. --DiddyWolf
       if (code.isNumber()) {
         // do nothing, looks good!
+        } else {
+        // It's easier on logic if code is empty to be null
+         code = null
       }
-    } else {
-      // It's easier on logic if code is empty to be null
-      code = null
     }
 
     def previousCode = state.codes["slot${slot}"]['code']
