@@ -170,6 +170,7 @@ def mainPage() {
       }
       paragraph "${text}/${usage}"
       input(name: 'userCode', type: 'text', title: userCodeInputTitle(), required: false, defaultValue: settings.'userCode', refreshAfterSelection: true)
+      input(name: 'userEnabled', type: 'bool', title: "User Enabled?", required: false, defaultValue: true, refreshAfterSelection: true)
     }
     section('Additional Settings') {
       def actions = location.helloHome?.getPhrases()*.label
@@ -541,6 +542,7 @@ def schedulingHrefDescription() {
 
 def isActive(lockId) {
   if (
+      isUserEnabled() &&
       isValidCode() &&
       isNotBurned() &&
       isEnabled(lockId) &&
@@ -569,6 +571,14 @@ def isActiveKeypad() {
   } else {
     return false
   }
+}
+
+def isUserEnabled() {
+	if (userEnabled) {
+		return true
+	} else {
+		return false
+	}
 }
 
 def isValidCode() {
