@@ -406,7 +406,7 @@ def askAlexaPage() {
   }
 }
 
-public smartThingsDateFormat() { 'yyyy-MM-dd'T'HH:mm:ss.SSSZ' }
+public smartThingsDateFormat() { "yyyy-MM-dd'T'HH:mm:ss.SSSZ" }
 
 public humanReadableStartDate() {
   new Date().parse(smartThingsDateFormat(), startTime).format('h:mm a', timeZone(startTime))
