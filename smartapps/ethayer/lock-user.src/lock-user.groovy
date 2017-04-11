@@ -947,6 +947,14 @@ def debugger(message) {
   }
 }
 
+private anyoneHome(sensors) {
+  def result = false
+  if(sensors.findAll { it?.currentPresence == "present" }) {
+    result = true
+  }
+  result
+}
+
 def executeHelloPresenceCheck(routines) {
   if (userNoRunPresence && userDoRunPresence == null) {
     if (!anyoneHome(userNoRunPresence)) {
