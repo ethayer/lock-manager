@@ -177,6 +177,9 @@ def mainPage() {
         actions.sort()
         input name: 'userUnlockPhrase', type: 'enum', title: 'Hello Home Phrase on unlock', multiple: true, required: false, options: actions, refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png'
         input name: 'userLockPhrase', type: 'enum', title: 'Hello Home Phrase on lock', description: 'Available on select locks only', multiple: true, required: false, options: actions, refreshAfterSelection: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png'
+
+        input "userNoRunPresence", "capability.presenceSensor", title: "DO NOT run Actions if any of these are present:", multiple: true, required: false
+        input "userDoRunPresence", "capability.presenceSensor", title: "ONLY run Actions if any of these are present:", multiple: true, required: false
       }
       input(name: 'burnAfterInt', title: 'How many uses before burn?', type: 'number', required: false, description: 'Blank or zero is infinite', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/fire.png')
       href(name: 'toSchedulingPage', page: 'schedulingPage', title: 'Schedule (optional)', description: schedulingHrefDescription(), state: schedulingHrefDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/calendar.png')
@@ -941,5 +944,23 @@ def debugger(message) {
   def doDebugger = parent.debuggerOn()
   if (doDebugger) {
     log.debug(message)
+  }
+}
+
+def executeHelloPresenceCheck(routines) {
+  if (userNoRunPresence && userDoRunPresence == null) {
+    if (!anyoneHome(userNoRunPresence)) {
+      location.helloHome.execute(routines)
+    }
+  } else if (userDoRunPresence && userNoRunPresence == null) {
+    if (anyoneHome(userDoRunPresence)) {
+      location.helloHome.execute(routines)
+    }
+  } else if (userDoRunPresence && userNoRunPresence) {
+    if (anyoneHome(userDoRunPresence) && !anyoneHome(userNoRunPresence)) {
+      location.helloHome.execute(routines)
+    }
+  } else {
+    location.helloHome.execute(routines)
   }
 }

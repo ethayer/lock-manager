@@ -385,7 +385,7 @@ def codeUsed(evt) {
         message += '.  Now burning code.'
       }
       if (userApp.userUnlockPhrase) {
-        location.helloHome.execute(userApp.userUnlockPhrase)
+        userApp.executeHelloPresenceCheck(userApp.userUnlockPhrase)
       }
     } else if (manualUse) {
       // unlocked manually
@@ -407,7 +407,7 @@ def codeUsed(evt) {
     if (userApp) {
       message = "${lock.label} was locked by ${userApp.userName}"
       if (userApp.userLockPhrase) {
-        location.helloHome.execute(userApp.userLockPhrase)
+        userApp.executeHelloPresenceCheck(userApp.userLockPhrase)
       }
     }
     if (data && data.usedCode == 0) {
