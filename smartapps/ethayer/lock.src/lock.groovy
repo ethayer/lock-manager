@@ -38,6 +38,7 @@ def initialize() {
   // reset listeners
   unsubscribe()
   unschedule()
+
   subscribe(lock, 'codeReport', updateCode, [filterEvents:false])
   subscribe(lock, "reportAllCodes", pollCodeReport, [filterEvents:false])
   subscribe(lock, "lock", codeUsed)
@@ -189,6 +190,9 @@ def helloHomePage() {
       if (state.supportsKeypadData) {
         input(name: 'keypadLockRoutine', title: 'On keypad Lock', type: 'enum', options: actions, required: false, multiple: true)
       }
+
+      input "userNoRunPresence", "capability.presenceSensor", title: "DO NOT run Actions if any of these are present:", multiple: true, required: false
+      input "userDoRunPresence", "capability.presenceSensor", title: "ONLY run Actions if any of these are present:", multiple: true, required: false
     }
   }
 }
@@ -391,7 +395,7 @@ def codeUsed(evt) {
       // unlocked manually
 
       if (manualUnlockRoutine) {
-        location.helloHome.execute(manualUnlockRoutine)
+        executeHelloPresenceCheck(manualUnlockRoutine)
       }
       message = "${lock.label} was unlocked manually"
       if (notifyMaunualUnlock) {
@@ -413,7 +417,7 @@ def codeUsed(evt) {
     if (data && data.usedCode == 0) {
       message = "${lock.label} was locked by keypad"
       if (keypadLockRoutine) {
-        location.helloHome.execute(keypadLockRoutine)
+        executeHelloPresenceCheck(keypadLockRoutine)
       }
       if (notifyKeypadLock) {
         send(message)
@@ -426,7 +430,7 @@ def codeUsed(evt) {
       // locked manually
       message = "${lock.label} was locked manually"
       if (manualLockRoutine) {
-        location.helloHome.execute(manualLockRoutine)
+        executeHelloPresenceCheck(manualLockRoutine)
       }
       if (notifyMaunualLock) {
         send(message)
@@ -688,5 +692,23 @@ def debugger(message) {
   def doDebugger = parent.debuggerOn()
   if (doDebugger) {
     log.debug(message)
+  }
+}
+
+def executeHelloPresenceCheck(routines) {
+  if (userNoRunPresence && userDoRunPresence == null) {
+    if (!anyoneHome(userNoRunPresence)) {
+      location.helloHome.execute(routines)
+    }
+  } else if (userDoRunPresence && userNoRunPresence == null) {
+    if (anyoneHome(userDoRunPresence)) {
+      location.helloHome.execute(routines)
+    }
+  } else if (userDoRunPresence && userNoRunPresence) {
+    if (anyoneHome(userDoRunPresence) && !anyoneHome(userNoRunPresence)) {
+      location.helloHome.execute(routines)
+    }
+  } else {
+    location.helloHome.execute(routines)
   }
 }
