@@ -59,6 +59,7 @@ def lockInfoPage(params) {
         def refreshComplete = lockApp.isRefreshComplete()
         if (!complete) {
           paragraph 'App is learning codes.  They will appear here when received.\n Lock may require special DTH to work properly'
+          lockApp.lock.poll()
         }
         if (!refreshComplete) {
           paragraph 'App is in refresh mode.'
