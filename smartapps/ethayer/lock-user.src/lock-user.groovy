@@ -72,12 +72,12 @@ def subscribeToSchedule() {
   if (startDateTime()) {
     // schedule calendar start!
     log.debug 'scheduling calendar start'
-    runOnce(startDateTime().format(smartThingsDateFormat(), location.timeZone), 'calendarStart')
+    runOnce(startDateTime().format(smartThingsDateFormat(), timeZone()), 'calendarStart')
   }
   if (endDateTime()) {
     // schedule calendar end!
     log.debug 'scheduling calendar end'
-    runOnce(endDateTime().format(smartThingsDateFormat(), location.timeZone), 'calendarEnd')
+    runOnce(endDateTime().format(smartThingsDateFormat(), timeZone()), 'calendarEnd')
   }
 }
 
@@ -409,6 +409,16 @@ def askAlexaPage() {
   }
 }
 
+def timeZone() {
+  def zone
+  if(location.timeZone) {
+    zone = location.timeZone
+  } else {
+    zone = TimeZone.getDefault()
+  }
+  return zone
+}
+
 public smartThingsDateFormat() { "yyyy-MM-dd'T'HH:mm:ss.SSSZ" }
 
 public humanReadableStartDate() {
@@ -419,7 +429,7 @@ public humanReadableEndDate() {
 }
 
 def readableDateTime(date) {
-  new Date().parse(smartThingsDateFormat(), date.format(smartThingsDateFormat(), location.timeZone)).format("EEE, MMM d yyyy 'at' h:mma", location.timeZone)
+  new Date().parse(smartThingsDateFormat(), date.format(smartThingsDateFormat(), timeZone())).format("EEE, MMM d yyyy 'at' h:mma", timeZone())
 }
 
 def getAllLocksUsage() {
@@ -619,7 +629,7 @@ def userLockEnabled(lockId) {
 }
 
 def isCorrectDay() {
-  def today = new Date().format("EEEE", location.timeZone)
+  def today = new Date().format("EEEE", timeZone())
   if (!days || days.contains(today)) {
     // if no days, assume every day
     return true
@@ -742,7 +752,7 @@ def endDateTime() {
 }
 
 def rightNow() {
-  def now = new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSZ", location.timeZone)
+  def now = new Date().format("yyyy-MM-dd'T'HH:mm:ss.SSSZ", timeZone())
   return Date.parse("yyyy-MM-dd'T'HH:mm:ss.SSSZ", now)
 }
 
