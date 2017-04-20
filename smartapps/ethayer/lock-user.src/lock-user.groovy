@@ -560,6 +560,7 @@ def isActive(lockId) {
 
 def isActiveKeypad() {
   if (
+      isUserEnabled() &&
       isValidCode() &&
       isNotBurned() &&
       isCorrectDay() &&
@@ -574,7 +575,7 @@ def isActiveKeypad() {
 }
 
 def isUserEnabled() {
-	if (userEnabled) {
+	if (userEnabled == null || userEnabled) {  //If true or unset, return true
 		return true
 	} else {
 		return false
