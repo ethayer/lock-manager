@@ -342,8 +342,6 @@ def pollCodeReport(evt) {
       }
     }
 
-    def previousCode = state.codes["slot${slot}"]['code']
-
     state.codes["slot${slot}"]['code'] = code
     if (state.codes["slot${slot}"]['codeState'] != 'refresh') {
       // don't change state if code in refresh mode
@@ -667,6 +665,7 @@ def lockCodeSlots() {
   def codeSlots = 30
   if (state?.codeSlots?.isNumber()) {
     codeSlots = state.codeSlots
+    debugger("Lock has ${codeSlots} code slots.")
   }
   return codeSlots
 }
