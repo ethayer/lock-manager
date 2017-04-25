@@ -101,7 +101,7 @@ metadata
 	}
 
 	tiles(scale: 2) {
-		multiAttributeTile(name:"toggle", type: "lighting", width: 6, height: 4){
+		multiAttributeTile(name:"toggle", type: "generic", width: 6, height: 4){
 			tileAttribute ("device.lock", key: "PRIMARY_CONTROL") {
 
 			attributeState "locked", label:'locked', action:"lock.unlock", icon:"st.locks.lock.locked", backgroundColor:"#79b821", nextState:"unlocking"
