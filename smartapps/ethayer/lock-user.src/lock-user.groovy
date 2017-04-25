@@ -44,7 +44,7 @@ def initialize() {
 
   // setup data
   initializeLockData()
-  inilializeLocks()
+  initializeLocks()
 
   // set listeners
   subscribe(location, locationHandler)
@@ -55,7 +55,7 @@ def uninstalled() {
   unschedule()
 
   // prompt locks to delete this user
-  inilializeLocks()
+  initializeLocks()
 }
 
 def subscribeToSchedule() {
@@ -113,7 +113,7 @@ def initializeLockData() {
   }
 }
 
-def inilializeLocks() {
+def initializeLocks() {
   debugger('User asking for lock init')
   def lockApps = parent.getLockApps()
   lockApps.each { lockApp ->
