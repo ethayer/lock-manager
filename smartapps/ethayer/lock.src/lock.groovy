@@ -199,6 +199,7 @@ def helloHomePage() {
 
 def refreshMode() {
   def codeSlots = lockCodeSlots()
+  initSlots()
   (1..codeSlots).each { slot ->
     state.codes["slot${slot}"].codeState = 'refresh'
   }
@@ -249,6 +250,7 @@ def setupLockData() {
 def makeRequest() {
   def requestSlot = false
   def codeSlots = lockCodeSlots()
+  initSlots()
   (1..codeSlots).each { slot ->
     def codeState = state.codes["slot${slot}"]['codeState']
     if (codeState != 'known') {
@@ -334,11 +336,10 @@ def updateCode(event) {
 def pollCodeReport(evt) {
   def codeData = new JsonSlurper().parseText(evt.data)
 
+  state.codeSlots = codeData.codes
+  def codeSlots = lockCodeSlots()
   initSlots()
 
-  state.codeSlots = codeData.codes
-
-  def codeSlots = lockCodeSlots()
   debugger("Recieved: ${codeData}")
   (1..codeSlots).each { slot->
     def code = codeData."code${slot}"
