@@ -235,20 +235,8 @@ def setupLockData() {
       state.pinLength = lock.latestValue('pinLength')
     }
   }
-  def codeSlots = lockCodeSlots()
-  def needPoll = false
-  (1..codeSlots).each { slot ->
-    if (state.codes["slot${slot}"] == null) {
-      needPoll = true
 
-      state.initializeComplete = false
-      state.codes["slot${slot}"] = [:]
-      state.codes["slot${slot}"].slot = slot
-      state.codes["slot${slot}"].code = null
-      state.codes["slot${slot}"].attempts = 0
-      state.codes["slot${slot}"].codeState = 'unknown'
-    }
-  }
+  def needPoll = initSlots()
 
   if (needPoll || !state.initializeComplete) {
     debugger('needs poll')
@@ -289,6 +277,24 @@ def makeRequest() {
   }
 }
 
+def initSlots() {
+  def codeSlots = lockCodeSlots()
+  def needPoll = false
+  (1..codeSlots).each { slot ->
+    if (state.codes["slot${slot}"] == null) {
+      needPoll = true
+
+      state.initializeComplete = false
+      state.codes["slot${slot}"] = [:]
+      state.codes["slot${slot}"].slot = slot
+      state.codes["slot${slot}"].code = null
+      state.codes["slot${slot}"].attempts = 0
+      state.codes["slot${slot}"].codeState = 'unknown'
+    }
+  }
+  return needPoll
+}
+
 def withinAllowed() {
   return (state.requestCount <= allowedAttempts())
 }
@@ -327,6 +333,9 @@ def updateCode(event) {
 
 def pollCodeReport(evt) {
   def codeData = new JsonSlurper().parseText(evt.data)
+
+  initSlots()
+
   state.codeSlots = codeData.codes
 
   def codeSlots = lockCodeSlots()
