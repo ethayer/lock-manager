@@ -432,6 +432,11 @@ def readableDateTime(date) {
   new Date().parse(smartThingsDateFormat(), date.format(smartThingsDateFormat(), timeZone())).format("EEE, MMM d yyyy 'at' h:mma", timeZone())
 }
 
+
+def getLockUsage(lock_id) {
+  return state."lock${lock_id}".usage
+}
+
 def getAllLocksUsage() {
   def usage = 0
   def lockApps = parent.getLockApps()

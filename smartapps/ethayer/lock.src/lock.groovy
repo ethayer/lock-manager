@@ -361,6 +361,7 @@ def codeUsed(evt) {
   def codeUsed = false
   def manualUse = false
   def data = false
+
   if (evt.data) {
     data = new JsonSlurper().parseText(evt.data)
     codeUsed = data.usedCode
@@ -457,6 +458,10 @@ def codeUsed(evt) {
         userApp.sendAskAlexa(message)
       }
     }
+  }
+
+  if (parent.apiApp()) {
+    parent.apiApp().codeUsed(app, action, codeUsed)
   }
 }
 
@@ -659,6 +664,16 @@ def isCodeComplete() {
 
 def isRefreshComplete() {
   return state.refreshComplete
+}
+
+def totalUsage() {
+  def usage = 0
+  def userApps = parent.getUserApps()
+  userApps.each { userApp ->
+    def lockUsage = userApp.getLockUsage(lock.id)
+    usage = usage + lockUsage
+  }
+  return usage
 }
 
 def lockCodeSlots() {
