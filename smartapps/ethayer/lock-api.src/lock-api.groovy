@@ -99,7 +99,7 @@ def listSlots() {
 
 def codeUsed(lockApp, action, slot) {
   def params = [
-    uri: 'https://lock-guest.herokuapp.com/',
+    uri: 'https://www.lockmanager.io/',
     path: '/events/code-used',
     body: [
       token: settings.accountToken,
