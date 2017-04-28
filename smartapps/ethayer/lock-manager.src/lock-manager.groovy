@@ -26,6 +26,7 @@ def mainPage() {
       app(name: 'locks', appName: 'Lock', namespace: 'ethayer', title: 'New Lock', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/new-lock.png')
       app(name: 'lockUsers', appName: 'Lock User', namespace: 'ethayer', title: 'New User', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
       app(name: 'keypads', appName: 'Keypad', namespace: 'ethayer', title: 'New Keypad', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad-plus.png')
+      app(name: 'lockAPI', appName: 'Lock API', namespace: 'ethayer', title: 'New Api Access', multiple: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad-plus.png')
     }
     section('Locks') {
       def lockApps = getLockApps()
@@ -372,6 +373,18 @@ private anyoneHome(sensors) {
     result = true
   }
   result
+}
+
+def apiApp() {
+  def app = false
+
+  def children = getChildApps()
+  children.each { child ->
+    if (child.enableAPI) {
+      app = child
+    }
+  }
+  return app
 }
 
 def executeHelloPresenceCheck(routines) {
