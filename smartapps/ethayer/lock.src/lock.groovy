@@ -223,19 +223,6 @@ def setupLockData() {
   if (state.requestCount == null) {
     state.requestCount = 0
   }
-  if (state.codes == null) {
-    // new install!  Start learning!
-    state.codes = [:]
-    state.requestCount = 0
-    state.initializeComplete = false
-    state.installComplete = true
-    state.refreshComplete = true
-    state.supportsKeypadData = true
-    state.pinLength = false
-    if (lock.hasAttribute('pinLength')) {
-      state.pinLength = lock.latestValue('pinLength')
-    }
-  }
 
   def needPoll = initSlots()
 
@@ -282,6 +269,21 @@ def makeRequest() {
 def initSlots() {
   def codeSlots = lockCodeSlots()
   def needPoll = false
+
+  if (state.codes == null) {
+    // new install!  Start learning!
+    state.codes = [:]
+    state.requestCount = 0
+    state.initializeComplete = false
+    state.installComplete = true
+    state.refreshComplete = true
+    state.supportsKeypadData = true
+    state.pinLength = false
+    if (lock.hasAttribute('pinLength')) {
+      state.pinLength = lock.latestValue('pinLength')
+    }
+  }
+
   (1..codeSlots).each { slot ->
     if (state.codes["slot${slot}"] == null) {
       needPoll = true
