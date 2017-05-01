@@ -60,6 +60,7 @@ def isUniqueLock() {
 }
 
 def landingPage() {
+  initSlots()
   if (lock) {
     def unique = isUniqueLock()
     if (unique){
@@ -282,7 +283,10 @@ def makeRequest() {
 def initSlots() {
   def codeSlots = lockCodeSlots()
   def needPoll = false
+  def userApp = false
   (1..codeSlots).each { slot ->
+    def control = 'available'
+
     if (state.codes["slot${slot}"] == null) {
       needPoll = true
 
@@ -293,6 +297,15 @@ def initSlots() {
       state.codes["slot${slot}"].attempts = 0
       state.codes["slot${slot}"].codeState = 'unknown'
     }
+    userApp = findSlotUserApp(slot)
+    if (userApp) {
+      // there's a smartApp for this slot
+      control = 'controller'
+    } else if (state.codes["slot${slot}"].control == 'api') {
+      // don't change from API control
+      control = 'api'
+    }
+    state.codes["slot${slot}"].control = control
   }
   return needPoll
 }
@@ -490,6 +503,8 @@ def setCodes() {
         // is inactive, should not be set
         state.codes["slot${data.slot}"].correctValue = null
       }
+    } else if (state.codes["slot${data.slot}"].control == 'api') {
+      // do nothing! allow API to handle.
     } else if (parent.overwriteMode) {
       state.codes["slot${data.slot}"].correctValue = null
     } else {
@@ -666,6 +681,12 @@ def sendAskAlexa(message) {
                     isStateChange: true,
                     descriptionText: message,
                     unit: "Lock//${lock.label}")
+}
+
+def apiCodeUpdate(slot, code, control) {
+  state.codes["slot${slot}"]['correctValue'] = code
+  state.codes["slot${slot}"]['control'] = control
+  setCodes()
 }
 
 def isCodeComplete() {

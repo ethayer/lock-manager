@@ -89,6 +89,9 @@ def lockInfoPage(params) {
               if (data.codeState == 'refresh') {
                 para = para +'\nPending refresh...'
               }
+              if (data.control) {
+                para = para +"\nControl: ${data.control}"
+              }
               paragraph para, image: image
             }
           }
@@ -235,6 +238,20 @@ def updated() {
 def initialize() {
   def children = getChildApps()
   log.debug "there are ${children.size()} lock users"
+}
+
+def getLockAppById(id) {
+  def lockApp = false
+  def lockApps = getLockApps()
+  if (lockApps) {
+    def i = 0
+    lockApps.each { app ->
+      if (app.lock.id == id) {
+        lockApp = app
+      }
+    }
+  }
+  return lockApp
 }
 
 def getLockAppByIndex(params) {

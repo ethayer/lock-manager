@@ -26,9 +26,9 @@ mappings {
       POST: "getAccountToken"
     ]
   }
-  path("/locks/:command") {
+  path("/update-slot") {
     action: [
-      PUT: "updatelocks"
+      POST: "updateSlot"
     ]
   }
 }
@@ -110,12 +110,35 @@ def codeUsed(lockApp, action, slot) {
   ]
   asynchttp_v1.post(processResponse, params)
 }
+def codeUsed(lockApp, action, slot) {
+  def params = [
+    uri: 'https://www.lockmanager.io/',
+    path: '/events/code-changed',
+    body: [
+      token: settings.accountToken,
+      lock: lockApp.lock.id,
+      action: action,
+      slot: slot
+    ]
+  ]
+  asynchttp_v1.post(processResponse, params)
+}
 
 def processResponse(response, data) {
   log.debug(data)
 }
 
-def getAccountToken(params) {
+def updateSlot() {
+  def slot = request.JSON?.slot
+  def control = request.JSON?.control
+  def code = request.JSON?.code
+  def lock_id = request.JSON?.lock_key
+  def lockApp = parent.getLockAppById(lock_id)
+  // slot, code, control
+  lockApp.apiCodeUpdate(slot, code, control)
+}
+
+def getAccountToken() {
   debugger('API account token set!')
   settings.accountToken = request.JSON?.token
 }
