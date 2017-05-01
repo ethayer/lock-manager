@@ -110,19 +110,6 @@ def codeUsed(lockApp, action, slot) {
   ]
   asynchttp_v1.post(processResponse, params)
 }
-def codeUsed(lockApp, action, slot) {
-  def params = [
-    uri: 'https://www.lockmanager.io/',
-    path: '/events/code-changed',
-    body: [
-      token: settings.accountToken,
-      lock: lockApp.lock.id,
-      action: action,
-      slot: slot
-    ]
-  ]
-  asynchttp_v1.post(processResponse, params)
-}
 
 def processResponse(response, data) {
   log.debug(data)
