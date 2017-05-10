@@ -199,6 +199,7 @@ def mainPage() {
       label(title: "Name for App", defaultValue: 'User: ' + userName, required: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png')
       input name: 'userName', title: "Name for user", required: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png'
       input(name: "userSlot", type: "enum", options: parent.availableSlots(settings.userSlot), title: "Select slot", required: true, refreshAfterSelection: true )
+      paragraph 'Lock Manager © 2017 v1.3'
     }
   }
 }

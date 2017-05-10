@@ -99,6 +99,7 @@ def mainPage() {
       } else {
         paragraph 'Lock is loading data'
       }
+      paragraph 'Lock Manager © 2017 v1.3'
     }
   }
 }
@@ -181,16 +182,19 @@ def askAlexaPage() {
 }
 
 def helloHomePage() {
-  dynamicPage(name: 'helloHomePage',title: 'Keypad Settings (optional)', install: true, uninstall: true) {
+  dynamicPage(name: 'helloHomePage', title: 'Hello Home Settings (optional)') {
     def actions = location.helloHome?.getPhrases()*.label
     actions?.sort()
     section('Hello Home Phrases') {
       input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
       input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
-      if (state.supportsKeypadData) {
-        input(name: 'keypadLockRoutine', title: 'On keypad Lock', type: 'enum', options: actions, required: false, multiple: true)
-      }
 
+      input(name: 'codeUnlockRoutine', title: 'On Code Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png' )
+
+      paragraph 'Supported on some locks:'
+      input(name: 'codeLockRoutine', title: 'On Code Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+
+      paragraph 'These restrictions apply to all the above:'
       input "userNoRunPresence", "capability.presenceSensor", title: "DO NOT run Actions if any of these are present:", multiple: true, required: false
       input "userDoRunPresence", "capability.presenceSensor", title: "ONLY run Actions if any of these are present:", multiple: true, required: false
     }
@@ -398,15 +402,31 @@ def codeUsed(evt) {
         parent.setAccess()
         message += '.  Now burning code.'
       }
+      // user specific
       if (userApp.userUnlockPhrase) {
         userApp.executeHelloPresenceCheck(userApp.userUnlockPhrase)
       }
+      // lock specific
+      if (codeUnlockRoutine) {
+        executeHelloPresenceCheck(codeUnlockRoutine)
+      }
+      // global
+      if (parent.codeUnlockRoutine) {
+        parent.executeHelloPresenceCheck(parent.codeUnlockRoutine)
+      }
+
     } else if (manualUse) {
       // unlocked manually
 
+      // lock specific
       if (manualUnlockRoutine) {
         executeHelloPresenceCheck(manualUnlockRoutine)
       }
+      // global
+      if (parent.manualUnlockRoutine) {
+        parent.executeHelloPresenceCheck(parent.manualUnlockRoutine)
+      }
+
       message = "${lock.label} was unlocked manually"
       if (notifyMaunualUnlock) {
         send(message)
@@ -420,8 +440,17 @@ def codeUsed(evt) {
     // door was locked
     if (userApp) {
       message = "${lock.label} was locked by ${userApp.userName}"
+      // user specific
       if (userApp.userLockPhrase) {
         userApp.executeHelloPresenceCheck(userApp.userLockPhrase)
+      }
+      // lock specific
+      if (codeLockRoutine) {
+        executeHelloPresenceCheck(codeLockRoutine)
+      }
+      // gobal
+      if (parent.codeLockRoutine) {
+        parent.executeHelloPresenceCheck(parent.codeLockRoutine)
       }
     }
     if (data && data.usedCode == 0) {
@@ -439,9 +468,16 @@ def codeUsed(evt) {
     if (manualUse) {
       // locked manually
       message = "${lock.label} was locked manually"
+
+      // lock specific
       if (manualLockRoutine) {
         executeHelloPresenceCheck(manualLockRoutine)
       }
+      // global
+      if (parent.manualLockRoutine) {
+        parent.executeHelloPresenceCheck(parent.manualLockRoutine)
+      }
+
       if (notifyMaunualLock) {
         send(message)
       }
@@ -704,6 +740,14 @@ def debugger(message) {
   if (doDebugger) {
     log.debug(message)
   }
+}
+
+def anyoneHome(sensors) {
+  def result = false
+  if(sensors.findAll { it?.currentPresence == "present" }) {
+    result = true
+  }
+  result
 }
 
 def executeHelloPresenceCheck(routines) {

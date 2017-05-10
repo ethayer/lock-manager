@@ -15,6 +15,7 @@ preferences {
   page name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true
   page name: 'infoRefreshPage'
   page name: 'notificationPage'
+  page name: 'helloHomePage'
   page name: 'lockInfoPage'
   page name: 'keypadPage'
   page name: 'askAlexaPage'
@@ -39,13 +40,22 @@ def mainPage() {
       }
     }
     section('Global Settings') {
-      // needs to run any time a lock is added
-      href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad.png')
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
+
+      def actions = location.helloHome?.getPhrases()*.label
+      if (actions) {
+        href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png')
+      }
+
+      def keypadApps = getKeypadApps()
+      if (keypadApps) {
+        href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad.png')
+      }
     }
     section('Advanced', hideable: true, hidden: true) {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
       input(name: 'enableDebug', title: 'Enable IDE debug messages?', type: 'bool', required: true, defaultValue: false, description: 'Show activity from Lock Manger in logs for debugging.')
+      paragraph 'Lock Manager © 2017 v1.3'
     }
   }
 }
@@ -131,6 +141,26 @@ def notificationPage() {
     section('Only During These Times (optional)') {
       input(name: 'notificationStartTime', type: 'time', title: 'Notify Starting At This Time', description: null, required: false)
       input(name: 'notificationEndTime', type: 'time', title: 'Notify Ending At This Time', description: null, required: false)
+    }
+  }
+}
+
+def helloHomePage() {
+  dynamicPage(name: 'helloHomePage', title: 'Global Hello Home Settings (optional)') {
+    def actions = location.helloHome?.getPhrases()*.label
+    actions?.sort()
+    section('Hello Home Phrases') {
+      input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+      input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+
+      input(name: 'codeUnlockRoutine', title: 'On Code Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png' )
+
+      paragraph 'Supported on some locks:'
+      input(name: 'codeLockRoutine', title: 'On Code Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+
+      paragraph 'These restrictions apply to all the above:'
+      input "userNoRunPresence", "capability.presenceSensor", title: "DO NOT run Actions if any of these are present:", multiple: true, required: false
+      input "userDoRunPresence", "capability.presenceSensor", title: "ONLY run Actions if any of these are present:", multiple: true, required: false
     }
   }
 }
@@ -366,7 +396,7 @@ def debugger(message) {
   }
 }
 
-private anyoneHome(sensors) {
+def anyoneHome(sensors) {
   def result = false
   if(sensors.findAll { it?.currentPresence == "present" }) {
     result = true
