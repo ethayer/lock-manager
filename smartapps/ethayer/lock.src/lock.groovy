@@ -386,11 +386,6 @@ def codeUsed(evt) {
     if (data.usedCode == 'manual') {
       manualUse = true
     }
-  } else {
-    // this lock does not report
-    // differance between manual or keypad
-    state.supportsKeypadData = false
-    manualUse = true
   }
 
   if (action == 'unlocked') {
@@ -453,7 +448,7 @@ def codeUsed(evt) {
         parent.executeHelloPresenceCheck(parent.codeLockRoutine)
       }
     }
-    if (data && data.usedCode == 0) {
+    if (data && data.usedCode == -1) {
       message = "${lock.label} was locked by keypad"
       if (keypadLockRoutine) {
         executeHelloPresenceCheck(keypadLockRoutine)
