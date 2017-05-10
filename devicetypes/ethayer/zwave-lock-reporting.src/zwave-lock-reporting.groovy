@@ -155,9 +155,11 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd) {
 		switch(cmd.zwaveAlarmEvent) {
 			case 1:
 				map.descriptionText = "$device.displayName was manually locked"
+				map.data = [ usedCode: "manual" ]
 				break
 			case 2:
 				map.descriptionText = "$device.displayName was manually unlocked"
+				map.data = [ usedCode: "manual" ]
 				break
 			case 5:
 				if (cmd.eventParameter) {
@@ -246,7 +248,13 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd) {
 	} else switch(cmd.alarmType) {
 		case 21:  // Manually locked
 		case 18:  // Locked with keypad
+			map = [ name: "lock", value: "locked" ]
+      map.data = [ usedCode: cmd.alarmLevel ]
+      map.descriptionText = "$device.displayName was locked by keypad"
 		case 24:  // Locked by command (Kwikset 914)
+			map = [ name: "lock", value: "locked" ]
+			map.data = [ usedCode: -1 ]
+			map.descriptionText = "$device.displayName was locked by command"
 		case 27:  // Autolocked
 			map = [ name: "lock", value: "locked" ]
 			break
