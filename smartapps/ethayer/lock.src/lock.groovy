@@ -100,7 +100,7 @@ def mainPage() {
       } else {
         paragraph 'Lock is loading data'
       }
-      paragraph 'Lock Manager © 2017 v1.3'
+      paragraph 'Lock Manager © 2017 v1.4'
     }
   }
 }
@@ -149,8 +149,8 @@ def notificationPage() {
           input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
         }
         if (phone != null || notification || recipients) {
-          input(name: 'notifyMaunualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
-          input(name: 'notifyMaunualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+          input(name: 'notifyManualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+          input(name: 'notifyManualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
           if (state.supportsKeypadData) {
             input(name: 'notifyKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
           }
@@ -169,8 +169,8 @@ def notificationPage() {
 def askAlexaPage() {
   dynamicPage(name: 'askAlexaPage', title: 'Ask Alexa Message Settings') {
     section('Que Messages with the Ask Alexa app') {
-      input(name: 'alexaMaunualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
-      input(name: 'alexaMaunualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+      input(name: 'alexaManualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
+      input(name: 'alexaManualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
       if (state.supportsKeypadData) {
         input(name: 'alexaKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
       }
@@ -340,7 +340,7 @@ def updateCode(event) {
   state.codes["slot${slot}"]['code'] = code
   state.codes["slot${slot}"]['codeState'] = 'known'
 
-  debugger("Recieved: s:${slot} c:${code}")
+  debugger("Received: s:${slot} c:${code}")
 
   // check logic to see if all codes are in known state
   if (!state.refreshComplete) {
@@ -359,7 +359,7 @@ def pollCodeReport(evt) {
   def codeSlots = lockCodeSlots()
   initSlots()
 
-  debugger("Recieved: ${codeData}")
+  debugger("Received: ${codeData}")
   (1..codeSlots).each { slot->
     def code = codeData."code${slot}"
     if (code != null) { //check to make sure code isn't already null, which will cause .isNumber() to error. --DiddyWolf
@@ -437,10 +437,10 @@ def codeUsed(evt) {
       }
 
       message = "${lock.label} was unlocked manually"
-      if (notifyMaunualUnlock) {
+      if (notifyManualUnlock) {
         send(message)
       }
-      if (alexaMaunualUnlock) {
+      if (alexaManualUnlock) {
         send(message)
       }
     }
@@ -487,7 +487,7 @@ def codeUsed(evt) {
         parent.executeHelloPresenceCheck(parent.manualLockRoutine)
       }
 
-      if (notifyMaunualLock) {
+      if (notifyManualLock) {
         send(message)
       }
       if (alexaManualLock) {

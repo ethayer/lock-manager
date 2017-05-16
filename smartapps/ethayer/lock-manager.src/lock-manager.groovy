@@ -64,7 +64,7 @@ def mainPage() {
     section('Advanced', hideable: true, hidden: true) {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
       input(name: 'enableDebug', title: 'Enable IDE debug messages?', type: 'bool', required: true, defaultValue: false, description: 'Show activity from Lock Manger in logs for debugging.')
-      paragraph 'Lock Manager © 2017 v1.3'
+      paragraph 'Lock Manager © 2017 v1.4'
     }
   }
 }
