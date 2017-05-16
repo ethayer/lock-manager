@@ -106,7 +106,7 @@ def mainPage() {
     section('Setup', hideable: true, hidden: true) {
       input(name: 'keypad', title: 'Keypad', type: 'capability.lockCodes', multiple: false, required: true)
       label title: 'Label', defaultValue: "Keypad: ${keypad.label}", required: false, description: 'recommended to start with Keypad:'
-      paragraph 'Lock Manager © 2017 v1.3'
+      paragraph 'Lock Manager © 2017 v1.4'
     }
   }
 }

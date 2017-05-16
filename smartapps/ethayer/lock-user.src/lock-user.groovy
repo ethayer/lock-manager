@@ -199,7 +199,7 @@ def mainPage() {
       label(title: "Name for App", defaultValue: 'User: ' + userName, required: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png')
       input name: 'userName', title: "Name for user", required: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user.png'
       input(name: "userSlot", type: "enum", options: parent.availableSlots(settings.userSlot), title: "Select slot", required: true, refreshAfterSelection: true )
-      paragraph 'Lock Manager © 2017 v1.3'
+      paragraph 'Lock Manager © 2017 v1.4'
     }
   }
 }
@@ -800,12 +800,12 @@ def getLock(params) {
 }
 
 def userNotificationSettings() {
+  def userSettings = false
   if (phone != null || notification || muteUser || recipients) {
     // user has it's own settings!
-    return true
+    userSettings = true
   }
-  // user doesn't !
-  return false
+  return userSettings
 }
 
 def send(msg) {
@@ -834,7 +834,7 @@ def checkIfNotifyGlobal(msg) {
     def start = timeToday(parent.notificationStartTime)
     def stop = timeToday(parent.notificationEndTime)
     def now = new Date()
-    if (parent.start.before(now) && parent.stop.after(now)){
+    if (start.before(now) && stop.after(now)){
       sendMessageViaParent(msg)
     }
   } else {
@@ -852,14 +852,14 @@ def sendMessageViaParent(msg) {
       sendNotificationEvent(msg)
     }
     if (parent.phone) {
-      if ( phone.indexOf(";") > 1){
+      if ( parent.phone.indexOf(";") > 1){
         def phones = parent.phone.split(";")
         for ( def i = 0; i < phones.size(); i++) {
           sendSms(phones[i], msg)
         }
       }
       else {
-        sendSms(phone, msg)
+        sendSms(parent.phone, msg)
       }
     }
   }
@@ -962,13 +962,6 @@ def sendAskAlexa(message) {
                     unit: "User//${userName}")
 }
 
-def debugger(message) {
-  def doDebugger = parent.debuggerOn()
-  if (doDebugger) {
-    log.debug(message)
-  }
-}
-
 private anyoneHome(sensors) {
   def result = false
   if(sensors.findAll { it?.currentPresence == "present" }) {
@@ -992,5 +985,12 @@ def executeHelloPresenceCheck(routines) {
     }
   } else {
     location.helloHome.execute(routines)
+  }
+}
+
+def debugger(message) {
+  def doDebugger = parent.debuggerOn()
+  if (doDebugger) {
+    log.debug(message)
   }
 }

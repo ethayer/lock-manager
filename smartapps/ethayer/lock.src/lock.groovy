@@ -99,7 +99,7 @@ def mainPage() {
       } else {
         paragraph 'Lock is loading data'
       }
-      paragraph 'Lock Manager © 2017 v1.3'
+      paragraph 'Lock Manager © 2017 v1.4'
     }
   }
 }
