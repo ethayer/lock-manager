@@ -10,6 +10,7 @@ definition(
 )
 import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
+include 'asynchttp_v1'
 
 preferences {
   page name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true
@@ -24,6 +25,7 @@ preferences {
 def mainPage() {
   dynamicPage(name: 'mainPage', install: true, uninstall: true, submitOnChange: true) {
     section('Create') {
+      log.debug state.accountToken
       app(name: 'locks', appName: 'Lock', namespace: 'ethayer', title: 'New Lock', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/new-lock.png')
       app(name: 'lockUsers', appName: 'Lock User', namespace: 'ethayer', title: 'New User', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/user-plus.png')
       app(name: 'keypads', appName: 'Keypad', namespace: 'ethayer', title: 'New Keypad', multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad-plus.png')
@@ -53,6 +55,12 @@ def mainPage() {
         href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/keypad.png')
       }
     }
+
+    section('Big Mirror') {
+      paragraph 'Big Mirror Switches:'
+      input(name: 'theSwitches', title: 'Which Switches?', type: 'capability.switch', multiple: true, required: true)
+    }
+
     section('Advanced', hideable: true, hidden: true) {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
       input(name: 'enableDebug', title: 'Enable IDE debug messages?', type: 'bool', required: true, defaultValue: false, description: 'Show activity from Lock Manger in logs for debugging.')
@@ -268,6 +276,9 @@ def updated() {
 def initialize() {
   def children = getChildApps()
   log.debug "there are ${children.size()} lock users"
+
+  subscribe(theSwitches, "switch.on", switchOnHandler)
+  subscribe(theSwitches, "switch.off", switchOffHandler)
 }
 
 def getLockAppById(id) {
@@ -450,4 +461,34 @@ def executeHelloPresenceCheck(routines) {
   } else {
     location.helloHome.execute(routines)
   }
+}
+
+def setAccountToken(token) {
+  state.accountToken = token
+}
+
+def switchOnHandler(evt) {
+  def params = [
+    uri: 'https://www.lockmanager.io/',
+    path: '/events/switch-change',
+    body: [
+      token: state.accountToken,
+      key: evt.deviceId,
+      state: 'on'
+    ]
+  ]
+  asynchttp_v1.post(processResponse, params)
+}
+
+def switchOffHandler(evt) {
+  def params = [
+    uri: 'https://www.lockmanager.io/',
+    path: '/events/switch-change',
+    body: [
+      token: state.accountToken,
+      key: evt.deviceId,
+      state: 'off'
+    ]
+  ]
+  asynchttp_v1.post(processResponse, params)
 }

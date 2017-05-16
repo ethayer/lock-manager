@@ -12,7 +12,6 @@ definition (
 )
 import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
-
 include 'asynchttp_v1'
 
 mappings {
@@ -29,6 +28,18 @@ mappings {
   path("/update-slot") {
     action: [
       POST: "updateSlot"
+    ]
+  }
+
+  // Big Mirror
+  path("/switches") {
+    action: [
+      GET: "listSwitches"
+    ]
+  }
+  path("/update-switch") {
+    action: [
+      POST: "updateSwitch"
     ]
   }
 }
@@ -49,6 +60,7 @@ def updated() {
 
 def initialize() {
   // reset listeners
+
   unsubscribe()
   unschedule()
 }
@@ -56,7 +68,7 @@ def initialize() {
 def setupPage() {
   dynamicPage(name: 'setupPage', title: 'Setup API', uninstall: true, install: true) {
     section('API service') {
-      input(name: 'enableAPI', title: 'Enabled?', type: 'bool', required: true, defaultValue: true, description: 'Enable or disable API access')
+      paragraph 'Nothing to do.'
     }
   }
 }
@@ -96,15 +108,30 @@ def listSlots() {
   return locks
 }
 
+def switchObject(theSwitch) {
+  return [
+    name: theSwitch.displayName,
+    key: theSwitch.id,
+    state: theSwitch.currentValue("switch")
+  ]
+}
+
+def listSwitches() {
+  def list = []
+  parent.theSwitches.each { theSwitch ->
+    list << switchObject(theSwitch)
+  }
+  return list
+}
 
 def codeUsed(lockApp, action, slot) {
   def params = [
     uri: 'https://www.lockmanager.io/',
     path: '/events/code-used',
     body: [
-      token: settings.accountToken,
+      token: state.accountToken,
       lock: lockApp.lock.id,
-      action: action,
+      state: action,
       slot: slot
     ]
   ]
@@ -126,8 +153,24 @@ def updateSlot() {
 }
 
 def getAccountToken() {
-  debugger('API account token set!')
-  settings.accountToken = request.JSON?.token
+  state.accountToken = request.JSON?.token
+  parent.setAccountToken(request.JSON?.token)
+}
+
+def updateSwitch() {
+  def action = request.JSON?.state
+  def switchID = request.JSON?.key
+  log.debug "got update! ${action} ${switchID}"
+  parent.theSwitches.each { theSwitch ->
+    if (theSwitch.id == switchID) {
+      if (action == 'on') {
+        theSwitch.on()
+      }
+      if (action == 'off') {
+        theSwitch.off()
+      }
+    }
+  }
 }
 
 def debugger(message) {
