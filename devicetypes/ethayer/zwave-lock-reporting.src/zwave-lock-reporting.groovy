@@ -255,10 +255,12 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd) {
 			map = [ name: "lock", value: "locked" ]
       map.data = [ usedCode: cmd.alarmLevel ]
       map.descriptionText = "$device.displayName was locked by keypad"
+			break
 		case 24:  // Locked by command (Kwikset 914)
 			map = [ name: "lock", value: "locked" ]
 			map.data = [ usedCode: "command" ]
 			map.descriptionText = "$device.displayName was locked by command"
+			break
 		case 27:  // Autolocked
 			map = [ name: "lock", value: "locked" ]
 			break
