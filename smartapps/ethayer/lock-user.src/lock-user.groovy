@@ -473,7 +473,9 @@ def notificationPageDescription() {
   if (settings.recipients) {
     parts << 'Sent to Address Book'
   }
-  msg += fancyString(parts)
+  if (parts.size()) {
+    msg += fancyString(parts)
+  }
   parts = []
 
   if (settings.notifyAccess) {
@@ -504,10 +506,6 @@ def notificationPageDescription() {
   return msg
 }
 
-def fancyDeviceString(devices = []) {
-  fancyString(devices.collect { deviceLabel(it) })
-}
-
 def deviceLabel(device) {
   return device.label ?: device.name
 }
@@ -523,8 +521,9 @@ def fancyString(listOfStrings) {
       label
     }.join(", ")
   }
-
-  return fancify(listOfStrings)
+  if (listOfStrings) {
+    return fancify(listOfStrings)
+  }
 }
 
 
