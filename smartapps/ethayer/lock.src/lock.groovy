@@ -513,7 +513,7 @@ def setCodes() {
     if (lockUser) {
       if (lockUser.isActive(lock.id)) {
         // is active, should be set
-        state.codes["slot${data.slot}"].correctValue = lockUser.userCode
+        state.codes["slot${data.slot}"].correctValue = lockUser.userCode.toString()
       } else {
         // is inactive, should not be set
         state.codes["slot${data.slot}"].correctValue = null
@@ -538,7 +538,10 @@ def loadCodes() {
   def sortedCodes = codes.sort{it.value.slot}
   sortedCodes.each { data ->
     data = data.value
-    if (data.code != data.correctValue) {
+    def currentCode = data.code.toString()
+    def correctCode = data.correctValue.toString()
+    if (currentCode != correctCode) {
+      debugger("${currentCode}:${correctCode} s:${data.slot}")
       if (data.attempts <= 20) {
         def code
         if (data.correctValue) {
