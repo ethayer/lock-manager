@@ -20,11 +20,13 @@ metadata {
 		capability "Sensor"
 		capability "Lock Codes"
 		capability "Battery"
+		capability "Health Check"
 
 		command "unlockwtimeout"
 
 		fingerprint deviceId: "0x4003", inClusters: "0x98"
 		fingerprint deviceId: "0x4004", inClusters: "0x98"
+		fingerprint mfr:"0129", prod:"0002", model:"0000", deviceJoinName: "Yale Key Free Touchscreen Deadbolt"
 	}
 
 	simulator {
@@ -67,6 +69,8 @@ import physicalgraph.zwave.commands.doorlockv1.*
 import physicalgraph.zwave.commands.usercodev1.*
 
 def updated() {
+	// Device-Watch simply pings if no device events received for 32min(checkInterval)
+	sendEvent(name: "checkInterval", value: 2 * 15 * 60 + 2 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID])
 	try {
 		if (!state.init) {
 			state.init = true
@@ -155,9 +159,11 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd) {
 		switch(cmd.zwaveAlarmEvent) {
 			case 1:
 				map.descriptionText = "$device.displayName was manually locked"
+				map.data = [ usedCode: "manual" ]
 				break
 			case 2:
 				map.descriptionText = "$device.displayName was manually unlocked"
+				map.data = [ usedCode: "manual" ]
 				break
 			case 5:
 				if (cmd.eventParameter) {
@@ -246,7 +252,15 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd) {
 	} else switch(cmd.alarmType) {
 		case 21:  // Manually locked
 		case 18:  // Locked with keypad
+			map = [ name: "lock", value: "locked" ]
+      map.data = [ usedCode: cmd.alarmLevel ]
+      map.descriptionText = "$device.displayName was locked by keypad"
+			break
 		case 24:  // Locked by command (Kwikset 914)
+			map = [ name: "lock", value: "locked" ]
+			map.data = [ usedCode: "command" ]
+			map.descriptionText = "$device.displayName was locked by command"
+			break
 		case 27:  // Autolocked
 			map = [ name: "lock", value: "locked" ]
 			break
@@ -498,6 +512,13 @@ def lock() {
 
 def unlock() {
 	lockAndCheck(DoorLockOperationSet.DOOR_LOCK_MODE_DOOR_UNSECURED)
+}
+
+/**
+* PING is used by Device-Watch in attempt to reach the Device
+* */
+def ping() {
+	refresh()
 }
 
 def unlockwtimeout() {
