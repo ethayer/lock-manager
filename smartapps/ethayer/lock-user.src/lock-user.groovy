@@ -326,7 +326,7 @@ def schedulingPage() {
       input(name: 'days', type: 'enum', title: 'Allow User Access On These Days', description: 'Every day', required: false, multiple: true, options: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], submitOnChange: true)
     }
     section {
-      input(name: 'modeStart', title: 'Allow Access only when in this mode', type: 'mode', required: false, mutliple: false, submitOnChange: true)
+      input(name: 'modeStart', title: 'Allow Access only when in this mode', type: 'mode', required: false, mutliple: true, submitOnChange: true)
     }
     section {
       input(name: 'startTime', type: 'time', title: 'Start Time', description: null, required: false)
