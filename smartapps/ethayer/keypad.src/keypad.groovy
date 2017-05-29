@@ -176,7 +176,7 @@ def armCommand(value, correctUser, enteredCode) {
 
   // only delay on ARM actions
   def useDelay = 0
-  if (armMode != 'off') {
+  if (armMode != 'off' && armMode != 'stay') {
     useDelay = armDelay
   }
 
