@@ -383,9 +383,10 @@ def codeUsed(evt) {
     if (codeUsed.isNumber()) {
       userApp = findSlotUserApp(codeUsed)
     }
-    if (data.usedCode == 'manual') {
-      manualUse = true
-    }
+  }
+
+  if (!data || data?.usedCode == 'manual') {
+    manualUse = true
   }
 
   if (action == 'unlocked') {
