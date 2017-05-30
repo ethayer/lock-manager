@@ -71,6 +71,12 @@ def landingPage() {
 
 def setupPage() {
   dynamicPage(name: 'setupPage', title: 'Setup Keypad', nextPage: 'landingPage', uninstall: true) {
+    section('NOTE:') {
+      def p =  'Locks with keypads ARE NOT KEYPADS in this context.\n\n'
+          p += 'This child-app works with stand-alone keypads only!'
+      paragraph p
+      paragraph 'For locks, use the Lock child-app.'
+    }
     section('Choose keypad for this app') {
       input(name: 'keypad', title: 'Which keypad?', type: 'capability.lockCodes', multiple: false, required: true)
     }
