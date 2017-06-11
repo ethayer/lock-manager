@@ -94,11 +94,7 @@ def mainPage() {
       label title: 'Label', defaultValue: "Lock: ${lock.label}", required: false, description: 'recommended to start with Lock:'
       input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
       input(name: 'contactSensor', title: 'Which contact sensor?', type: "capability.contactSensor", multiple: false, required: false)
-      if (state.refreshComplete) {
-        href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to request code refresh.  Not avalible on all locks.', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
-      } else {
-        paragraph 'Lock is loading data'
-      }
+      input(name: 'slotCount', title: 'How many slots?', type: 'number', multiple: false, required: false, description: 'Overwrite number of slots supported.')
       paragraph 'Lock Manager © 2017 v1.4'
     }
   }
@@ -116,15 +112,6 @@ def errorPage() {
     section('Choose devices for this lock') {
       input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
       input(name: 'contactSensor', title: 'Which contact sensor?', type: 'capability.contactSensor', multiple: false, required: false)
-    }
-  }
-}
-
-def infoRefreshPage() {
-  dynamicPage(name: 'infoRefreshPage', title: 'Lock Info Refresh', nextPage: 'landingPage') {
-    refreshMode()
-    section('Refresh Initiated') {
-      paragraph 'Lock is now in refresh mode.'
     }
   }
 }
@@ -199,17 +186,6 @@ def helloHomePage() {
       input "userDoRunPresence", "capability.presenceSensor", title: "ONLY run Actions if any of these are present:", multiple: true, required: false
     }
   }
-}
-
-def refreshMode() {
-  def codeSlots = lockCodeSlots()
-  initSlots()
-  (1..codeSlots).each { slot ->
-    state.codes["slot${slot}"].codeState = 'refresh'
-  }
-  state.requestCount = 0
-  state.refreshComplete = false
-  makeRequest()
 }
 
 def queSetupLockData() {
@@ -709,9 +685,13 @@ def isRefreshComplete() {
 }
 
 def lockCodeSlots() {
+  // default to 30
   def codeSlots = 30
-  if (state?.codeSlots?.isNumber()) {
-    codeSlots = state.codeSlots
+  if (slotCount) {
+    // return the user defined value
+    codeSlots = slotCount
+  } else if (state?.codeSlots) {
+    codeSlots = state.codeSlots.toInteger()
     debugger("Lock has ${codeSlots} code slots.")
   }
   return codeSlots
@@ -727,7 +707,7 @@ def slotData(slot) {
 
 def enableUser(slot) {
   state.codes["slot${slot}"].attempts = 0
-  makeRequest()
+  runIn(10, makeRequest)
 }
 
 def pinLength() {

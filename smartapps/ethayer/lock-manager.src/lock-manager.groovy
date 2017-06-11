@@ -67,13 +67,9 @@ def lockInfoPage(params) {
     if (lockApp) {
       section("${lockApp.label}") {
         def complete = lockApp.isCodeComplete()
-        def refreshComplete = lockApp.isRefreshComplete()
         if (!complete) {
           paragraph 'App is learning codes.  They will appear here when received.\n Lock may require special DTH to work properly'
           lockApp.lock.poll()
-        }
-        if (!refreshComplete) {
-          paragraph 'App is in refresh mode.'
         }
         def codeData = lockApp.codeData()
         if (codeData) {
@@ -107,9 +103,11 @@ def lockInfoPage(params) {
 
       section('Lock Settings') {
         def pinLength = lockApp.pinLength()
+        def lockCodeSlots = lockApp.lockCodeSlots()
         if (pinLength) {
           paragraph "Required Length: ${pinLength}"
         }
+        paragraph "Slot Count: ${lockCodeSlots}"
       }
     } else {
       section() {
@@ -296,7 +294,7 @@ def getLockAppByIndex(params) {
 def availableSlots(selectedSlot) {
   def options = []
   (1..30).each { slot->
-    def children = getChildApps()
+    def children = getLockApps()
     def available = true
     children.each { child ->
       def userSlot = child.userSlot
