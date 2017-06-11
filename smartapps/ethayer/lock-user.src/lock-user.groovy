@@ -795,7 +795,7 @@ def getLock(params) {
   state.lastLock = id
   def lockApp = getLockApp(state.lastLock)
 
-  return lockApp.lock
+  return lockApp?.lock
 }
 
 def userNotificationSettings() {

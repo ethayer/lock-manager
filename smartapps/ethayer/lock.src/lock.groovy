@@ -543,7 +543,7 @@ def loadCodes() {
     def correctCode = data.correctValue.toString()
     if (currentCode != correctCode) {
       debugger("${currentCode}:${correctCode} s:${data.slot}")
-      if (data.attempts <= 20) {
+      if (data.attempts <= 10) {
         def code
         if (data.correctValue) {
           code = data.correctValue
