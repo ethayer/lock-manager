@@ -1,3 +1,8 @@
+/** 
+Aug 26, 2017 Comment out sendSHMEvent execution sends "night" alarm state and causes extraneous overhead
+Aug 26, 2017 In alarmStatusHandler on stay mode use Mode issue setArmedStay or setArmedNight
+Jul 16, 2017 Set ArmDelay only on Away mode
+*/
 definition (
   name: 'Keypad',
   namespace: 'ethayer',
@@ -125,9 +130,14 @@ def alarmStatusHandler(event) {
   else if (runDefaultAlarm && event.value == 'away'){
     keypad?.setArmedAway()
   }
-  else if (runDefaultAlarm && event.value == 'stay') {
-    keypad?.setArmedStay()
-  }
+  else if (runDefaultAlarm && event.value == 'stay')
+  	{
+  	def theMode=location.currentMode;
+  	if (theMode=="Night")
+      		{keypad?.setArmedNight()}
+  	else
+    		{keypad?.setArmedStay()}
+  	}
 }
 
 def codeEntryHandler(evt) {
@@ -182,9 +192,11 @@ def armCommand(value, correctUser, enteredCode) {
 
   // only delay on ARM actions
   def useDelay = 0
-  if (armMode != 'off' && armMode != 'stay') {
-    useDelay = armDelay
-  }
+//if (armMode != 'off' && armMode != 'stay') {
+  if (armMode == 'away') //aab Jul 16, 2017 delay only on away, delay occurring on night armMode
+  	{
+  	useDelay = armDelay
+  	}
 
   if (useDelay > 0) {
     keypad.setExitDelay(useDelay)
@@ -208,7 +220,7 @@ def execRoutine() {
   def armMode = atomicState.armMode
   def userApp = parent.keypadMatchingUser(atomicState.codeEntered)
 
-  sendSHMEvent(armMode)
+//  sendSHMEvent(armMode)
 
   // run hello home actions
   if (armMode == 'away') {
