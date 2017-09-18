@@ -1,4 +1,5 @@
 /** 
+Sep 18, 2017 Eliminate use of Runin when useDelay seconds is zero. Improves reliability and performance.
 Aug 26, 2017 Comment out sendSHMEvent execution sends "night" alarm state and causes extraneous overhead
 Aug 26, 2017 In alarmStatusHandler on stay mode use Mode issue setArmedStay or setArmedNight
 Jul 16, 2017 Set ArmDelay only on Away mode
@@ -205,8 +206,10 @@ def armCommand(value, correctUser, enteredCode) {
     // set values for delayed event
     atomicState.codeEntered = enteredCode
     atomicState.armMode = armMode
-
-    runIn(useDelay, execRoutine)
+    if (useDelay>0)	
+    	{runIn(useDelay, execRoutine)}
+    else
+    	{execRoutine()}	
   }
 
   def message = "${keypad.label} was ${action} by ${correctUser.label}"
