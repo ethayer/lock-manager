@@ -1,5 +1,7 @@
 /** 
-Sep 18, 2017 Eliminate use of Runin when useDelay seconds is zero. Improves reliability and performance.
+Sep 19, 2017 Eliminate atomicState when passing data from of armCommand to execRoutine by passing a java map
+	     Attempt to handle rearming/disarming during exit delay by unscheduling any pending away tasks 		  		
+Sep 18, 2017 Eliminate use of Runin when useDelay seconds is zero to improve reliability and performance.
 Aug 26, 2017 Comment out sendSHMEvent execution sends "night" alarm state and causes extraneous overhead
 Aug 26, 2017 In alarmStatusHandler on stay mode use Mode issue setArmedStay or setArmedNight
 Jul 16, 2017 Set ArmDelay only on Away mode
@@ -191,37 +193,28 @@ def armCommand(value, correctUser, enteredCode) {
       break
   }
 
-  // only delay on ARM actions
-  def useDelay = 0
-//if (armMode != 'off' && armMode != 'stay') {
-  if (armMode == 'away') //aab Jul 16, 2017 delay only on away, delay occurring on night armMode
+  // only delay on Away ARM actions
+  if (armMode) 
   	{
-  	useDelay = armDelay
-  	}
-
-  if (useDelay > 0) {
-    keypad.setExitDelay(useDelay)
-  }
-  if (armMode) {
-    // set values for delayed event
-    atomicState.codeEntered = enteredCode
-    atomicState.armMode = armMode
-    if (useDelay>0)	
-    	{runIn(useDelay, execRoutine)}
-    else
-    	{execRoutine()}	
-  }
-
+  	unschedule(execRoutine)	//Attempt to handle rearming/disarming during exit delay by unscheduling any pending away tasks 
+	def aMap = [data: [codeEntered: enteredCode, armMode: armMode]]
+ 	if (armMode == 'away' && armDelay > 0)
+  		{
+    		keypad.setExitDelay(armDelay)
+    		runIn(armDelay, execRoutine, aMap)
+    		}
+  	else
+    		{execRoutine(aMap.data)}	
+	}
   def message = "${keypad.label} was ${action} by ${correctUser.label}"
-
   debugger(message)
   correctUser.send(message)
 }
 
-def execRoutine() {
+def execRoutine(aMap) {
   debugger('executing keypad actions')
-  def armMode = atomicState.armMode
-  def userApp = parent.keypadMatchingUser(atomicState.codeEntered)
+  def armMode = aMap.armMode
+  def userApp = parent.keypadMatchingUser(aMap.codeEntered)
 
 //  sendSHMEvent(armMode)
 
