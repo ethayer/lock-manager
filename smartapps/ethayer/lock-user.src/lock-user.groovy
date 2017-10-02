@@ -79,6 +79,10 @@ def subscribeToSchedule() {
     log.debug 'scheduling calendar end'
     runOnce(endDateTime().format(smartThingsDateFormat(), timeZone()), 'calendarEnd')
   }
+  if (airbnbEnabled) {
+    // schedule airbnb code setter
+    schedule(checkoutTime, 'doCalenderCheck')
+  }
 }
 
 def scheduledStartTime() {
@@ -189,6 +193,13 @@ def mainPage() {
       lockApps.each { app ->
         href(name: "toLockPage${app.lock.id}", page: 'lockPage', params: [id: app.lock.id], description: lockPageDescription(app.lock.id), required: false, title: app.lock.label, image: lockPageImage(app.lock) )
       }
+    }
+    section('Airbnb', hideable: true: hidden: true) {
+      label(title: 'Enable for Airbnb automation')
+      input(name: 'airbnbEnabled', type: 'bool', title: 'Enable Airbnb Automation?', required: false, defaultValue: false, refreshAfterSelection: true)
+      input(name: 'ical', type: 'text', title: 'iCal Link', required: false, refreshAfterSelection: true)
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: false, defaultValue: '13:00')
+      input(name: 'checkinNotify', type: 'bool', title: 'Send notification on first use of code', required: false, defaultValue: true)
     }
     section('Setup', hideable: true, hidden: true) {
       label(title: "Name for App", defaultValue: 'User: ' + userName, required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png')
@@ -446,6 +457,15 @@ def getAllLocksUsage() {
     }
   }
   return usage
+}
+
+def resetAllLocksUsage() {
+  def lockApps = parent.getLockApps()
+  lockApps.each { lockApp ->
+    if (state."lock${lockApp.lock.id}"?.usage) {
+      state."lock${lockApp.lock.id}"?.usage = 0
+    }
+  }
 }
 
 def calendarHrefDescription() {
@@ -810,7 +830,7 @@ def getLock(params) {
 
 def userNotificationSettings() {
   def userSettings = false
-  if (phone != null || notification || muteUser || recipients) {
+  if (phone != null || notification || muteUser || recipients || checkinNotify) {
     // user has it's own settings!
     userSettings = true
   }
@@ -826,6 +846,10 @@ def send(msg) {
 }
 
 def checkIfNotifyUser(msg) {
+  if (checkinNotify) {
+    // only the first time
+    settings.notifyAccess = false
+  }
   if (notificationStartTime != null && notificationEndTime != null) {
     def start = timeToday(notificationStartTime)
     def stop = timeToday(notificationEndTime)
@@ -1006,5 +1030,183 @@ def debugger(message) {
   def doDebugger = parent.debuggerOn()
   if (doDebugger) {
     log.debug(message)
+  }
+}
+
+def doCalenderCheck() {
+  def params = [
+    uri: ical
+  ]
+  def today = new Date()
+  def setCode = null
+
+  try {
+    httpGet(params) { resp ->
+      def data = parseICal(resp.data)
+
+      for (event in data) {
+        if (event['phone']) {
+          def code = event['phone'].replaceAll(/\D/, '')[-4..-1]
+          debugger("start: ${event['dtStart']}, end: ${event['dtEnd']}, phone: ${event['phone']}, codeIndex: ${codeIndex}, code: ${code}")
+          setCode = code
+        } else {
+          sendMessage("Warning: Phone number not set for event today! - ${event['record']}")
+        }
+      }
+    }
+  } catch (e) {
+    log.error "something went wrong: $e"
+  }
+
+  if (setCode) {
+    if (settings.userCode != setCode) {
+      settings.userCode = setCode
+      resetAllLocksUsage()
+      parent.setAccess()
+      if (settings.checkinNotify) {
+        settings.notifyAccess = true
+      }
+    }
+  } else {
+    // there is no guest today
+    userEnabled = false;
+    resetAllLocksUsage()
+    parent.setAccess()
+  }
+}
+
+String readLine(ByteArrayInputStream is) {
+  int size = is.available();
+  if (size <= 0) {
+    return null;
+  }
+
+  String ret = "";
+  byte data = 0;
+  char ch;
+
+  while (true) {
+    data = is.read();
+    if (data == -1) {
+      // we are done here
+      break;
+    }
+
+    ch = (char)(data&0xff);
+    if (ch == '\n') {
+      break;
+    }
+
+    ret += ch;
+
+    if (ret.endsWith("\\n")) {
+      ret = ret.replaceAll(/\\n/,"");
+      break;
+    }
+  }
+
+  return ret;
+}
+
+def currentEvent(today, event) {
+  return ((event['dtStart'] < today) && (today < (event['dtEnd']+1)))
+}
+
+def parseICal(ByteArrayInputStream is) {
+  def iCalEvents = []
+  def iCalEvent = null
+  def sincePhone = 100
+  def today = new Date()
+
+  while (true) {
+    def line = readLine(is)
+
+    if (line == null) {
+      break;
+    }
+
+    if (line == "BEGIN:VEVENT") {
+      iCalEvent = [record:'']
+    } else if (line == "END:VEVENT") {
+      if (currentEvent(today, iCalEvent) && iCalEvent['summary'] != 'Not available') {
+        iCalEvents.push(iCalEvent)
+      }
+      iCalEvent = null
+    } else if (iCalEvent != null) {
+      // parse line
+      def compoundKey = null
+      def subKey = null
+      def key = null
+      def value = null
+
+      sincePhone++;
+
+      if ( line ==~ /^[A-Z]+[;:].*/ ) {
+        // grab everything before the :
+        key = line.replaceAll(/:.*/, '')
+        // grab everything before the ;
+        compoundKey = key.replaceAll(/;.*/, '')
+        // grab everything after the ${key}:
+        value = line.replaceFirst(key + ':', '').trim()
+        // grab everything before the ; in the key
+        if (compoundKey != key) {
+          // we found a compound date key
+          subKey = key.replaceFirst(compoundKey + ';', '').trim()
+        }
+
+        if (key == 'DESCRIPTION') {
+          // we found the start of the description
+          key = value.replaceAll(/:.*/, '')
+          value = value.replaceFirst(key + ':', '').trim()
+        }
+
+        if (key == 'UID') { iCalEvent.put('uid',value) }
+        else if (key == 'CREATED') { iCalEvent.put('created', value) }
+        else if (key == 'RRULE') { iCalEvent.put('rRule', value) }
+        else if (key == 'RDATE') { iCalEvent.put('rDate', value) }
+        else if (key == 'DTSTAMP') { iCalEvent.put('dtStamp', parseDate(value)) }
+        else if (key == 'CHECKIN') { iCalEvent.put('checkin', value) }
+        else if (key == 'CHECKOUT') { iCalEvent.put('checkout', value) }
+        else if (key == 'NIGHTS') { iCalEvent.put('nights', value) }
+        else if (key == 'EMAIL') { iCalEvent.put('email', value) }
+        else if (key == 'SUMMARY') { iCalEvent.put('summary', value) }
+        else if (key == 'LOCATION') { iCalEvent.put('location', value) }
+        else if (key == 'PHONE') { sincePhone = 0; }
+        else if (compoundKey == 'DTSTART') {
+          iCalEvent.put('dtStartString', value)
+          iCalEvent.put('dtStart', parseDate(value))
+          iCalEvent.put('dtStartTz', subKey)
+        } else if (compoundKey == 'DTEND') {
+          iCalEvent.put('dtEndString', value)
+          iCalEvent.put('dtEnd', parseDate(value)) 
+          iCalEvent.put('dtEndTz', subKey)
+        }
+      }
+
+      if (sincePhone == 1) {
+        // phone number
+        iCalEvent.put('phone', line)
+      }
+
+      if (line) {
+        iCalEvent['record'] = iCalEvent['record'] + line + '\n'
+      }
+    }
+  }
+  
+
+  return iCalEvents
+}
+
+Date parseDate(String value) {
+  if ( value ==~ /[0-9]*T[0-9]*Z/ ) {
+    Date.parse("yyyyMMdd'T'HHmmss'Z'", value)
+  } else if ( value ==~ /[0-9]*T[0-9]*/ ) {
+    Date.parse("yyyyMMdd'T'HHmmss", value)
+  } else if ( value ==~ /[0-9]*/ ) {
+    Date.parse("yyyyMMdd", value)
+  } else {
+    println "WARNING: unknown date format: ${value}"
+    null
   }
 }
