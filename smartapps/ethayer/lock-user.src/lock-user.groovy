@@ -45,6 +45,7 @@ def initialize() {
   // setup data
   initializeLockData()
   initializeLocks()
+  initializeCodeState()
 
   // set listeners
   subscribe(location, locationHandler)
@@ -80,8 +81,9 @@ def subscribeToSchedule() {
     runOnce(endDateTime().format(smartThingsDateFormat(), timeZone()), 'calendarEnd')
   }
   if (airbnbEnabled) {
+    doCalenderCheck()
     // schedule airbnb code setter
-    schedule(checkoutTime, 'doCalenderCheck')
+    runEvery15Minutes('doCalenderCheck')
   }
 }
 
@@ -102,6 +104,10 @@ def calendarEnd() {
   if (calEndPhrase) {
     location.helloHome.execute(calEndPhrase)
   }
+}
+
+def initializeCodeState() {
+  state.userCode = settings.userCode
 }
 
 def initializeLockData() {
@@ -146,11 +152,15 @@ def landingPage() {
   }
 }
 
+def getUserCode() {
+  return state.userCode
+}
+
 def setupPage() {
   dynamicPage(name: 'setupPage', title: 'Setup Lock', nextPage: 'mainPage', uninstall: true) {
     section('Choose devices for this lock') {
       input(name: 'userName', title: 'Name for User', required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png')
-      input(name: 'userCode', type: 'text', title: userCodeInputTitle(), required: false, defaultValue: settings.'userCode', refreshAfterSelection: true)
+      input(name: 'userCode', type: 'text', title: userCodeInputTitle(), required: false, defaultValue: state.'userCode', refreshAfterSelection: true)
       input(name: 'userSlot', type: 'enum', options: parent.availableSlots(settings.userSlot), title: 'Select slot', required: true, refreshAfterSelection: true )
     }
   }
@@ -168,7 +178,7 @@ def mainPage() {
         text = 'inactive'
       }
       paragraph "${text}/${usage}"
-      input(name: 'userCode', type: 'text', title: userCodeInputTitle(), required: false, defaultValue: settings.'userCode', refreshAfterSelection: true)
+      input(name: 'userCode', type: 'text', title: userCodeInputTitle(), required: false, defaultValue: state.'userCode', refreshAfterSelection: true)
       input(name: 'userEnabled', type: 'bool', title: "User Enabled?", required: false, defaultValue: true, refreshAfterSelection: true)
     }
     section('Additional Settings') {
@@ -197,8 +207,8 @@ def mainPage() {
     section('Airbnb', hideable: true, hidden: true) {
       input(name: 'airbnbEnabled', type: 'bool', title: 'Enable Airbnb Automation?', required: false, defaultValue: false, refreshAfterSelection: true)
       input(name: 'ical', type: 'text', title: 'iCal Link', required: false, refreshAfterSelection: true)
-      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: false)
-      input(name: 'checkinNotify', type: 'bool', title: 'Send notification on first use of code', required: false, defaultValue: true)
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: false, refreshAfterSelection: true)
+      input(name: 'checkinNotify', type: 'bool', title: 'Notify on Checkin', description: 'Send one notification the first time a guest uses their code (Requires Push notifications "on Entry" to be enabled)', required: false, defaultValue: false, refreshAfterSelection: true)
     }
     section('Setup', hideable: true, hidden: true) {
       label(title: "Name for App", defaultValue: 'User: ' + userName, required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png')
@@ -829,7 +839,7 @@ def getLock(params) {
 
 def userNotificationSettings() {
   def userSettings = false
-  if (phone != null || notification || muteUser || recipients || checkinNotify) {
+  if (phone != null || notification || muteUser || recipients) {
     // user has it's own settings!
     userSettings = true
   }
@@ -845,9 +855,8 @@ def send(msg) {
 }
 
 def checkIfNotifyUser(msg) {
-  if (checkinNotify) {
-    // only the first time
-    settings.notifyAccess = false
+  if (checkinNotify && getAllLocksUsage() < 2) {
+    sendMessageViaUser(msg)
   }
   if (notificationStartTime != null && notificationEndTime != null) {
     def start = timeToday(notificationStartTime)
@@ -1036,8 +1045,9 @@ def doCalenderCheck() {
   def params = [
     uri: ical
   ]
-  def today = new Date()
-  def setCode = null
+  def now = new Date()
+  def newCode = null
+  def beforeCheckout = (now.before(timeToday(checkoutTime)))
 
   try {
     httpGet(params) { resp ->
@@ -1047,7 +1057,11 @@ def doCalenderCheck() {
         if (event['phone']) {
           def code = event['phone'].replaceAll(/\D/, '')[-4..-1]
           debugger("start: ${event['dtStart']}, end: ${event['dtEnd']}, phone: ${event['phone']}, codeIndex: ${codeIndex}, code: ${code}")
-          setCode = code
+          newCode = code
+          if (beforeCheckout) {
+            // set the first code we find
+            break
+          }
         } else {
           sendMessage("Warning: Phone number not set for event today! - ${event['record']}")
         }
@@ -1057,18 +1071,15 @@ def doCalenderCheck() {
     log.error "something went wrong: $e"
   }
 
-  if (setCode) {
-    if (settings.userCode != setCode) {
-      settings.userCode = setCode
+  if (newCode) {
+    if (state.userCode != newCode) {
+      state.userCode = newCode
+      debugger("setting code to ${newCode}, state.userCode = ${state.userCode}")
       resetAllLocksUsage()
       parent.setAccess()
-      if (settings.checkinNotify) {
-        settings.notifyAccess = true
-      }
     }
   } else {
     // there is no guest today
-    userEnabled = false;
     resetAllLocksUsage()
     parent.setAccess()
   }
