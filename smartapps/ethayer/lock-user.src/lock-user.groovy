@@ -1063,7 +1063,7 @@ def doCalenderCheck() {
             break
           }
         } else {
-          sendMessage("Warning: Phone number not set for event today! - ${event['record']}")
+          send("Airbnb Warning: Phone number not set for event today! - ${event['record']}")
         }
       }
     }
@@ -1080,6 +1080,7 @@ def doCalenderCheck() {
     }
   } else {
     // there is no guest today
+    state.userCode = ''
     resetAllLocksUsage()
     parent.setAccess()
   }
