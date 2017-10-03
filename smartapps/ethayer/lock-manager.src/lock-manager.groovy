@@ -315,15 +315,6 @@ def availableSlots(selectedSlot) {
   return options
 }
 
-def avalibleAirbnbUsers(selectedUser) {
-  def options = []
-  getUserApps().each { user =>
-    if (user.airbnbEnabled) {
-      
-    }
-  }
-}
-
 def keypadMatchingUser(usedCode){
   def correctUser = false
   def userApps = getUserApps()
