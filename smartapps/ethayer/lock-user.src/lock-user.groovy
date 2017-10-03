@@ -194,11 +194,10 @@ def mainPage() {
         href(name: "toLockPage${app.lock.id}", page: 'lockPage', params: [id: app.lock.id], description: lockPageDescription(app.lock.id), required: false, title: app.lock.label, image: lockPageImage(app.lock) )
       }
     }
-    section('Airbnb', hideable: true: hidden: true) {
-      label(title: 'Enable for Airbnb automation')
+    section('Airbnb', hideable: true, hidden: true) {
       input(name: 'airbnbEnabled', type: 'bool', title: 'Enable Airbnb Automation?', required: false, defaultValue: false, refreshAfterSelection: true)
       input(name: 'ical', type: 'text', title: 'iCal Link', required: false, refreshAfterSelection: true)
-      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: false, defaultValue: '13:00')
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: false)
       input(name: 'checkinNotify', type: 'bool', title: 'Send notification on first use of code', required: false, defaultValue: true)
     }
     section('Setup', hideable: true, hidden: true) {
