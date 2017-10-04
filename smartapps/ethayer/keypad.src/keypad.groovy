@@ -1,4 +1,5 @@
 /** 
+Oct 03, 2017 in routine alarmStatusHandler only issue setArmedNight for Xfinity 3400, not available on Iris
 Sep 19, 2017 Eliminate atomicState when passing data from of armCommand to execRoutine by passing a java map
 	     Attempt to handle rearming/disarming during exit delay by unscheduling any pending away tasks 		  		
 Sep 18, 2017 Eliminate use of Runin when useDelay seconds is zero to improve reliability and performance.
@@ -136,8 +137,8 @@ def alarmStatusHandler(event) {
   else if (runDefaultAlarm && event.value == 'stay')
   	{
   	def theMode=location.currentMode;
-  	if (theMode=="Night")
-      		{keypad?.setArmedNight()}
+  	if (theMode=="Night" && keypad?.getModelName()=="3400" && keypad?.getManufacturerName()=="CentraLite")
+      	{keypad?.setArmedNight()}
   	else
     		{keypad?.setArmedStay()}
   	}
