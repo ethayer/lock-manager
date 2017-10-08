@@ -142,6 +142,10 @@ def landingPage() {
   }
 }
 
+def getUserCode() {
+  return settings.'userCode'
+}
+
 def setupPage() {
   dynamicPage(name: 'setupPage', title: 'Setup Lock', nextPage: 'mainPage', uninstall: true) {
     section('Choose devices for this lock') {
