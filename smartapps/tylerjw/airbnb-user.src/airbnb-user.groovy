@@ -207,11 +207,6 @@ def mainPage() {
         href(name: "toLockPage${app.lock.id}", page: 'lockPage', params: [id: app.lock.id], description: lockPageDescription(app.lock.id), required: false, title: app.lock.label, image: lockPageImage(app.lock) )
       }
     }
-    // section('Airbnb', hideable: true, hidden: true) {
-    //   input(name: 'airbnbEnabled', type: 'bool', title: 'Enable Airbnb Automation?', required: false, defaultValue: false, refreshAfterSelection: true)
-      
-    //   input(name: 'checkinNotify', type: 'bool', title: 'Notify on Checkin', description: 'Send one notification the first time a guest uses their code (Requires Push notifications "on Entry" to be enabled)', required: false, defaultValue: false, refreshAfterSelection: true)
-    // }
     section('Setup', hideable: true, hidden: true) {
       label(title: "Name for App", defaultValue: 'User: ' + userName, required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png')
       input name: 'userName', title: "Name for user", required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png'
@@ -405,7 +400,8 @@ def notificationPage() {
           input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
         }
         if (phone != null || notification || recipients) {
-          input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
+          input(name: 'muteAfterCheckin', title: 'Mute after checkin', description: 'Mute notifications after first use of new code', type: 'bool', required: false, defaultValue: false, image: 'https://images.lockmanager.io/app/v1/images/bell-slash-o.png')
+          input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png', submitOnChange: true)
           input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
           input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/check-circle-o.png')
           input(name: 'notifyAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/times-circle-o.png')
@@ -841,7 +837,7 @@ def getLock(params) {
 
 def userNotificationSettings() {
   def userSettings = false
-  if (phone != null || notification || muteUser || recipients) {
+  if (phone != null || notification || muteUser || recipients || muteAfterCheckin) {
     // user has it's own settings!
     userSettings = true
   }
@@ -857,18 +853,17 @@ def send(msg) {
 }
 
 def checkIfNotifyUser(msg) {
-  // if (checkinNotify && getAllLocksUsage() < 2) {
-  //   sendMessageViaUser(msg)
-  // }
-  if (notificationStartTime != null && notificationEndTime != null) {
-    def start = timeToday(notificationStartTime)
-    def stop = timeToday(notificationEndTime)
-    def now = new Date()
-    if (start.before(now) && stop.after(now)){
+  if (muteAfterCheckin && getAllLocksUsage() < 1) {
+    if (notificationStartTime != null && notificationEndTime != null) {
+      def start = timeToday(notificationStartTime)
+      def stop = timeToday(notificationEndTime)
+      def now = new Date()
+      if (start.before(now) && stop.after(now)){
+        sendMessageViaUser(msg)
+      }
+    } else {
       sendMessageViaUser(msg)
     }
-  } else {
-    sendMessageViaUser(msg)
   }
 }
 
