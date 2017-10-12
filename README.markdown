@@ -36,5 +36,10 @@ Donations are completely optional, but if this made your life easier, please con
 
 ##
 
-# Airbnb iCal integration
-This child app allows the user to automate giving their Airbnb guests access codes.  It sets the access code of the user to the last 4 digits of the user's phone number.  It can be added like a normal user except instead of setting the code you provide the link to the airbnb calender.  The software then checks the calender for changes every 15 minutes and updates the code in the lock if there is a change.  The checkout time is the time of day that it will changeover code from first to second guest if there are two reservations show up on the current day.  My checkout time is 11am and my check in 3pm so I set this time to 1pm for my listing.  Lastly there is a feature under notifications that allows you to get notifications about the code until it has been used once to unlock the door.  I use this to know when my guest checks in at my property.  Currently this feature is in beta and will improve as testing finds bugs in it.
+### Airbnb iCal integration
+This child app allows the user to automate giving their Airbnb guests access codes.  
+
+ * Set lock codes to last 4 digits of guest phone number automatically
+ * Switch between codes after checkout and before checkin
+ * Checks airbnb calendar every 15 minutes to keep lockcode updated (allow last minute bookings)
+ * Send notification when guest checks in (unlock with code notification)
