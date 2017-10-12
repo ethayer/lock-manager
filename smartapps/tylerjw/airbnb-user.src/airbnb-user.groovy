@@ -161,8 +161,8 @@ def setupPage() {
     section('Choose devices for this lock') {
       input(name: 'userName', title: 'Name for User', required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png', defaultValue: 'Airbnb')
       input(name: 'userSlot', type: 'enum', options: parent.availableSlots(settings.userSlot), title: 'Select slot', required: true, refreshAfterSelection: true )
-      input(name: 'ical', type: 'text', title: 'iCal Link', required: false, refreshAfterSelection: true)
-      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: false, refreshAfterSelection: true)
+      input(name: 'ical', type: 'text', title: 'iCal Link', required: true, refreshAfterSelection: true)
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true)
     }
   }
 }
@@ -181,8 +181,8 @@ def mainPage() {
       paragraph "${text}/${usage}"
       paragraph("User Code: " + getUserCode())
       input(name: 'userEnabled', type: 'bool', title: "User Enabled?", required: false, defaultValue: true, refreshAfterSelection: true)
-      input(name: 'ical', type: 'text', title: 'iCal Link', required: false, refreshAfterSelection: true)
-      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: false, refreshAfterSelection: true)
+      input(name: 'ical', type: 'text', title: 'iCal Link', required: true, refreshAfterSelection: true)
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true)
     }
     section('Additional Settings') {
       def actions = location.helloHome?.getPhrases()*.label
@@ -401,7 +401,7 @@ def notificationPage() {
         }
         if (phone != null || notification || recipients) {
           input(name: 'muteAfterCheckin', title: 'Mute after checkin', description: 'Mute notifications after first use of new code', type: 'bool', required: false, defaultValue: false, image: 'https://images.lockmanager.io/app/v1/images/bell-slash-o.png')
-          input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png', submitOnChange: true)
+          input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
           input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
           input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/check-circle-o.png')
           input(name: 'notifyAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/times-circle-o.png')
