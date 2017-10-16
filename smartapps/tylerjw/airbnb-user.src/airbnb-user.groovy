@@ -400,7 +400,7 @@ def notificationPage() {
           input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
         }
         if (phone != null || notification || recipients) {
-          input(name: 'muteAfterCheckin', title: 'Mute after checkin', description: 'Mute notifications after first use of new code', type: 'bool', required: false, defaultValue: false, image: 'https://images.lockmanager.io/app/v1/images/bell-slash-o.png')
+          input(name: 'muteAfterCheckin', title: 'Mute after checkin', description: 'Mute notifications after first use of new code', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/bell-slash-o.png')
           input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
           input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
           input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/check-circle-o.png')
@@ -853,7 +853,11 @@ def send(msg) {
 }
 
 def checkIfNotifyUser(msg) {
-  if (muteAfterCheckin && getAllLocksUsage() < 2) {
+  if (muteAfterCheckin) {
+    if(getAllLocksUsage() < 2) {
+      sendMessageViaUser(msg)
+    }
+  else {
     if (notificationStartTime != null && notificationEndTime != null) {
       def start = timeToday(notificationStartTime)
       def stop = timeToday(notificationEndTime)
