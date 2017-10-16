@@ -857,7 +857,7 @@ def checkIfNotifyUser(msg) {
     if(getAllLocksUsage() < 2) {
       sendMessageViaUser(msg)
     }
-  else {
+  } else {
     if (notificationStartTime != null && notificationEndTime != null) {
       def start = timeToday(notificationStartTime)
       def stop = timeToday(notificationEndTime)
