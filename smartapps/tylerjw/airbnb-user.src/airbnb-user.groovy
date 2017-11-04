@@ -107,8 +107,8 @@ def calendarEnd() {
 }
 
 def initializeCodeState() {
-  state.userCode = ''
-  state.guestName = ''
+  if (!state.userCode) { state.userCode = '' }
+  if (!state.guestName) { state.guestName = '' }
 }
 
 def initializeLockData() {
@@ -1049,7 +1049,7 @@ def debugger(message) {
 }
 
 def doCalenderCheck() {
-  debugger('Airbnb: doCalenderCheck running')
+  debugger("${userName}: doCalenderCheck running")
   def params = [
     uri: ical
   ]
@@ -1062,7 +1062,7 @@ def doCalenderCheck() {
   def guestEvent = null
   def deleteCode = false
 
-  debugger("Airbnb: BeforeCheckout: ${beforeCheckout}, now: ${now}, checkoutTime: ${checkout}")
+  debugger("${userName}: BeforeCheckout: ${beforeCheckout}, now: ${now}, checkoutTime: ${checkout}")
 
   try {
     httpGet(params) { resp ->
@@ -1086,7 +1086,7 @@ def doCalenderCheck() {
         } else if (event['phone']) {
           deleteCode = false
           def code = event['phone'].replaceAll(/\D/, '')[-4..-1]
-          debugger("Airbnb: start: ${event['dtStart']}, end: ${event['dtEnd']}, phone: ${event['phone']}, codeIndex: ${codeIndex}, code: ${code}")
+          debugger("${userName}: start: ${event['dtStart']}, end: ${event['dtEnd']}, phone: ${event['phone']}, codeIndex: ${codeIndex}, code: ${code}")
           newCode = code
           eventStart = event['dtStart']
           guestName = event['summary']
@@ -1102,30 +1102,31 @@ def doCalenderCheck() {
 
   if (deleteCode) {
     // there is no guest, delete the user code
-    state.userCode = null
+    debugger("${userName}: deleting code")
+    state.userCode = ''
     state.guestName = 'NONE'
     resetAllLocksUsage()
-    parent.setAccess()
     if (settings.notifyCodeChange) {
       sendMessageViaUser("${userName}: Clearing code")
     }
   } else if (newCode) {
-    debugger("Airbnb: state.userCode: ${state.userCode}, newcode: ${newCode}")
-    if (state.userCode != newCode) {
+    debugger("${userName}: state.userCode: ${state.userCode}, newcode: ${newCode}")
+    if (newCode != state.userCode) {
+      debugger("${userName}: setting code to ${newCode}, state.userCode = ${state.userCode}")
       state.userCode = newCode
       state.guestName = guestName
-      debugger("Airbnb: setting code to ${newCode}, state.userCode = ${state.userCode}")
       resetAllLocksUsage()
-      parent.setAccess()
 
       if (settings.notifyCodeChange) {
         sendMessageViaUser("${userName}: Setting code to ${newCode} for ${guestName}")
       }
-      debugger("Airbnb: GuestEvent: \n${guestEvent}")
+      debugger("${userName}: GuestEvent: \n${guestEvent}")
     } else {
-      debugger("Airbnb: code is not new")
+      debugger("${userName}: code is not new")
     }
   }
+
+  parent.setAccess()
 }
 
 String readLine(ByteArrayInputStream is) {
@@ -1172,7 +1173,7 @@ def currentEvent(today, event) {
   } else if (afterStart && beforeEnd) {
     eventState = 'current'
   }
-  debugger("Airbnb - ${eventState}: dtStart: ${event['dtStart']}, dtEnd: ${event['dtEnd']}, today: ${today}, afterStart: ${afterStart}, beforeEnd: ${beforeEnd}")
+  debugger("${userName} - ${eventState}: dtStart: ${event['dtStart']}, dtEnd: ${event['dtEnd']}, today: ${today}, afterStart: ${afterStart}, beforeEnd: ${beforeEnd}")
   return (afterStart && beforeEnd)
 }
 
