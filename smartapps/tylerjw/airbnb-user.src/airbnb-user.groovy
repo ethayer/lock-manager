@@ -108,6 +108,7 @@ def calendarEnd() {
 
 def initializeCodeState() {
   state.userCode = ''
+  state.guestName = ''
 }
 
 def initializeLockData() {
@@ -180,6 +181,7 @@ def mainPage() {
       }
       paragraph "${text}/${usage}"
       paragraph("User Code: " + getUserCode())
+      paragraph("Guest Name: " + state.guestName)
       input(name: 'userEnabled', type: 'bool', title: "User Enabled?", required: false, defaultValue: true, refreshAfterSelection: true)
       input(name: 'ical', type: 'text', title: 'iCal Link', required: true, refreshAfterSelection: true)
       input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true)
@@ -401,6 +403,7 @@ def notificationPage() {
         }
         if (phone != null || notification || recipients) {
           input(name: 'muteAfterCheckin', title: 'Mute after checkin', description: 'Mute notifications after first use of new code', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/bell-slash-o.png')
+          input(name: 'notifyCodeChange', title: 'when Code changes', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/check-circle-o.png')
           input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
           input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
           input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/check-circle-o.png')
@@ -508,6 +511,9 @@ def notificationPageDescription() {
   }
   parts = []
 
+  if (settings.notifyCodeChange) {
+    parts << 'on code change'
+  }
   if (settings.notifyAccess) {
     parts << 'on entry'
   }
@@ -1051,7 +1057,11 @@ def doCalenderCheck() {
   def newCode = null
   def checkout = timeToday(checkoutTime)
   def beforeCheckout = (now.before(checkout))
-  
+  def eventStart = null
+  def guestName = ""
+  def guestEvent = null
+  def deleteCode = false
+
   debugger("Airbnb: BeforeCheckout: ${beforeCheckout}, now: ${now}, checkoutTime: ${checkout}")
 
   try {
@@ -1059,16 +1069,30 @@ def doCalenderCheck() {
       def data = parseICal(resp.data)
 
       for (event in data) {
-        if (event['phone']) {
+        if (eventStart) {
+          // second event tests
+          if (beforeCheckout && event['dtStart'] > eventStart) {
+            // first event was first event
+            break
+          }
+          if (!beforeCheckout && eventStart > event['dtStart']) {
+            // first event was second event
+            break
+          }
+        }
+
+        if (event['summary'] == 'Not available') {
+          deleteCode = true
+        } else if (event['phone']) {
+          deleteCode = false
           def code = event['phone'].replaceAll(/\D/, '')[-4..-1]
           debugger("Airbnb: start: ${event['dtStart']}, end: ${event['dtEnd']}, phone: ${event['phone']}, codeIndex: ${codeIndex}, code: ${code}")
           newCode = code
-          if (beforeCheckout) {
-            // set the first code we find
-            break
-          }
+          eventStart = event['dtStart']
+          guestName = event['summary']
+          guestEvent = event
         } else {
-          send("Airbnb Warning: Phone number not set for event today! - ${event['record']}")
+          send("${userName} Warning: Phone number not set for event today! - Event: \n${event}")
         }
       }
     }
@@ -1076,20 +1100,31 @@ def doCalenderCheck() {
     log.error "something went wrong: $e"
   }
 
-  if (newCode) {
+  if (deleteCode) {
+    // there is no guest, delete the user code
+    state.userCode = null
+    state.guestName = 'NONE'
+    resetAllLocksUsage()
+    parent.setAccess()
+    if (settings.notifyCodeChange) {
+      sendMessageViaUser("${userName}: Clearing code")
+    }
+  } else if (newCode) {
     debugger("Airbnb: state.userCode: ${state.userCode}, newcode: ${newCode}")
     if (state.userCode != newCode) {
       state.userCode = newCode
+      state.guestName = guestName
       debugger("Airbnb: setting code to ${newCode}, state.userCode = ${state.userCode}")
       resetAllLocksUsage()
       parent.setAccess()
+
+      if (settings.notifyCodeChange) {
+        sendMessageViaUser("${userName}: Setting code to ${newCode} for ${guestName}")
+      }
+      debugger("Airbnb: GuestEvent: \n${guestEvent}")
+    } else {
+      debugger("Airbnb: code is not new")
     }
-  } else {
-    debugger("Airbnb: code is not new")
-    // there is no guest today
-    state.userCode = ''
-    resetAllLocksUsage()
-    parent.setAccess()
   }
 }
 
@@ -1127,7 +1162,18 @@ String readLine(ByteArrayInputStream is) {
 }
 
 def currentEvent(today, event) {
-  return ((event['dtStart'] < today) && (today < (event['dtEnd']+1)))
+  def afterStart = (event['dtStart'] < today)
+  def beforeEnd = (today < (event['dtEnd']+1))
+  def eventState = 'bad'
+  if (!afterStart && beforeEnd) {
+    eventState = 'future'
+  } else if (afterStart && !beforeEnd) {
+    eventState = 'past'
+  } else if (afterStart && beforeEnd) {
+    eventState = 'current'
+  }
+  debugger("Airbnb - ${eventState}: dtStart: ${event['dtStart']}, dtEnd: ${event['dtEnd']}, today: ${today}, afterStart: ${afterStart}, beforeEnd: ${beforeEnd}")
+  return (afterStart && beforeEnd)
 }
 
 def parseICal(ByteArrayInputStream is) {
@@ -1146,7 +1192,7 @@ def parseICal(ByteArrayInputStream is) {
     if (line == "BEGIN:VEVENT") {
       iCalEvent = [record:'']
     } else if (line == "END:VEVENT") {
-      if (currentEvent(today, iCalEvent) && iCalEvent['summary'] != 'Not available') {
+      if (currentEvent(today, iCalEvent)) {
         iCalEvents.push(iCalEvent)
       }
       iCalEvent = null
@@ -1196,7 +1242,7 @@ def parseICal(ByteArrayInputStream is) {
           iCalEvent.put('dtStartTz', subKey)
         } else if (compoundKey == 'DTEND') {
           iCalEvent.put('dtEndString', value)
-          iCalEvent.put('dtEnd', parseDate(value)) 
+          iCalEvent.put('dtEnd', parseDate(value))
           iCalEvent.put('dtEndTz', subKey)
         }
       }
@@ -1211,7 +1257,7 @@ def parseICal(ByteArrayInputStream is) {
       }
     }
   }
-  
+
 
   return iCalEvents
 }
@@ -1228,3 +1274,4 @@ Date parseDate(String value) {
     null
   }
 }
+
