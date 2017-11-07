@@ -81,9 +81,9 @@ def subscribeToSchedule() {
     runOnce(endDateTime().format(smartThingsDateFormat(), timeZone()), 'calendarEnd')
   }
   if (ical) {
-    doCalenderCheck()
+    airbnbCalenderCheck()
     // schedule airbnb code setter
-    runEvery15Minutes('doCalenderCheck')
+    runEvery15Minutes('airbnbCalenderCheck')
   }
 }
 
@@ -109,6 +109,8 @@ def calendarEnd() {
 def initializeCodeState() {
   if (!state.userCode) { state.userCode = '' }
   if (!state.guestName) { state.guestName = '' }
+  if (!state.eventStart) { state.eventStart = '' }
+  if (!state.eventEnd) { state.eventEnd = '' }
 }
 
 def initializeLockData() {
@@ -160,10 +162,10 @@ def getUserCode() {
 def setupPage() {
   dynamicPage(name: 'setupPage', title: 'Setup Lock', nextPage: 'mainPage', uninstall: true) {
     section('Choose devices for this lock') {
-      input(name: 'userName', title: 'Name for User', required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png', defaultValue: 'Airbnb')
+      input(name: 'ical', type: 'text', title: 'Airbnb Calendar Link', required: true, refreshAfterSelection: true, image: 'https://images.lockmanager.io/app/v1/images/calendar.png')
       input(name: 'userSlot', type: 'enum', options: parent.availableSlots(settings.userSlot), title: 'Select slot', required: true, refreshAfterSelection: true )
-      input(name: 'ical', type: 'text', title: 'iCal Link', required: true, refreshAfterSelection: true)
-      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true)
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true, defaultValue: timeToday("13:00", timeZone()).getDateTimeString())
+      input(name: 'userName', title: 'Name for User', required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png', defaultValue: 'Airbnb')
     }
   }
 }
@@ -182,9 +184,11 @@ def mainPage() {
       paragraph "${text}/${usage}"
       paragraph("User Code: " + getUserCode())
       paragraph("Guest Name: " + state.guestName)
+      paragraph("Start: " + state.eventStart)
+      paragraph("End: " + state.eventEnd)
       input(name: 'userEnabled', type: 'bool', title: "User Enabled?", required: false, defaultValue: true, refreshAfterSelection: true)
-      input(name: 'ical', type: 'text', title: 'iCal Link', required: true, refreshAfterSelection: true)
-      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true)
+      input(name: 'ical', type: 'text', title: 'iCal Link', required: true, refreshAfterSelection: true, image: 'https://images.lockmanager.io/app/v1/images/calendar.png')
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true, defaultValue: timeToday("13:00", timeZone()).getDateTimeString())
     }
     section('Additional Settings') {
       def actions = location.helloHome?.getPhrases()*.label
@@ -249,7 +253,7 @@ def lockInfoPageImage(lock) {
 
 def lockPage(params) {
   dynamicPage(name:"lockPage", title:"Lock Settings") {
-    debugger('current params: ' + params)
+    debugger('lockPage: current params: ' + params)
     def lock = getLock(params)
     def lockApp = getLockApp(lock.id)
     log.debug lockApp
@@ -257,7 +261,7 @@ def lockPage(params) {
 
     def usage = state."lock${lock.id}".usage
 
-    debugger('found lock id?: ' + lock?.id)
+    debugger('lockPage: found lock id?: ' + lock?.id)
 
     if (!state."lock${lock.id}".enabled) {
       section {
@@ -821,8 +825,8 @@ def getLockApp(lockId) {
 def getLock(params) {
   def id = ''
   // Assign params to id.  Sometimes parameters are double nested.
-  debugger('params: ' + params)
-  debugger('last: ' + state.lastLock)
+  debugger('getLock: params: ' + params)
+  debugger('getLock: last: ' + state.lastLock)
   if (params?.id) {
     id = params.id
   } else if (params?.params){
@@ -1048,51 +1052,22 @@ def debugger(message) {
   }
 }
 
-def doCalenderCheck() {
-  debugger("${userName}: doCalenderCheck running")
+def airbnbCalenderCheck() {
   def params = [
     uri: ical
   ]
-  def now = new Date()
-  def newCode = null
-  def checkout = timeToday(checkoutTime)
-  def beforeCheckout = (now.before(checkout))
-  def eventStart = null
-  def guestName = ""
-  def guestEvent = null
-  def deleteCode = false
 
-  debugger("${userName}: BeforeCheckout: ${beforeCheckout}, now: ${now}, checkoutTime: ${checkout}")
+  def code = ''
+  def event = null
 
   try {
     httpGet(params) { resp ->
-      def data = parseICal(resp.data)
+      event = parseICal(resp.data)
 
-      for (event in data) {
-        if (eventStart) {
-          // second event tests
-          if (beforeCheckout && event['dtStart'] > eventStart) {
-            // first event was first event
-            break
-          }
-          if (!beforeCheckout && eventStart > event['dtStart']) {
-            // first event was second event
-            break
-          }
-        }
-
-        if (event['summary'] == 'Not available') {
-          deleteCode = true
-        } else if (event['phone']) {
-          deleteCode = false
-          def code = event['phone'].replaceAll(/\D/, '')[-4..-1]
-          debugger("${userName}: start: ${event['dtStart']}, end: ${event['dtEnd']}, phone: ${event['phone']}, codeIndex: ${codeIndex}, code: ${code}")
-          newCode = code
-          eventStart = event['dtStart']
-          guestName = event['summary']
-          guestEvent = event
-        } else {
-          send("${userName} Warning: Phone number not set for event today! - Event: \n${event}")
+      if (event) {
+        if (event['summary'] != 'Not available' && event['phone']) {
+          code = event['phone'].replaceAll(/\D/, '')[-4..-1]
+          debugger("airbnbCalenderCheck: ${event['summary']}, phone: ${event['phone']}, code: ${code}")
         }
       }
     }
@@ -1100,33 +1075,26 @@ def doCalenderCheck() {
     log.error "something went wrong: $e"
   }
 
-  if (deleteCode) {
-    // there is no guest, delete the user code
-    debugger("${userName}: deleting code")
-    state.userCode = ''
-    state.guestName = 'NONE'
-    resetAllLocksUsage()
-    if (settings.notifyCodeChange) {
-      sendMessageViaUser("${userName}: Clearing code")
-    }
-  } else if (newCode) {
-    debugger("${userName}: state.userCode: ${state.userCode}, newcode: ${newCode}")
-    if (newCode != state.userCode) {
-      debugger("${userName}: setting code to ${newCode}, state.userCode = ${state.userCode}")
-      state.userCode = newCode
-      state.guestName = guestName
-      resetAllLocksUsage()
+  if (state.userCode != code && event) {
+    debugger("airbnbCalenderCheck: setting new user code: ${code}")
+    state.userCode = code
+    state.guestName = event['summary']
+    state.eventStart = readableDateTime(event['dtStart'])
+    state.eventEnd = readableDateTime(event['dtEnd'])
 
-      if (settings.notifyCodeChange) {
-        sendMessageViaUser("${userName}: Setting code to ${newCode} for ${guestName}")
+    if (settings.notifyCodeChange) {
+      if (code != '') {
+        sendMessageViaUser("${userName}: Setting code ${codeIndex} to ${code} for ${event['summary']}")
+      } else {
+        sendMessageViaUser("${userName}: Clearing code ${codeIndex}")
       }
-      debugger("${userName}: GuestEvent: \n${guestEvent}")
-    } else {
-      debugger("${userName}: code is not new")
     }
+
+    resetAllLocksUsage()
+    parent.setAccess()
   }
 
-  parent.setAccess()
+  debugger("airbnbCalenderCheck after: state.userCode: ${state.userCode}, code: ${code}")
 }
 
 String readLine(ByteArrayInputStream is) {
@@ -1163,9 +1131,9 @@ String readLine(ByteArrayInputStream is) {
 }
 
 def currentEvent(today, event) {
-  def afterStart = (event['dtStart'] < today)
-  def beforeEnd = (today < (event['dtEnd']+1))
-  def eventState = 'bad'
+  def afterStart = (event['dtStart'] <= today)
+  def beforeEnd = (today <= event['dtEnd'])
+  def eventState = 'UNKNOWN'
   if (!afterStart && beforeEnd) {
     eventState = 'future'
   } else if (afterStart && !beforeEnd) {
@@ -1173,15 +1141,18 @@ def currentEvent(today, event) {
   } else if (afterStart && beforeEnd) {
     eventState = 'current'
   }
-  debugger("${userName} - ${eventState}: dtStart: ${event['dtStart']}, dtEnd: ${event['dtEnd']}, today: ${today}, afterStart: ${afterStart}, beforeEnd: ${beforeEnd}")
+
+  def startString = readableDateTime(event['dtStart'])
+  def endString = readableDateTime(event['dtEnd'])
+  def todayString = readableDateTime(today)
+  debugger("currentEvent: Guest: ${event['summary']}, dates: ${startString} to ${endString}, today: ${todayString}, afterStart: ${afterStart}, beforeEnd: ${beforeEnd}, state: ${eventState}")
   return (afterStart && beforeEnd)
 }
 
 def parseICal(ByteArrayInputStream is) {
-  def iCalEvents = []
   def iCalEvent = null
   def sincePhone = 100
-  def today = new Date()
+  def today = rightNow()
 
   while (true) {
     def line = readLine(is)
@@ -1194,9 +1165,10 @@ def parseICal(ByteArrayInputStream is) {
       iCalEvent = [record:'']
     } else if (line == "END:VEVENT") {
       if (currentEvent(today, iCalEvent)) {
-        iCalEvents.push(iCalEvent)
+        return iCalEvent
+      } else {
+        iCalEvent = null
       }
-      iCalEvent = null
     } else if (iCalEvent != null) {
       // parse line
       def compoundKey = null
@@ -1259,20 +1231,18 @@ def parseICal(ByteArrayInputStream is) {
     }
   }
 
-
-  return iCalEvents
+  // if we get here there is no current event
+  return null
 }
 
 Date parseDate(String value) {
-  if ( value ==~ /[0-9]*T[0-9]*Z/ ) {
-    Date.parse("yyyyMMdd'T'HHmmss'Z'", value)
-  } else if ( value ==~ /[0-9]*T[0-9]*/ ) {
-    Date.parse("yyyyMMdd'T'HHmmss", value)
-  } else if ( value ==~ /[0-9]*/ ) {
-    Date.parse("yyyyMMdd", value)
+  def time = timeToday(checkoutTime, timeZone()).format("'T'HH:mm:ss.SSSZ", timeZone())
+  def ret = null
+  if ( value ==~ /[0-9]*/ ) {
+    ret = Date.parse("yyyyMMdd'T'HH:mm:ss.SSSZ", "${value}${time}")
   } else {
     println "WARNING: unknown date format: ${value}"
-    null
   }
+  return ret
 }
 
