@@ -164,7 +164,7 @@ def setupPage() {
     section('Choose devices for this lock') {
       input(name: 'ical', type: 'text', title: 'Airbnb Calendar Link', required: true, refreshAfterSelection: true, image: 'https://images.lockmanager.io/app/v1/images/calendar.png')
       input(name: 'userSlot', type: 'enum', options: parent.availableSlots(settings.userSlot), title: 'Select slot', required: true, refreshAfterSelection: true )
-      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true, defaultValue: timeToday("13:00", timeZone()).getDateTimeString())
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true)
       input(name: 'userName', title: 'Name for User', required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png', defaultValue: 'Airbnb')
     }
   }
@@ -188,7 +188,7 @@ def mainPage() {
       paragraph("End: " + state.eventEnd)
       input(name: 'userEnabled', type: 'bool', title: "User Enabled?", required: false, defaultValue: true, refreshAfterSelection: true)
       input(name: 'ical', type: 'text', title: 'iCal Link', required: true, refreshAfterSelection: true, image: 'https://images.lockmanager.io/app/v1/images/calendar.png')
-      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true, defaultValue: timeToday("13:00", timeZone()).getDateTimeString())
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true)
     }
     section('Additional Settings') {
       def actions = location.helloHome?.getPhrases()*.label
@@ -1084,17 +1084,15 @@ def airbnbCalenderCheck() {
 
     if (settings.notifyCodeChange) {
       if (code != '') {
-        sendMessageViaUser("${userName}: Setting code ${codeIndex} to ${code} for ${event['summary']}")
+        sendMessageViaUser("${userName}: Setting code ${settings.userSlot} to ${code} for ${event['summary']}")
       } else {
-        sendMessageViaUser("${userName}: Clearing code ${codeIndex}")
+        sendMessageViaUser("${userName}: Clearing code ${settings.userSlot}")
       }
     }
 
     resetAllLocksUsage()
     parent.setAccess()
   }
-
-  debugger("airbnbCalenderCheck after: state.userCode: ${state.userCode}, code: ${code}")
 }
 
 String readLine(ByteArrayInputStream is) {
@@ -1131,22 +1129,7 @@ String readLine(ByteArrayInputStream is) {
 }
 
 def currentEvent(today, event) {
-  def afterStart = (event['dtStart'] <= today)
-  def beforeEnd = (today <= event['dtEnd'])
-  def eventState = 'UNKNOWN'
-  if (!afterStart && beforeEnd) {
-    eventState = 'future'
-  } else if (afterStart && !beforeEnd) {
-    eventState = 'past'
-  } else if (afterStart && beforeEnd) {
-    eventState = 'current'
-  }
-
-  def startString = readableDateTime(event['dtStart'])
-  def endString = readableDateTime(event['dtEnd'])
-  def todayString = readableDateTime(today)
-  debugger("currentEvent: Guest: ${event['summary']}, dates: ${startString} to ${endString}, today: ${todayString}, afterStart: ${afterStart}, beforeEnd: ${beforeEnd}, state: ${eventState}")
-  return (afterStart && beforeEnd)
+  return ((event['dtStart'] <= today) && (today <= event['dtEnd']))
 }
 
 def parseICal(ByteArrayInputStream is) {
@@ -1158,14 +1141,14 @@ def parseICal(ByteArrayInputStream is) {
     def line = readLine(is)
 
     if (line == null) {
-      break;
+      break
     }
 
     if (line == "BEGIN:VEVENT") {
       iCalEvent = [record:'']
     } else if (line == "END:VEVENT") {
       if (currentEvent(today, iCalEvent)) {
-        return iCalEvent
+        break
       } else {
         iCalEvent = null
       }
@@ -1232,7 +1215,7 @@ def parseICal(ByteArrayInputStream is) {
   }
 
   // if we get here there is no current event
-  return null
+  return iCalEvent
 }
 
 Date parseDate(String value) {
