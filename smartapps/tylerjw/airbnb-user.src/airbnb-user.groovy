@@ -163,10 +163,32 @@ def setupPage() {
   dynamicPage(name: 'setupPage', title: 'Setup Lock', nextPage: 'mainPage', uninstall: true) {
     section('Choose devices for this lock') {
       def defaultTime = timeToday("13:00", timeZone()).format(smartThingsDateFormat(), timeZone())
-      input(name: 'ical', type: 'text', title: 'Airbnb Calendar Link', required: true, refreshAfterSelection: true, image: 'https://images.lockmanager.io/app/v1/images/calendar.png', submitOnChange: true)
-      input(name: 'userSlot', type: 'enum', options: parent.availableSlots(settings.userSlot), title: 'Select slot', required: true, refreshAfterSelection: true, submitOnChange: true)
-      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true, submitOnChange: true, defaultValue: defaultTime)
-      input(name: 'userName', title: 'Name for User', required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png', defaultValue: 'Airbnb', submitOnChange: true)
+      def defaultEarlyCheckin = timeToday("8:00", timeZone()).format(smartThingsDateFormat(), timeZone())
+      def defaultLateCheckout = timeToday("17:00", timeZone()).format(smartThingsDateFormat(), timeZone())
+      input(name: 'ical', type: 'text', title: 'Airbnb Calendar Link',
+            image: 'https://images.lockmanager.io/app/v1/images/calendar.png',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'userSlot', type: 'enum', title: 'Select slot',
+            options: parent.availableSlots(settings.userSlot),
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time',
+            description: 'when to change codes', defaultValue: defaultTime,
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'userName', title: 'Name for User',
+            image: 'https://images.lockmanager.io/app/v1/images/user.png', defaultValue: 'Airbnb',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'earlyCheckin', title: 'Early Checkin', type: 'bool', defaultValue: true,
+            description: 'if there is no other guest before current guest adjust the time that codes change',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'earlyCheckinTime', type: 'time', title: 'Early Checkin Time', defaultValue: defaultEarlyCheckin,
+            description: 'when to change codes if early checkin is enabled',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'lateCheckout', title: 'Late Checkout', type: 'bool', defaultValue: true,
+            description: 'if there is no other guest after current guest adjust the time that codes change',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'lateCheckoutTime', type: 'time', title: 'Late Checkout Time', defaultValue: defaultLateCheckout,
+            description: 'when to change codes if late checkout is enabled',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
     }
   }
 }
@@ -187,9 +209,26 @@ def mainPage() {
       paragraph("Guest Name: " + state.guestName)
       paragraph("Start: " + state.eventStart)
       paragraph("End: " + state.eventEnd)
-      input(name: 'userEnabled', type: 'bool', title: "User Enabled?", required: false, defaultValue: true, refreshAfterSelection: true)
-      input(name: 'ical', type: 'text', title: 'iCal Link', required: true, refreshAfterSelection: true, image: 'https://images.lockmanager.io/app/v1/images/calendar.png')
-      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true)
+      input(name: 'userEnabled', type: 'bool', title: "User Enabled?",
+            required: false, defaultValue: true, refreshAfterSelection: true)
+      input(name: 'ical', type: 'text', title: 'iCal Link',
+            required: true, refreshAfterSelection: true,
+            image: 'https://images.lockmanager.io/app/v1/images/calendar.png')
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time',
+            description: 'when to change codes',
+            required: true, refreshAfterSelection: true)
+      input(name: 'earlyCheckin', title: 'Early Checkin', type: 'bool',
+            description: 'if there is no other guest before current guest adjust the time that codes change',
+            refreshAfterSelection: true, required: true)
+      input(name: 'earlyCheckinTime', type: 'time', title: 'Early Checkin Time',
+            description: 'when to change codes if early checkin is enabled',
+            refreshAfterSelection: true, required: true)
+      input(name: 'lateCheckout', title: 'Late Checkout', type: 'bool',
+            description: 'if there is no other guest after current guest adjust the time that codes change',
+            refreshAfterSelection: true, required: true)
+      input(name: 'lateCheckoutTime', type: 'time', title: 'Late Checkout Time',
+            description: 'when to change codes if late checkout is enabled',
+            refreshAfterSelection: true, required: true)
     }
     section('Additional Settings') {
       def actions = location.helloHome?.getPhrases()*.label
@@ -1066,7 +1105,9 @@ def airbnbCalenderCheck() {
       event = parseICal(resp.data)
 
       if (event) {
-        if (event['summary'] != 'Not available' && event['phone']) {
+        if (event['summary'] == 'Not available') {
+          code = ''
+        } else if (event['phone']) {
           code = event['phone'].replaceAll(/\D/, '')[-4..-1]
           debugger("airbnbCalenderCheck: ${event['summary']}, phone: ${event['phone']}, code: ${code}")
         }
@@ -1076,7 +1117,7 @@ def airbnbCalenderCheck() {
     log.error "something went wrong: $e"
   }
 
-  if (state.userCode != code && event) {
+  if ((state.userCode != code && event) || (state.guestName != event['summary']) {
     debugger("airbnbCalenderCheck: setting new user code: ${code}")
     state.userCode = code
     state.guestName = event['summary']
@@ -1134,9 +1175,21 @@ def currentEvent(today, event) {
 }
 
 def parseICal(ByteArrayInputStream is) {
+  debugger("parseICal started")
+
   def iCalEvent = null
   def sincePhone = 100
   def today = rightNow()
+
+  def startTimeOfDay = checkoutTime
+  def endTimeOfDay = checkoutTime
+
+  if(earlyCheckin) {
+    startTimeOfDay = earlyCheckinTime
+  }
+  if(lateCheckout) {
+    endTimeOfDay = lateCheckoutTime
+  }
 
   while (true) {
     def line = readLine(is)
@@ -1148,8 +1201,18 @@ def parseICal(ByteArrayInputStream is) {
     if (line == "BEGIN:VEVENT") {
       iCalEvent = [record:'']
     } else if (line == "END:VEVENT") {
+      if(iCalEvent['summary'] == 'Not available') {
+        // adjust the time of the not available events
+        if (earlyCheckin) {
+          iCalEvent.put('dtEnd', parseDate(iCalEvent['dtEndString'], earlyCheckinTime))
+        }
+        if (lateCheckout) {
+          iCalEvent.put('dtStart', parseDate(iCalEvent['dtStartString'], lateCheckoutTime))
+        }
+      }
+
       if (currentEvent(today, iCalEvent)) {
-        break
+        return iCalEvent
       } else {
         iCalEvent = null
       }
@@ -1185,7 +1248,7 @@ def parseICal(ByteArrayInputStream is) {
         else if (key == 'CREATED') { iCalEvent.put('created', value) }
         else if (key == 'RRULE') { iCalEvent.put('rRule', value) }
         else if (key == 'RDATE') { iCalEvent.put('rDate', value) }
-        else if (key == 'DTSTAMP') { iCalEvent.put('dtStamp', parseDate(value)) }
+        else if (key == 'DTSTAMP') { iCalEvent.put('dtStamp', parseDate(value, checkoutTime)) }
         else if (key == 'CHECKIN') { iCalEvent.put('checkin', value) }
         else if (key == 'CHECKOUT') { iCalEvent.put('checkout', value) }
         else if (key == 'NIGHTS') { iCalEvent.put('nights', value) }
@@ -1195,11 +1258,11 @@ def parseICal(ByteArrayInputStream is) {
         else if (key == 'PHONE') { sincePhone = 0; }
         else if (compoundKey == 'DTSTART') {
           iCalEvent.put('dtStartString', value)
-          iCalEvent.put('dtStart', parseDate(value))
+          iCalEvent.put('dtStart', parseDate(value, startTimeOfDay))
           iCalEvent.put('dtStartTz', subKey)
         } else if (compoundKey == 'DTEND') {
           iCalEvent.put('dtEndString', value)
-          iCalEvent.put('dtEnd', parseDate(value))
+          iCalEvent.put('dtEnd', parseDate(value, endTimeOfDay))
           iCalEvent.put('dtEndTz', subKey)
         }
       }
@@ -1215,12 +1278,12 @@ def parseICal(ByteArrayInputStream is) {
     }
   }
 
-  // if we get here there is no current event
-  return iCalEvent
+  // if we got here there is no event
+  return ret
 }
 
-Date parseDate(String value) {
-  def time = timeToday(checkoutTime, timeZone()).format("'T'HH:mm:ss.SSSZ", timeZone())
+Date parseDate(String value, String timeOfDay) {
+  def time = timeToday(timeOfDay, timeZone()).format("'T'HH:mm:ss.SSSZ", timeZone())
   def ret = null
   if ( value ==~ /[0-9]*/ ) {
     ret = Date.parse("yyyyMMdd'T'HH:mm:ss.SSSZ", "${value}${time}")
