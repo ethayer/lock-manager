@@ -162,10 +162,11 @@ def getUserCode() {
 def setupPage() {
   dynamicPage(name: 'setupPage', title: 'Setup Lock', nextPage: 'mainPage', uninstall: true) {
     section('Choose devices for this lock') {
-      input(name: 'ical', type: 'text', title: 'Airbnb Calendar Link', required: true, refreshAfterSelection: true, image: 'https://images.lockmanager.io/app/v1/images/calendar.png')
-      input(name: 'userSlot', type: 'enum', options: parent.availableSlots(settings.userSlot), title: 'Select slot', required: true, refreshAfterSelection: true )
-      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true)
-      input(name: 'userName', title: 'Name for User', required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png', defaultValue: 'Airbnb')
+      def defaultTime = timeToday("13:00", timeZone()).format(smartThingsDateFormat(), timeZone())
+      input(name: 'ical', type: 'text', title: 'Airbnb Calendar Link', required: true, refreshAfterSelection: true, image: 'https://images.lockmanager.io/app/v1/images/calendar.png', submitOnChange: true)
+      input(name: 'userSlot', type: 'enum', options: parent.availableSlots(settings.userSlot), title: 'Select slot', required: true, refreshAfterSelection: true, submitOnChange: true)
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time (when to change codes)', required: true, refreshAfterSelection: true, submitOnChange: true, defaultValue: defaultTime)
+      input(name: 'userName', title: 'Name for User', required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png', defaultValue: 'Airbnb', submitOnChange: true)
     }
   }
 }
