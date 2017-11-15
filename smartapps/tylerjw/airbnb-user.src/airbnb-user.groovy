@@ -1117,7 +1117,7 @@ def airbnbCalenderCheck() {
     log.error "something went wrong: $e"
   }
 
-  if ((state.userCode != code && event) || (state.guestName != event['summary']) {
+  if ((state.userCode != code && event) || (state.guestName != event['summary'])) {
     debugger("airbnbCalenderCheck: setting new user code: ${code}")
     state.userCode = code
     state.guestName = event['summary']
