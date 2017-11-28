@@ -101,7 +101,7 @@ metadata
 	}
 
 	tiles(scale: 2) {
-		multiAttributeTile(name:"toggle", type: "lighting", width: 6, height: 4){
+		multiAttributeTile(name:"toggle", type: "generic", width: 6, height: 4){
 			tileAttribute ("device.lock", key: "PRIMARY_CONTROL") {
 
 			attributeState "locked", label:'locked', action:"lock.unlock", icon:"st.locks.lock.locked", backgroundColor:"#79b821", nextState:"unlocking"
@@ -300,11 +300,11 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd)
         {
 			case 1:
 				map.descriptionText = "$device.displayName was manually locked"
-                map.data = [ usedCode: "manual" ]
+        map.data = [ usedCode: "manual" ]
 				break
 			case 2:
 				map.descriptionText = "$device.displayName was manually unlocked"
-                map.data = [ usedCode: "manual" ]
+	      map.data = [ usedCode: "manual" ]
 				break
 			case 5:
 				if (cmd.eventParameter)
@@ -315,7 +315,7 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd)
 				else
 				{
 					map.descriptionText = "$device.displayName was locked with keypad"
-					map.data = [ usedCode: 0 ]
+					map.data = [ usedCode: -1 ]
 				}
 				break
 			case 6:
@@ -327,7 +327,7 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd)
 				else
 				{
 					map.descriptionText = "$device.displayName was unlocked with keypad"
-					map.data = [ usedCode: 0 ]
+					map.data = [ usedCode: -1 ]
 				}
 				break
 			case 9:

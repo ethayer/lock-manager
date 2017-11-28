@@ -38,6 +38,7 @@ def initialize() {
   // reset listeners
   unsubscribe()
   unschedule()
+
   subscribe(lock, 'codeReport', updateCode, [filterEvents:false])
   subscribe(lock, "reportAllCodes", pollCodeReport, [filterEvents:false])
   subscribe(lock, "lock", codeUsed)
@@ -84,20 +85,17 @@ def mainPage() {
   dynamicPage(name: "mainPage", title: "Lock Settings", install: true, uninstall: true) {
     section("Settings") {
       def actions = location.helloHome?.getPhrases()*.label
-      href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bullhorn.png')
+      href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', image: 'https://images.lockmanager.io/app/v1/images/bullhorn.png')
       if (actions) {
-        href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/home.png')
+        href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://images.lockmanager.io/app/v1/images/home.png')
       }
     }
     section('Setup', hideable: true, hidden: true) {
       label title: 'Label', defaultValue: "Lock: ${lock.label}", required: false, description: 'recommended to start with Lock:'
       input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
       input(name: 'contactSensor', title: 'Which contact sensor?', type: "capability.contactSensor", multiple: false, required: false)
-      if (state.refreshComplete) {
-        href(name: 'toInfoRefreshPage', page: 'infoRefreshPage', title: 'Refresh Lock Data', description: 'Tap to request code refresh.  Not avalible on all locks.', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/refresh.png')
-      } else {
-        paragraph 'Lock is loading data'
-      }
+      input(name: 'slotCount', title: 'How many slots?', type: 'number', multiple: false, required: false, description: 'Overwrite number of slots supported.')
+      paragraph 'Lock Manager © 2017 v1.4'
     }
   }
 }
@@ -118,15 +116,6 @@ def errorPage() {
   }
 }
 
-def infoRefreshPage() {
-  dynamicPage(name: 'infoRefreshPage', title: 'Lock Info Refresh', nextPage: 'landingPage') {
-    refreshMode()
-    section('Refresh Initiated') {
-      paragraph 'Lock is now in refresh mode.'
-    }
-  }
-}
-
 def notificationPage() {
   dynamicPage(name: 'notificationPage', title: 'Notification Settings') {
     section {
@@ -135,21 +124,21 @@ def notificationPage() {
         paragraph 'This lock only reports manual messages.\n It does not support code on lock or lock on keypad.'
       }
       if (phone == null && !notification && !recipients) {
-        input(name: 'muteLock', title: 'Mute this lock?', type: 'bool', required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/bell-slash-o.png')
+        input(name: 'muteLock', title: 'Mute this lock?', type: 'bool', required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://images.lockmanager.io/app/v1/images/bell-slash-o.png')
       }
       if (!muteLock) {
-        input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/book.png')
-        href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'askAlexaPage', image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/Alexa.png')
+        input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/book.png')
+        href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'askAlexaPage', image: 'https://images.lockmanager.io/app/v1/images/Alexa.png')
         if (!recipients) {
           input(name: 'phone', type: 'text', title: 'Text This Number', description: 'Phone number', required: false, submitOnChange: true)
           paragraph 'For multiple SMS recipients, separate phone numbers with a semicolon(;)'
           input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
         }
         if (phone != null || notification || recipients) {
-          input(name: 'notifyMaunualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
-          input(name: 'notifyMaunualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+          input(name: 'notifyManualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+          input(name: 'notifyManualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
           if (state.supportsKeypadData) {
-            input(name: 'notifyKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+            input(name: 'notifyKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
           }
         }
       }
@@ -166,10 +155,10 @@ def notificationPage() {
 def askAlexaPage() {
   dynamicPage(name: 'askAlexaPage', title: 'Ask Alexa Message Settings') {
     section('Que Messages with the Ask Alexa app') {
-      input(name: 'alexaMaunualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
-      input(name: 'alexaMaunualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+      input(name: 'alexaManualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'alexaManualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
       if (state.supportsKeypadData) {
-        input(name: 'alexaKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
+        input(name: 'alexaKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
       }
     }
     section('Only During These Times (optional)') {
@@ -180,27 +169,23 @@ def askAlexaPage() {
 }
 
 def helloHomePage() {
-  dynamicPage(name: 'helloHomePage',title: 'Keypad Settings (optional)', install: true, uninstall: true) {
+  dynamicPage(name: 'helloHomePage', title: 'Hello Home Settings (optional)') {
     def actions = location.helloHome?.getPhrases()*.label
     actions?.sort()
     section('Hello Home Phrases') {
-      input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/unlock-alt.png')
-      input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://dl.dropboxusercontent.com/u/54190708/LockManager/lock.png')
-      if (state.supportsKeypadData) {
-        input(name: 'keypadLockRoutine', title: 'On keypad Lock', type: 'enum', options: actions, required: false, multiple: true)
-      }
+      input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
+      input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+
+      input(name: 'codeUnlockRoutine', title: 'On Code Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png' )
+
+      paragraph 'Supported on some locks:'
+      input(name: 'codeLockRoutine', title: 'On Code Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+
+      paragraph 'These restrictions apply to all the above:'
+      input "userNoRunPresence", "capability.presenceSensor", title: "DO NOT run Actions if any of these are present:", multiple: true, required: false
+      input "userDoRunPresence", "capability.presenceSensor", title: "ONLY run Actions if any of these are present:", multiple: true, required: false
     }
   }
-}
-
-def refreshMode() {
-  def codeSlots = lockCodeSlots()
-  (1..codeSlots).each { slot ->
-    state.codes["slot${slot}"].codeState = 'refresh'
-  }
-  state.requestCount = 0
-  state.refreshComplete = false
-  makeRequest()
 }
 
 def queSetupLockData() {
@@ -218,33 +203,8 @@ def setupLockData() {
   if (state.requestCount == null) {
     state.requestCount = 0
   }
-  if (state.codes == null) {
-    // new install!  Start learning!
-    state.codes = [:]
-    state.requestCount = 0
-    state.initializeComplete = false
-    state.installComplete = true
-    state.refreshComplete = true
-    state.supportsKeypadData = true
-    state.pinLength = false
-    if (lock.hasAttribute('pinLength')) {
-      state.pinLength = lock.latestValue('pinLength')
-    }
-  }
-  def codeSlots = lockCodeSlots()
-  def needPoll = false
-  (1..codeSlots).each { slot ->
-    if (state.codes["slot${slot}"] == null) {
-      needPoll = true
 
-      state.initializeComplete = false
-      state.codes["slot${slot}"] = [:]
-      state.codes["slot${slot}"].slot = slot
-      state.codes["slot${slot}"].code = null
-      state.codes["slot${slot}"].attempts = 0
-      state.codes["slot${slot}"].codeState = 'unknown'
-    }
-  }
+  def needPoll = initSlots()
 
   if (needPoll || !state.initializeComplete) {
     debugger('needs poll')
@@ -257,6 +217,7 @@ def setupLockData() {
 def makeRequest() {
   def requestSlot = false
   def codeSlots = lockCodeSlots()
+  initSlots()
   (1..codeSlots).each { slot ->
     def codeState = state.codes["slot${slot}"]['codeState']
     if (codeState != 'known') {
@@ -285,6 +246,39 @@ def makeRequest() {
   }
 }
 
+def initSlots() {
+  def codeSlots = lockCodeSlots()
+  def needPoll = false
+
+  if (state.codes == null) {
+    // new install!  Start learning!
+    state.codes = [:]
+    state.requestCount = 0
+    state.initializeComplete = false
+    state.installComplete = true
+    state.refreshComplete = true
+    state.supportsKeypadData = true
+    state.pinLength = false
+    if (lock.hasAttribute('pinLength')) {
+      state.pinLength = lock.latestValue('pinLength')
+    }
+  }
+
+  (1..codeSlots).each { slot ->
+    if (state.codes["slot${slot}"] == null) {
+      needPoll = true
+
+      state.initializeComplete = false
+      state.codes["slot${slot}"] = [:]
+      state.codes["slot${slot}"].slot = slot
+      state.codes["slot${slot}"].code = null
+      state.codes["slot${slot}"].attempts = 0
+      state.codes["slot${slot}"].codeState = 'unknown'
+    }
+  }
+  return needPoll
+}
+
 def withinAllowed() {
   return (state.requestCount <= allowedAttempts())
 }
@@ -309,7 +303,7 @@ def updateCode(event) {
   state.codes["slot${slot}"]['code'] = code
   state.codes["slot${slot}"]['codeState'] = 'known'
 
-  debugger("Recieved: s:${slot} c:${code}")
+  debugger("Received: s:${slot} c:${code}")
 
   // check logic to see if all codes are in known state
   if (!state.refreshComplete) {
@@ -323,20 +317,22 @@ def updateCode(event) {
 
 def pollCodeReport(evt) {
   def codeData = new JsonSlurper().parseText(evt.data)
-  state.codeSlots = codeData.codes
 
+  state.codeSlots = codeData.codes
   def codeSlots = lockCodeSlots()
-  debugger("Recieved: ${codeData}")
+  initSlots()
+
+  debugger("Received: ${codeData}")
   (1..codeSlots).each { slot->
     def code = codeData."code${slot}"
-    if (code.isNumber()) {
-      // do nothing, looks good!
-    } else {
-      // It's easier on logic if code is empty to be null
-      code = null
+    if (code != null) { //check to make sure code isn't already null, which will cause .isNumber() to error. --DiddyWolf
+      if (code.isNumber()) {
+        // do nothing, looks good!
+        } else {
+        // It's easier on logic if code is empty to be null
+         code = null
+      }
     }
-
-    def previousCode = state.codes["slot${slot}"]['code']
 
     state.codes["slot${slot}"]['code'] = code
     if (state.codes["slot${slot}"]['codeState'] != 'refresh') {
@@ -363,13 +359,9 @@ def codeUsed(evt) {
     if (codeUsed.isNumber()) {
       userApp = findSlotUserApp(codeUsed)
     }
-    if (data.usedCode == 'manual') {
-      manualUse = true
-    }
-  } else {
-    // this lock does not report
-    // differance between manual or keypad
-    state.supportsKeypadData = false
+  }
+
+  if (!data || data?.usedCode == 'manual') {
     manualUse = true
   }
 
@@ -382,20 +374,36 @@ def codeUsed(evt) {
         parent.setAccess()
         message += '.  Now burning code.'
       }
+      // user specific
       if (userApp.userUnlockPhrase) {
-        location.helloHome.execute(userApp.userUnlockPhrase)
+        userApp.executeHelloPresenceCheck(userApp.userUnlockPhrase)
       }
+      // lock specific
+      if (codeUnlockRoutine) {
+        executeHelloPresenceCheck(codeUnlockRoutine)
+      }
+      // global
+      if (parent.codeUnlockRoutine) {
+        parent.executeHelloPresenceCheck(parent.codeUnlockRoutine)
+      }
+
     } else if (manualUse) {
       // unlocked manually
 
+      // lock specific
       if (manualUnlockRoutine) {
-        location.helloHome.execute(manualUnlockRoutine)
+        executeHelloPresenceCheck(manualUnlockRoutine)
       }
+      // global
+      if (parent.manualUnlockRoutine) {
+        parent.executeHelloPresenceCheck(parent.manualUnlockRoutine)
+      }
+
       message = "${lock.label} was unlocked manually"
-      if (notifyMaunualUnlock) {
+      if (notifyManualUnlock) {
         send(message)
       }
-      if (alexaMaunualUnlock) {
+      if (alexaManualUnlock) {
         send(message)
       }
     }
@@ -404,14 +412,23 @@ def codeUsed(evt) {
     // door was locked
     if (userApp) {
       message = "${lock.label} was locked by ${userApp.userName}"
+      // user specific
       if (userApp.userLockPhrase) {
-        location.helloHome.execute(userApp.userLockPhrase)
+        userApp.executeHelloPresenceCheck(userApp.userLockPhrase)
+      }
+      // lock specific
+      if (codeLockRoutine) {
+        executeHelloPresenceCheck(codeLockRoutine)
+      }
+      // gobal
+      if (parent.codeLockRoutine) {
+        parent.executeHelloPresenceCheck(parent.codeLockRoutine)
       }
     }
-    if (data && data.usedCode == 0) {
+    if (data && data.usedCode == -1) {
       message = "${lock.label} was locked by keypad"
       if (keypadLockRoutine) {
-        location.helloHome.execute(keypadLockRoutine)
+        executeHelloPresenceCheck(keypadLockRoutine)
       }
       if (notifyKeypadLock) {
         send(message)
@@ -423,10 +440,17 @@ def codeUsed(evt) {
     if (manualUse) {
       // locked manually
       message = "${lock.label} was locked manually"
+
+      // lock specific
       if (manualLockRoutine) {
-        location.helloHome.execute(manualLockRoutine)
+        executeHelloPresenceCheck(manualLockRoutine)
       }
-      if (notifyMaunualLock) {
+      // global
+      if (parent.manualLockRoutine) {
+        parent.executeHelloPresenceCheck(parent.manualLockRoutine)
+      }
+
+      if (notifyManualLock) {
         send(message)
       }
       if (alexaManualLock) {
@@ -466,7 +490,7 @@ def setCodes() {
     if (lockUser) {
       if (lockUser.isActive(lock.id)) {
         // is active, should be set
-        state.codes["slot${data.slot}"].correctValue = lockUser.userCode
+        state.codes["slot${data.slot}"].correctValue = lockUser.userCode.toString()
       } else {
         // is inactive, should not be set
         state.codes["slot${data.slot}"].correctValue = null
@@ -491,8 +515,11 @@ def loadCodes() {
   def sortedCodes = codes.sort{it.value.slot}
   sortedCodes.each { data ->
     data = data.value
-    if (data.code != data.correctValue) {
-      if (data.attempts <= 20) {
+    def currentCode = data.code.toString()
+    def correctCode = data.correctValue.toString()
+    if (currentCode != correctCode) {
+      debugger("${currentCode}:${correctCode} s:${data.slot}")
+      if (data.attempts <= 10) {
         def code
         if (data.correctValue) {
           code = data.correctValue
@@ -658,9 +685,14 @@ def isRefreshComplete() {
 }
 
 def lockCodeSlots() {
+  // default to 30
   def codeSlots = 30
-  if (state?.codeSlots?.isNumber()) {
-    codeSlots = state.codeSlots
+  if (slotCount) {
+    // return the user defined value
+    codeSlots = slotCount
+  } else if (state?.codeSlots) {
+    codeSlots = state.codeSlots.toInteger()
+    debugger("Lock has ${codeSlots} code slots.")
   }
   return codeSlots
 }
@@ -675,7 +707,7 @@ def slotData(slot) {
 
 def enableUser(slot) {
   state.codes["slot${slot}"].attempts = 0
-  makeRequest()
+  runIn(10, makeRequest)
 }
 
 def pinLength() {
@@ -686,5 +718,31 @@ def debugger(message) {
   def doDebugger = parent.debuggerOn()
   if (doDebugger) {
     log.debug(message)
+  }
+}
+
+def anyoneHome(sensors) {
+  def result = false
+  if(sensors.findAll { it?.currentPresence == "present" }) {
+    result = true
+  }
+  result
+}
+
+def executeHelloPresenceCheck(routines) {
+  if (userNoRunPresence && userDoRunPresence == null) {
+    if (!anyoneHome(userNoRunPresence)) {
+      location.helloHome.execute(routines)
+    }
+  } else if (userDoRunPresence && userNoRunPresence == null) {
+    if (anyoneHome(userDoRunPresence)) {
+      location.helloHome.execute(routines)
+    }
+  } else if (userDoRunPresence && userNoRunPresence) {
+    if (anyoneHome(userDoRunPresence) && !anyoneHome(userNoRunPresence)) {
+      location.helloHome.execute(routines)
+    }
+  } else {
+    location.helloHome.execute(routines)
   }
 }

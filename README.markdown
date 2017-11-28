@@ -12,7 +12,7 @@ Incomplete List of features:
 This app works using 3 child apps and 1 parent app.  It is recommended that you install all 4 apps, however if you do not use keypad devices, it is not required to install the keypad child app.
 
 ### How To Install
-[User Guide](https://dl.dropboxusercontent.com/u/54190708/LockManager/v1.1/guide.pdf)
+[User Guide](https://www.dropbox.com/s/pfi9ciqmxbjq9lo/guide.pdf?dl=0)
 
 
 ### Questions?
