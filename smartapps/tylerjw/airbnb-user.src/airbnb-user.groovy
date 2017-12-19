@@ -1177,6 +1177,7 @@ def currentEvent(today, event) {
 def parseICal(ByteArrayInputStream is) {
   debugger("parseICal started")
 
+  def events = []
   def iCalEvent = null
   def sincePhone = 100
   def today = rightNow()
@@ -1212,10 +1213,9 @@ def parseICal(ByteArrayInputStream is) {
       }
 
       if (currentEvent(today, iCalEvent)) {
-        return iCalEvent
-      } else {
-        iCalEvent = null
+        events.push(iCalEvent.clone())
       }
+      iCalEvent = null
     } else if (iCalEvent != null) {
       // parse line
       def compoundKey = null
@@ -1278,7 +1278,23 @@ def parseICal(ByteArrayInputStream is) {
     }
   }
 
-  // if we got here there is no event
+  // adjust times if there are multiple guests on the same day
+  if((earlyCheckin || lateCheckout) && events.size() > 1) {
+    if(events[0]['summary'] != 'Not available' && events[1]['summary'] != 'Not available') {
+        events[0].put('dtEnd', parseDate(events[0]['dtEndString'], checkoutTime))
+        events[0].put('dtStart', parseDate(events[0]['dtStartString'], checkoutTime))
+        events[1].put('dtEnd', parseDate(events[1]['dtEndString'], checkoutTime))
+        events[1].put('dtStart', parseDate(events[1]['dtStartString'], checkoutTime))
+    }
+    if (currentEvent(today, events[0])) {
+      return events[0];
+    } else if (currentEvent(today, events[1])) {
+      return events[1];
+    }
+  } else if (events.size() == 1) {
+    return events[0];
+  }
+
   return ret
 }
 
@@ -1292,4 +1308,5 @@ Date parseDate(String value, String timeOfDay) {
   }
   return ret
 }
+
 
