@@ -552,7 +552,7 @@ def stateCheck() {
 }
 
 def refresh() {
-	def cmds = [secure(zwave.doorLockV1.doorLockOperationGet())]
+	def cmds = [secure(zwave.doorLockV1.doorLockOperationGet()), secure(zwave.batteryV1.batteryGet())]
 	if (state.assoc == zwaveHubNodeId) {
 		log.debug "$device.displayName is associated to ${state.assoc}"
 	} else if (!state.associationQuery) {
