@@ -14,18 +14,7 @@ import groovy.json.JsonBuilder
 include 'asynchttp_v1'
 
 preferences {
-  if (mainApp) {
-    page name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true
-    // page name: 'infoRefreshPage'
-    // page name: 'notificationPage'
-    // page name: 'helloHomePage'
-    // page name: 'lockInfoPage'
-    // page name: 'keypadPage'
-    // page name: 'askAlexaPage'
-  } else {
-
-  }
-
+  page name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true
 }
 
 def mainPage() {
