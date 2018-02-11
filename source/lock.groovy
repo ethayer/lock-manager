@@ -22,20 +22,15 @@ def lockInitialize() {
 
 def isUniqueLock() {
   def unique = true
-  debugger('state is:' + state.installComplete)
   if (!state.installComplete) {
-    debugger('Not complete!')
     // only look if we're not initialized yet.
     def lockApps = parent.getLockApps()
-    debugger(lockApps.count)
     lockApps.each { lockApp ->
       debugger(lockApp.lock.id)
       if (lockApp.lock.id == lock.id) {
         unique = false
       }
     }
-  } else {
-    debugger('Complete!')
   }
   return unique
 }
@@ -304,6 +299,7 @@ def pollCodeReport(evt) {
 }
 
 def codeUsed(evt) {
+  debugger('Code USED')
   def lockId = lock.id
   def message = ''
   def action = evt.value
@@ -315,7 +311,7 @@ def codeUsed(evt) {
   if (evt.data) {
     data = new JsonSlurper().parseText(evt.data)
     codeUsed = data.usedCode
-    if (codeUsed.isNumber()) {
+    if (codeUsed?.isNumber()) {
       userApp = findSlotUserApp(codeUsed)
     }
   }
@@ -326,6 +322,7 @@ def codeUsed(evt) {
 
   if (action == 'unlocked') {
     state.lockState = 'unlocked'
+    debugger('UNLOCKED')
     // door was unlocked
     if (userApp) {
       message = "${lock.label} was unlocked by ${userApp.userName}"
@@ -370,6 +367,7 @@ def codeUsed(evt) {
   }
   if (action == 'locked') {
     state.lockState = 'locked'
+    debugger('LOCKED')
     // door was locked
     if (userApp) {
       message = "${lock.label} was locked by ${userApp.userName}"
@@ -386,7 +384,7 @@ def codeUsed(evt) {
         parent.executeHelloPresenceCheck(parent.codeLockRoutine)
       }
     }
-    if (data && data.usedCode == -1) {
+    if (data?.usedCode == -1) {
       message = "${lock.label} was locked by keypad"
       if (keypadLockRoutine) {
         executeHelloPresenceCheck(keypadLockRoutine)

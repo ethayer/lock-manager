@@ -6,7 +6,7 @@ mappings {
   }
   path("/token") {
     action: [
-      POST: "getAccountToken"
+      POST: "gotAccountToken"
     ]
   }
   path("/update-slot") {
@@ -28,35 +28,17 @@ mappings {
   }
 }
 
-preferences {
-  page name: 'apiSetupPage'
-}
-
-def installedApi() {
-  log.debug "Installed with settings: ${settings}"
-  initializeApi()
-}
-
-def updatedApi() {
-  log.debug "Updated with settings: ${settings}"
-  initializeApi()
-}
-
-def initializeApi() {
-  // reset listeners
-
-  unsubscribe()
-  unschedule()
-}
-
 def apiSetupPage() {
   dynamicPage(name: 'apiSetupPage', title: 'Setup API', uninstall: true, install: true) {
     section('API service') {
-      paragraph "Token: ${state.accountToken}"
       input(name: 'enableAPI', title: 'Enabled?', type: 'bool', required: true, defaultValue: true, description: 'Enable API integration?')
       if (state.accountToken) {
         paragraph 'Token: ' + state.accountToken
       }
+    }
+    section('Entanglements') {
+      paragraph 'Switches:'
+      input(name: 'theSwitches', title: 'Which Switches?', type: 'capability.switch', multiple: true, required: true)
     }
   }
 }
@@ -80,11 +62,12 @@ def lockObject(lockApp) {
 
 def listLocks() {
   def locks = []
-  def lockApps = parent.getLockApps()
+  def lockApps = getLockApps()
 
   lockApps.each { app ->
     locks << lockObject(app)
   }
+  debugger(locks)
   return locks
 }
 
@@ -143,10 +126,10 @@ def updateSlot() {
   lockApp.apiCodeUpdate(slot, code, control)
 }
 
-def getAccountToken() {
+def gotAccountToken() {
   log.debug('got called! ' + request.JSON?.token + ' ' + parent?.id)
   state.accountToken = request.JSON?.token
-  parent.setAccountToken(request.JSON?.token)
+  setAccountToken(request.JSON?.token)
   return [data: "OK"]
 }
 
@@ -164,4 +147,30 @@ def updateSwitch() {
       }
     }
   }
+}
+
+def switchOnHandler(evt) {
+  def params = [
+    uri: 'https://api.lockmanager.io/',
+    path: '/events/switch-change',
+    body: [
+      token: state.accountToken,
+      key: evt.deviceId,
+      state: 'on'
+    ]
+  ]
+  asynchttp_v1.post(processResponse, params)
+}
+
+def switchOffHandler(evt) {
+  def params = [
+    uri: 'https://api.lockmanager.io/',
+    path: '/events/switch-change',
+    body: [
+      token: state.accountToken,
+      key: evt.deviceId,
+      state: 'off'
+    ]
+  ]
+  asynchttp_v1.post(processResponse, params)
 }

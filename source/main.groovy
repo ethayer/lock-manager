@@ -166,7 +166,7 @@ def initializeMain() {
 
 
 def mainPage() {
-  dynamicPage(name: 'mainPage', install: true, uninstall: true, submitOnChange: true) {
+  dynamicPage(name: 'mainPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true) {
     section('Locks') {
       def lockApps = getLockApps()
       lockApps = lockApps.sort{ it.lock.id }
@@ -197,9 +197,8 @@ def mainPage() {
       href(name: "toCreatePage", title: 'Create Integration', page: 'createPage', required: false )
     }
 
-    section('Big Mirror') {
-      paragraph 'Big Mirror Switches:'
-      input(name: 'theSwitches', title: 'Which Switches?', type: 'capability.switch', multiple: true, required: true)
+    section('API') {
+      href(name: 'toApiPage', page: 'apiSetupPage', title: 'API Options', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
     }
 
     section('Advanced', hideable: true, hidden: true) {
@@ -586,37 +585,6 @@ def executeHelloPresenceCheck(routines) {
   } else {
     location.helloHome.execute(routines)
   }
-}
-
-def setAccountToken(token) {
-  debugger('Got account token! ' + token)
-  state.accountToken = token
-}
-
-def switchOnHandler(evt) {
-  def params = [
-    uri: 'https://api.lockmanager.io/',
-    path: '/events/switch-change',
-    body: [
-      token: state.accountToken,
-      key: evt.deviceId,
-      state: 'on'
-    ]
-  ]
-  asynchttp_v1.post(processResponse, params)
-}
-
-def switchOffHandler(evt) {
-  def params = [
-    uri: 'https://api.lockmanager.io/',
-    path: '/events/switch-change',
-    body: [
-      token: state.accountToken,
-      key: evt.deviceId,
-      state: 'off'
-    ]
-  ]
-  asynchttp_v1.post(processResponse, params)
 }
 
 def debuggerOn() {

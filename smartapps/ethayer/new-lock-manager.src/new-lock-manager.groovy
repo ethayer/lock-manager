@@ -166,7 +166,7 @@ def initializeMain() {
 
 
 def mainPage() {
-  dynamicPage(name: 'mainPage', install: true, uninstall: true, submitOnChange: true) {
+  dynamicPage(name: 'mainPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true) {
     section('Locks') {
       def lockApps = getLockApps()
       lockApps = lockApps.sort{ it.lock.id }
@@ -197,9 +197,8 @@ def mainPage() {
       href(name: "toCreatePage", title: 'Create Integration', page: 'createPage', required: false )
     }
 
-    section('Big Mirror') {
-      paragraph 'Big Mirror Switches:'
-      input(name: 'theSwitches', title: 'Which Switches?', type: 'capability.switch', multiple: true, required: true)
+    section('API') {
+      href(name: 'toApiPage', page: 'apiSetupPage', title: 'API Options', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
     }
 
     section('Advanced', hideable: true, hidden: true) {
@@ -588,37 +587,6 @@ def executeHelloPresenceCheck(routines) {
   }
 }
 
-def setAccountToken(token) {
-  debugger('Got account token! ' + token)
-  state.accountToken = token
-}
-
-def switchOnHandler(evt) {
-  def params = [
-    uri: 'https://api.lockmanager.io/',
-    path: '/events/switch-change',
-    body: [
-      token: state.accountToken,
-      key: evt.deviceId,
-      state: 'on'
-    ]
-  ]
-  asynchttp_v1.post(processResponse, params)
-}
-
-def switchOffHandler(evt) {
-  def params = [
-    uri: 'https://api.lockmanager.io/',
-    path: '/events/switch-change',
-    body: [
-      token: state.accountToken,
-      key: evt.deviceId,
-      state: 'off'
-    ]
-  ]
-  asynchttp_v1.post(processResponse, params)
-}
-
 def debuggerOn() {
   // needed for child apps
   return enableDebug
@@ -670,20 +638,15 @@ def lockInitialize() {
 
 def isUniqueLock() {
   def unique = true
-  debugger('state is:' + state.installComplete)
   if (!state.installComplete) {
-    debugger('Not complete!')
     // only look if we're not initialized yet.
     def lockApps = parent.getLockApps()
-    debugger(lockApps.count)
     lockApps.each { lockApp ->
       debugger(lockApp.lock.id)
       if (lockApp.lock.id == lock.id) {
         unique = false
       }
     }
-  } else {
-    debugger('Complete!')
   }
   return unique
 }
@@ -952,6 +915,7 @@ def pollCodeReport(evt) {
 }
 
 def codeUsed(evt) {
+  debugger('Code USED')
   def lockId = lock.id
   def message = ''
   def action = evt.value
@@ -963,7 +927,7 @@ def codeUsed(evt) {
   if (evt.data) {
     data = new JsonSlurper().parseText(evt.data)
     codeUsed = data.usedCode
-    if (codeUsed.isNumber()) {
+    if (codeUsed?.isNumber()) {
       userApp = findSlotUserApp(codeUsed)
     }
   }
@@ -974,6 +938,7 @@ def codeUsed(evt) {
 
   if (action == 'unlocked') {
     state.lockState = 'unlocked'
+    debugger('UNLOCKED')
     // door was unlocked
     if (userApp) {
       message = "${lock.label} was unlocked by ${userApp.userName}"
@@ -1018,6 +983,7 @@ def codeUsed(evt) {
   }
   if (action == 'locked') {
     state.lockState = 'locked'
+    debugger('LOCKED')
     // door was locked
     if (userApp) {
       message = "${lock.label} was locked by ${userApp.userName}"
@@ -1034,7 +1000,7 @@ def codeUsed(evt) {
         parent.executeHelloPresenceCheck(parent.codeLockRoutine)
       }
     }
-    if (data && data.usedCode == -1) {
+    if (data?.usedCode == -1) {
       message = "${lock.label} was locked by keypad"
       if (keypadLockRoutine) {
         executeHelloPresenceCheck(keypadLockRoutine)
@@ -2542,7 +2508,7 @@ mappings {
   }
   path("/token") {
     action: [
-      POST: "getAccountToken"
+      POST: "gotAccountToken"
     ]
   }
   path("/update-slot") {
@@ -2564,35 +2530,17 @@ mappings {
   }
 }
 
-preferences {
-  page name: 'apiSetupPage'
-}
-
-def installedApi() {
-  log.debug "Installed with settings: ${settings}"
-  initializeApi()
-}
-
-def updatedApi() {
-  log.debug "Updated with settings: ${settings}"
-  initializeApi()
-}
-
-def initializeApi() {
-  // reset listeners
-
-  unsubscribe()
-  unschedule()
-}
-
 def apiSetupPage() {
   dynamicPage(name: 'apiSetupPage', title: 'Setup API', uninstall: true, install: true) {
     section('API service') {
-      paragraph "Token: ${state.accountToken}"
       input(name: 'enableAPI', title: 'Enabled?', type: 'bool', required: true, defaultValue: true, description: 'Enable API integration?')
       if (state.accountToken) {
         paragraph 'Token: ' + state.accountToken
       }
+    }
+    section('Entanglements') {
+      paragraph 'Switches:'
+      input(name: 'theSwitches', title: 'Which Switches?', type: 'capability.switch', multiple: true, required: true)
     }
   }
 }
@@ -2616,11 +2564,12 @@ def lockObject(lockApp) {
 
 def listLocks() {
   def locks = []
-  def lockApps = parent.getLockApps()
+  def lockApps = getLockApps()
 
   lockApps.each { app ->
     locks << lockObject(app)
   }
+  debugger(locks)
   return locks
 }
 
@@ -2679,10 +2628,10 @@ def updateSlot() {
   lockApp.apiCodeUpdate(slot, code, control)
 }
 
-def getAccountToken() {
+def gotAccountToken() {
   log.debug('got called! ' + request.JSON?.token + ' ' + parent?.id)
   state.accountToken = request.JSON?.token
-  parent.setAccountToken(request.JSON?.token)
+  setAccountToken(request.JSON?.token)
   return [data: "OK"]
 }
 
@@ -2700,4 +2649,30 @@ def updateSwitch() {
       }
     }
   }
+}
+
+def switchOnHandler(evt) {
+  def params = [
+    uri: 'https://api.lockmanager.io/',
+    path: '/events/switch-change',
+    body: [
+      token: state.accountToken,
+      key: evt.deviceId,
+      state: 'on'
+    ]
+  ]
+  asynchttp_v1.post(processResponse, params)
+}
+
+def switchOffHandler(evt) {
+  def params = [
+    uri: 'https://api.lockmanager.io/',
+    path: '/events/switch-change',
+    body: [
+      token: state.accountToken,
+      key: evt.deviceId,
+      state: 'off'
+    ]
+  ]
+  asynchttp_v1.post(processResponse, params)
 }
