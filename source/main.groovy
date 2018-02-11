@@ -62,10 +62,10 @@ preferences {
 def appPageWizard(params) {
   if (params.type) {
     // inital set app type
-    setPageType(params.type)
+    setAppType(params.type)
   }
   // find the correct landing page
-  switch (state.pageType) {
+  switch (state.appType) {
     case 'lock':
       lockLandingPage()
       break
@@ -87,7 +87,7 @@ def appPageWizard(params) {
 def installed() {
 
   // find the correct installer
-  switch (state.pageType) {
+  switch (state.appType) {
     case 'lock':
       lockInstalled()
       break
@@ -109,7 +109,7 @@ def installed() {
 
 def updated() {
   // find the correct updater
-  switch (state.pageType) {
+  switch (state.appType) {
     case 'lock':
       lockUpdated()
       break
@@ -130,7 +130,7 @@ def updated() {
 }
 
 def uninstalled() {
-  switch (state.pageType) {
+  switch (state.appType) {
     case 'lock':
       break
     case 'user':
@@ -157,8 +157,8 @@ def updatedMain() {
 }
 
 def initializeMain() {
-  def children = getChildApps()
-  log.debug "there are ${children.size()} lock users"
+  def children = getLockApps()
+  log.debug "there are ${children.size()} locks"
 
   subscribe(theSwitches, "switch.on", switchOnHandler)
   subscribe(theSwitches, "switch.off", switchOffHandler)
@@ -224,8 +224,8 @@ def createPage() {
   }
 }
 
-def setPageType(pageType) {
-  state.pageType = pageType
+def setAppType(appType) {
+  state.appType = appType
 }
 
 def lockInfoPage(params) {
@@ -512,36 +512,36 @@ def findAssignedChildApp(lock, slot) {
 }
 
 def getUserApps() {
-  def userApps = []
+  def childApps = []
   def children = getChildApps()
   children.each { child ->
-    if (child.userSlot) {
-      userApps.push(child)
+    if (child.theAppType() == 'user') {
+      childApps.push(child)
     }
   }
-  return userApps
+  return childApps
 }
 
 def getKeypadApps() {
-  def keypadApps = []
+  def childApps = []
   def children = getChildApps()
   children.each { child ->
-    if (child.keypad) {
-      keypadApps.push(child)
+    if (child.theAppType() == 'keypad') {
+      childApps.push(child)
     }
   }
-  return keypadApps
+  return childApps
 }
 
 def getLockApps() {
-  def lockApps = []
+  def childApps = []
   def children = getChildApps()
   children.each { child ->
-    if (child.lock) {
-      lockApps.push(child)
+    if (child.theAppType() == 'lock') {
+      childApps.push(child)
     }
   }
-  return lockApps
+  return childApps
 }
 
 def setAccess() {
@@ -622,6 +622,14 @@ def switchOffHandler(evt) {
 def debuggerOn() {
   // needed for child apps
   return enableDebug
+}
+
+def theAppType() {
+  if (parent) {
+    return state.appType
+  } else {
+    return 'main'
+  }
 }
 
 def debugger(message) {

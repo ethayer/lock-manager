@@ -22,20 +22,25 @@ def lockInitialize() {
 
 def isUniqueLock() {
   def unique = true
+  debugger('state is:' + state.installComplete)
   if (!state.installComplete) {
+    debugger('Not complete!')
     // only look if we're not initialized yet.
     def lockApps = parent.getLockApps()
+    debugger(lockApps.count)
     lockApps.each { lockApp ->
+      debugger(lockApp.lock.id)
       if (lockApp.lock.id == lock.id) {
         unique = false
       }
     }
+  } else {
+    debugger('Complete!')
   }
   return unique
 }
 
 def lockLandingPage() {
-  initSlots()
   if (lock) {
     def unique = isUniqueLock()
     if (unique){
