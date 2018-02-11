@@ -179,10 +179,6 @@ def mainPage() {
       }
     }
     section('Global Settings') {
-      section('Install') {
-        paragraph 'Create integrations'
-        href(name: "toCreatePage", title: 'Create Integration', page: 'createPage', required: false )
-      }
       href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://images.lockmanager.io/app/v1/images/bullhorn.png')
 
       def actions = location.helloHome?.getPhrases()*.label
@@ -194,6 +190,11 @@ def mainPage() {
       if (keypadApps) {
         href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
       }
+    }
+
+    section('Install') {
+      paragraph 'Create integrations'
+      href(name: "toCreatePage", title: 'Create Integration', page: 'createPage', required: false )
     }
 
     section('Big Mirror') {
