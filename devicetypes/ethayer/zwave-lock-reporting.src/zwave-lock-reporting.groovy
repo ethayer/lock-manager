@@ -1180,7 +1180,6 @@ def poll() {
 		sendEvent(descriptionText: "skipping poll", isStateChange: true, displayed: false)
 		null
 	}
-  reportAllCodes(state)
 }
 
 /**
@@ -1698,17 +1697,4 @@ def readCodeSlotId(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd) {
 		return cmd.eventParameter[2]
 	}
 	return cmd.alarmLevel
-}
-
-def reportAllCodes(state) {
-  def map = [ name: "reportAllCodes", data: [:], displayed: false, isStateChange: false, type: "physical" ]
-  state.each { entry ->
-    //iterate through all the state entries and add them to the event data to be handled by application event handlers
-    if ( entry.key ==~ /^code\d{1,}/ && entry.value.startsWith("~") ) {
-      map.data.put(entry.key, decrypt(entry.value))
-    } else {
-      map.data.put(entry.key, entry.value)
-    }
-  }
-  sendEvent(map)
 }

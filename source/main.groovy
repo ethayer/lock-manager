@@ -12,6 +12,7 @@ definition(
 )
 import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
+import java.util.regex.*
 include 'asynchttp_v1'
 
 preferences {
@@ -151,7 +152,7 @@ def installedMain() {
 }
 
 def updatedMain() {
-  log.debug "Updated with settings: ${settings}"
+  log.debug "Main Updated with settings: ${settings}"
   unsubscribe()
   initializeMain()
 }

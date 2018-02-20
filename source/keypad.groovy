@@ -1,10 +1,10 @@
 def installedKeypad() {
-  debugger("Installed with settings: ${settings}")
+  debugger("Keypad Installed with settings: ${settings}")
   initializeKeypad()
 }
 
 def updatedKeypad() {
-  debugger("Updated with settings: ${settings}")
+  debugger("Keypad Updated with settings: ${settings}")
   initializeKeypad()
 }
 

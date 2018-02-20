@@ -12,6 +12,7 @@ definition(
 )
 import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
+import java.util.regex.*
 include 'asynchttp_v1'
 
 preferences {
@@ -151,7 +152,7 @@ def installedMain() {
 }
 
 def updatedMain() {
-  log.debug "Updated with settings: ${settings}"
+  log.debug "Main Updated with settings: ${settings}"
   unsubscribe()
   initializeMain()
 }
@@ -615,12 +616,12 @@ def debugger(message) {
 }
 
 def lockInstalled() {
-  debugger("Installed with settings: ${settings}")
+  debugger("Lock Installed with settings: ${settings}")
   lockInitialize()
 }
 
 def lockUpdated() {
-  debugger("Updated with settings: ${settings}")
+  debugger("Lock Updated with settings: ${settings}")
   lockInitialize()
 }
 
@@ -628,8 +629,7 @@ def lockInitialize() {
   // reset listeners
   unsubscribe()
   unschedule()
-
-  subscribe(lock, 'codeReport', updateCode, [filterEvents:false])
+  subscribe(lock, 'codeChanged', updateCode, [filterEvents:false])
   subscribe(lock, "reportAllCodes", pollCodeReport, [filterEvents:false])
   subscribe(lock, "lock", codeUsed)
   setupLockData()
@@ -693,7 +693,7 @@ def lockMainPage() {
 }
 
 def isInit() {
-  return (state.initializeComplete && state.refreshComplete)
+  return (state.initializeComplete)
 }
 
 def lockErrorPage() {
@@ -771,38 +771,6 @@ def setupLockData() {
   setCodes()
 }
 
-def makeRequest() {
-  def requestSlot = false
-  def codeSlots = lockCodeSlots()
-  initSlots()
-  (1..codeSlots).each { slot ->
-    def codeState = state.codes["slot${slot}"]['codeState']
-    if (codeState != 'known') {
-      requestSlot = slot
-    }
-  }
-  if (lock && requestSlot && withinAllowed()) {
-    // there is an unknown code!
-    state.requestCount = state.requestCount + 1
-    debugger("request ${requestSlot} count: ${state.requestCount}")
-    runIn(5, makeRequest)
-    lock.requestCode(requestSlot)
-  } else if (!withinAllowed()){
-    debugger('Codes not retreived in reasonable time')
-    debugger('Is the lock requestCode avalible for this lock?')
-    state.refreshComplete = true
-
-    // run a poll and reset everthing
-    lock.poll()
-  } else {
-    debugger('no request to make')
-    state.requestCount = 0
-    state.refreshComplete = true
-    state.initializeComplete = true
-    setCodes()
-  }
-}
-
 def initSlots() {
   def codeSlots = lockCodeSlots()
   def needPoll = false
@@ -858,31 +826,37 @@ def allowedAttempts() {
 
 def updateCode(event) {
   def data = new JsonSlurper().parseText(event.data)
-  def slot = event.value.toInteger()
-  def code
-  if (data.code.isNumber()) {
-    code = data.code
-  } else {
-    // It's easier on logic if code is empty to be null
-    code = null
-  }
+  def name = event.name
+  def description = event.descriptionText
+  def activity = event.value =~ /(\d{1,3}).(\w*)/
+  def slot = activity[0][1]
+  def activityType = activity[0][2]
 
+  debugger("name: ${name} slot: ${slot} data: ${data} description: ${description} activity: ${activity[0]}")
   def previousCode = state.codes["slot${slot}"]['code']
 
-  state.codes["slot${slot}"]['code'] = code
-  state.codes["slot${slot}"]['codeState'] = 'known'
-
-  debugger("Received: s:${slot} c:${code}")
-
-  // check logic to see if all codes are in known state
-  if (!state.refreshComplete) {
-    runIn(5, makeRequest)
+  def code = null
+  def userApp = findSlotUserApp(slot)
+  if (userApp) {
+    code = userApp.userCode
   }
-  if (previousCode != code) {
-    // code changed, let's inform!
-    codeInform(slot, code)
+  switch (activityType) {
+    case 'unset':
+      state.codes["slot${slot}"]['code'] = null
+      state.codes["slot${slot}"]['codeState'] = 'known'
+      debugger("Slot:${slot} is no longer set!")
+      break
+    case 'changed':
+      // we're assuming the change was made correctly
+      state.codes["slot${slot}"]['code'] = code
+      state.codes["slot${slot}"]['codeState'] = 'known'
+      debugger("Slot:${slot} is set!")
+    default:
+      // do nothing I'm not sure what happened
+      break
   }
 }
+
 
 def pollCodeReport(evt) {
   def codeData = new JsonSlurper().parseText(evt.data)
@@ -1077,7 +1051,7 @@ def setCodes() {
         state.codes["slot${data.slot}"].correctValue = null
       }
     } else if (state.codes["slot${data.slot}"].control == 'api') {
-      // do nothing! allow API to handle.
+      // do nothing! allow API to handle it.
     } else if (parent.overwriteMode) {
       state.codes["slot${data.slot}"].correctValue = null
     } else {
@@ -1311,7 +1285,7 @@ def lockState() {
 
 def enableUser(slot) {
   state.codes["slot${slot}"].attempts = 0
-  runIn(10, makeRequest)
+  runIn(10, setCodes)
 }
 
 def pinLength() {
@@ -2255,12 +2229,12 @@ def sendAskAlexaUser(message) {
 }
 
 def installedKeypad() {
-  debugger("Installed with settings: ${settings}")
+  debugger("Keypad Installed with settings: ${settings}")
   initializeKeypad()
 }
 
 def updatedKeypad() {
-  debugger("Updated with settings: ${settings}")
+  debugger("Keypad Updated with settings: ${settings}")
   initializeKeypad()
 }
 
