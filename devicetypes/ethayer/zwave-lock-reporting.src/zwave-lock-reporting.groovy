@@ -91,24 +91,57 @@ metadata {
 				[value: 41, color: "#79b821"]
 			]
 		}
+		valueTile("alarmSensitivity", "device.alarmSensitivity", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state "Extreme", label: 'Sensitivity: ${currentValue}', backgroundColor: "#ffffff"
+			state "High", label: 'Sensitivity: ${currentValue}', backgroundColor: "#00a0dc"
+			state "Medium", label: 'Sensitivity: ${currentValue}', backgroundColor: "#ffffff"
+			state "Moderate", label: 'Sensitivity: ${currentValue}', backgroundColor: "#ffffff"
+			state "Low", label: 'Sensitivity: ${currentValue}', backgroundColor: "#00a0dc"
+		}
+		valueTile("alarmMode", "device.alarmMode", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state "val", label: 'Alarm ${currentValue}', backgroundColor: "#ffffff"
+			state "Tamper", label: 'Alarm ${currentValue}', backgroundColor: "#00a0dc"
+			state "Kick", label: 'Alarm ${currentValue}', backgroundColor: "#ffffff"
+			state "Off", label: 'Alarm ${currentValue}', backgroundColor: "#00a0dc"
+		}
+		valueTile("lockLeave", "device.lockLeave", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state 'val', label: 'Lock & Leave ${currentValue}', backgroundColor: "#ffffff"
+		}
+
+		valueTile("autoLock", "device.autoLock", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state 'val', label: 'Auto Lock ${currentValue}', backgroundColor: "#ffffff"
+		}
+
+		valueTile("beeperMode", "device.beeperMode", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state 'val', label: 'Beep Mode ${currentValue}', backgroundColor: "#ffffff"
+		}
+
+		valueTile("vacationMode", "device.vacationMode", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state 'val', label: 'Vacation Mode ${currentValue}', backgroundColor: "#ffffff"
+		}
+
+		valueTile("pinLength", "device.pinLength", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state 'val', label: 'Required PIN Length: ${currentValue}', backgroundColor: "#ffffff"
+		}
 
 		standardTile("refresh", "device.lock", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
 			state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
 		}
 
 		main "toggle"
-		details(["toggle", "lock", "unlock", "battery", "refresh"])
+		details(["toggle", "lock", "unlock", "battery", "refresh", "alarmSensitivity", "alarmMode", "lockLeave", "autoLock", "beeperMode", "vacationMode", "pinLength"])
 	}
 	preferences {
-		input name: "alarmMode", type: "enum", title: "Alarm Mode", description: "Enter Mode for Alarm", required: true,
+		input name: "alarmMode", type: "enum", title: "Alarm Mode", description: "Enter Mode for Alarm", required: false,
           displayDuringSetup: false,  options: ["Off", "Alert", "Tamper", "Kick"]
-		input name: "alarmSensitivity", type: "enum", title: "Alarm Sensitivity", description: "Enter Sensitivity for Alarm", required: true,
+		input name: "alarmSensitivity", type: "enum", title: "Alarm Sensitivity", description: "Enter Sensitivity for Alarm", required: false,
           displayDuringSetup: false,  options: ["Extreme", "High", "Medium", "Moderate", "Low"]
 
 		input name: "autoLock", type: "bool", title: "Auto Lock", description: "Enable Auto Lock?", required: false, displayDuringSetup: false
 		input name: "vacationMode", type: "bool", title: "Vataction Mode", description: "Enable Vacation Mode?", required: false, displayDuringSetup: false
 		input name: "lockLeave", type: "bool", title: "Lock & Leave", description: "Enable Lock & Leave?", required: false, displayDuringSetup: false
 		input name: "localControl", type: "bool", title: "Local Control", description: "Enable Local Control?", required: false, displayDuringSetup: false
+		input name: "pinLength", type: "number", title: "Local Control", description: "Changing will delete all codes", range: "4..8", required: false, displayDuringSetup: false
 	}
 }
 
@@ -279,21 +312,33 @@ def processSchlageLockConfig(cmd) {
 	// use desc/val for generic handling of config reports (it will just send a descriptionText for the acitivty stream)
 	def desc = null
 	def val = ""
+	def isEnabled = 'Enabled'
 
-	switch (cmd.parameterNumber)
-	{
+	switch (cmd.parameterNumber) {
 		case 0x3:
 			map = parseBinaryConfigRpt('beeperMode', cmd.configurationValue[0], 'Beeper Mode')
+			if (cmd.configurationValue[0] == 0) {
+				isEnabled = 'Disabled'
+			}
+			sendEvent(name: 'beeperMode', value: isEnabled, displayed: false )
 			break
 
 		// done:  vacation mode toggle
 		case 0x4:
 			map = parseBinaryConfigRpt('vacationMode', cmd.configurationValue[0], 'Vacation Mode')
+			if (cmd.configurationValue[0] == 0) {
+				isEnabled = 'Disabled'
+			}
+			sendEvent(name: 'vacationMode', value: isEnabled, displayed: false )
 			break
 
 		// done: lock and leave mode
 		case 0x5:
 			map = parseBinaryConfigRpt('lockLeave', cmd.configurationValue[0], 'Lock & Leave')
+			if (cmd.configurationValue[0] == 0) {
+				isEnabled = 'Disabled'
+			}
+			sendEvent(name: 'lockLeave', value: isEnabled, displayed: false )
 			break
 
 		// these don't seem to be useful.  It's just a bitmap of the code slots used.
@@ -304,49 +349,57 @@ def processSchlageLockConfig(cmd) {
 
 		// done:  the alarm mode of the lock.
 		case 0x7:
-			map = [ name:"alarmMode", displayed: true ]
-			// when getting the alarm mode, also query the sensitivity for that current alarm mode
-			switch (cmd.configurationValue[0])
-			{
+			def currentAlarmMode = "Off"
+
+			switch (cmd.configurationValue[0]) {
 				case 0x00:
-					map.value = "Off"
+					currentAlarmMode = "Off"
 					break
 				case 0x01:
-					map.value = "Alert"
-					result << response(secure(zwave.configurationV2.configurationGet(parameterNumber: 0x08)))
+					currentAlarmMode = "Alert"
 					break
 				case 0x02:
-					map.value = "Tamper"
-					result << response(secure(zwave.configurationV2.configurationGet(parameterNumber: 0x09)))
+					currentAlarmMode = "Tamper"
 					break
 				case 0x03:
-					map.value = "Kick"
-					result << response(secure(zwave.configurationV2.configurationGet(parameterNumber: 0x0A)))
+					currentAlarmMode = "Kick"
 					break
 				default:
-					map.value = "Unknown"
+					currentAlarmMode = "Off"
 			}
-			map.descriptionText = "$device.displayName Alarm Mode set to \"$map.value\""
+			log.debug("Lock set Alarm Mode to ${currentAlarmMode} Now is: ${alarmMode}")
+			sendEvent(name: 'alarmMode', value: currentAlarmMode, displayed: false )
 			break
 
 		// done: alarm sensitivities - one for each mode
 		case 0x8:
 		case 0x9:
 		case 0xA:
-			def whichMode = null
-			switch (cmd.parameterNumber)
-			{
-				case 0x8:
-					whichMode = "Alert"
+			def whichSensitivity = 'Low'
+			switch (cmd.configurationValue[0]) {
+				case 0x01:
+					whichSensitivity = "Extreme"
 					break;
-				case 0x9:
-					whichMode = "Tamper"
+				case 0x02:
+					whichSensitivity = "High"
 					break;
-				case 0xA:
-					whichMode = "Kick"
+				case 0x03:
+					whichSensitivity = "Medium"
+					break;
+				case 0x04:
+					whichSensitivity = "Moderate"
+					break;
+				case 0x05:
+					whichSensitivity = "Low"
+					break;
+				default:
+					whichSensitivity = "Low"
 					break;
 			}
-			def curAlarmMode = device.currentValue("alarmMode")
+			// set preference setting to current value
+			log.debug("Lock set sensitivity to ${whichSensitivity}")
+			sendEvent(name: 'alarmSensitivity', value: whichSensitivity, displayed: false )
+			// device.updateSetting('alarmSensitivity', 0)
 			val = "${cmd.configurationValue[0]}"
 
 			// the lock has sensitivity values between 1 and 5. We set the slider's range ("1".."5") in the Tile's Definition
@@ -395,6 +448,10 @@ def processSchlageLockConfig(cmd) {
 		// done: auto lock mode
 		case 0xF:
 			map = parseBinaryConfigRpt('autoLock', cmd.configurationValue[0], 'Auto Lock')
+			if (cmd.configurationValue[0] == 0) {
+				isEnabled = 'Disabled'
+			}
+			sendEvent(name: 'autoLock', value: isEnabled, displayed: false )
 			break
 
 		// this will be useful as an attribute/command usable by a smartapp
