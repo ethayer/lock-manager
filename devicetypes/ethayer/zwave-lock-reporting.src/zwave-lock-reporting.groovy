@@ -81,15 +81,34 @@ metadata {
 		standardTile("unlock", "device.lock", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
 			state "default", label:'unlock', action:"lock.unlock", icon:"st.locks.lock.unlocked", nextState:"unlocking"
 		}
-		valueTile("battery", "device.battery", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-			state "battery", label:'${currentValue}% battery', unit:""
+		valueTile("battery", "device.battery", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state "battery", label:'${currentValue}% Battery', unit:"",
+            backgroundColors:[
+				[value: 19, color: "#BC2323"],
+				[value: 20, color: "#D04E00"],
+				[value: 30, color: "#D04E00"],
+				[value: 40, color: "#DAC400"],
+				[value: 41, color: "#79b821"]
+			]
 		}
+
 		standardTile("refresh", "device.lock", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
 			state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
 		}
 
 		main "toggle"
 		details(["toggle", "lock", "unlock", "battery", "refresh"])
+	}
+	preferences {
+		input name: "alarmMode", type: "enum", title: "Alarm Mode", description: "Enter Mode for Alarm", required: true,
+          displayDuringSetup: false,  options: ["Off", "Alert", "Tamper", "Kick"]
+		input name: "alarmSensitivity", type: "enum", title: "Alarm Sensitivity", description: "Enter Sensitivity for Alarm", required: true,
+          displayDuringSetup: false,  options: ["Extreme", "High", "Medium", "Moderate", "Low"]
+
+		input name: "autoLock", type: "bool", title: "Auto Lock", description: "Enable Auto Lock?", required: false, displayDuringSetup: false
+		input name: "vacationMode", type: "bool", title: "Vataction Mode", description: "Enable Vacation Mode?", required: false, displayDuringSetup: false
+		input name: "lockLeave", type: "bool", title: "Lock & Leave", description: "Enable Lock & Leave?", required: false, displayDuringSetup: false
+		input name: "localControl", type: "bool", title: "Local Control", description: "Enable Local Control?", required: false, displayDuringSetup: false
 	}
 }
 
@@ -119,11 +138,19 @@ def uninstalled() {
  * @return hubAction: The commands to be executed
  */
 def updated() {
+	// run only once
+	def timeCheck = 0
+	if (state.updatedDate) {
+		timeCheck = state.updatedDate
+	}
+	if ( (now() - timeCheck) < 5000 ) return
+	state.updatedDate = now()
+	log.debug('reunning updated!')
 	// Device-Watch pings if no device events received for 1 hour (checkInterval)
 	sendEvent(name: "checkInterval", value: 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
 	def hubAction = null
+	def cmds = []
 	try {
-		def cmds = []
 		if (!state.init || !state.configured) {
 			state.init = true
 			log.debug "Returning commands for lock operation get and battery get"
@@ -138,10 +165,13 @@ def updated() {
 			if (!state.fw) {
 				cmds << zwave.versionV1.versionGet().format()
 			}
-			hubAction = response(delayBetween(cmds, 4200))
 		}
 	} catch (e) {
 		log.warn "updated() threw $e"
+	}
+	cmds << setDeviceSettings()
+	if (cmds) {
+		hubAction = response(delayBetween(cmds, 4200))
 	}
 	hubAction
 }
@@ -219,8 +249,11 @@ def parse(String description) {
  */
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
 	log.trace "[DTH] Executing 'zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd)' with cmd = $cmd"
+	def result = []
+	if (isSchlageLock()) {
+		result << processSchlageLockConfig(cmd)
+	}
 	if (isSchlageLock() && cmd.parameterNumber == getSchlageLockParam().codeLength.number) {
-		def result = []
 		def length = cmd.scaledConfigurationValue
 		def deviceName = device.displayName
 		log.trace "[DTH] Executing 'ConfigurationReport' for device $deviceName with code length := $length"
@@ -236,7 +269,177 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 		result << createEvent(name:"codeLength", value: length, descriptionText: "Code length is $length", displayed: false)
 		return result
 	}
-	return null
+	return result
+}
+
+def processSchlageLockConfig(cmd) {
+	def result = []
+	def map = null		// use this for config reports that are handled
+
+	// use desc/val for generic handling of config reports (it will just send a descriptionText for the acitivty stream)
+	def desc = null
+	def val = ""
+
+	switch (cmd.parameterNumber)
+	{
+		case 0x3:
+			map = parseBinaryConfigRpt('beeperMode', cmd.configurationValue[0], 'Beeper Mode')
+			break
+
+		// done:  vacation mode toggle
+		case 0x4:
+			map = parseBinaryConfigRpt('vacationMode', cmd.configurationValue[0], 'Vacation Mode')
+			break
+
+		// done: lock and leave mode
+		case 0x5:
+			map = parseBinaryConfigRpt('lockLeave', cmd.configurationValue[0], 'Lock & Leave')
+			break
+
+		// these don't seem to be useful.  It's just a bitmap of the code slots used.
+		case 0x6:
+			desc = "User Slot Bit Fields"
+			val = "${cmd.configurationValue[3]} ${cmd.configurationValue[2]} ${cmd.configurationValue[1]} ${cmd.configurationValue[0]}"
+			break
+
+		// done:  the alarm mode of the lock.
+		case 0x7:
+			map = [ name:"alarmMode", displayed: true ]
+			// when getting the alarm mode, also query the sensitivity for that current alarm mode
+			switch (cmd.configurationValue[0])
+			{
+				case 0x00:
+					map.value = "Off"
+					break
+				case 0x01:
+					map.value = "Alert"
+					result << response(secure(zwave.configurationV2.configurationGet(parameterNumber: 0x08)))
+					break
+				case 0x02:
+					map.value = "Tamper"
+					result << response(secure(zwave.configurationV2.configurationGet(parameterNumber: 0x09)))
+					break
+				case 0x03:
+					map.value = "Kick"
+					result << response(secure(zwave.configurationV2.configurationGet(parameterNumber: 0x0A)))
+					break
+				default:
+					map.value = "Unknown"
+			}
+			map.descriptionText = "$device.displayName Alarm Mode set to \"$map.value\""
+			break
+
+		// done: alarm sensitivities - one for each mode
+		case 0x8:
+		case 0x9:
+		case 0xA:
+			def whichMode = null
+			switch (cmd.parameterNumber)
+			{
+				case 0x8:
+					whichMode = "Alert"
+					break;
+				case 0x9:
+					whichMode = "Tamper"
+					break;
+				case 0xA:
+					whichMode = "Kick"
+					break;
+			}
+			def curAlarmMode = device.currentValue("alarmMode")
+			val = "${cmd.configurationValue[0]}"
+
+			// the lock has sensitivity values between 1 and 5. We set the slider's range ("1".."5") in the Tile's Definition
+			def modifiedValue = cmd.configurationValue[0]
+
+			map = [ descriptionText: "$device.displayName Alarm $whichMode Sensitivity set to $val", displayed: true ]
+
+			if (curAlarmMode == "${whichMode}_alarmMode")
+			{
+				map.name = "alarmSensitivity"
+				map.value = modifiedValue
+			}
+			else
+			{
+				log.debug "got sensitivity for $whichMode while in $curAlarmMode"
+				map.isStateChange = true
+			}
+
+			break
+
+		case 0xB:
+			map = parseBinaryConfigRpt('localControl', cmd.configurationValue[0], 'Local Alarm Control')
+			break
+
+		// how many times has the electric motor locked or unlock the device?
+		case 0xC:
+			desc = "Electronic Transition Count"
+			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
+			val = "$ttl"
+			break
+
+		// how many times has the device been locked or unlocked manually?
+		case 0xD:
+			desc = "Mechanical Transition Count"
+			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
+			val = "$ttl"
+			break
+
+		// how many times has there been a failure by the electric motor?  (due to jamming??)
+		case 0xE:
+			desc = "Electronic Failed Count"
+			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
+			val = "$ttl"
+			break
+
+		// done: auto lock mode
+		case 0xF:
+			map = parseBinaryConfigRpt('autoLock', cmd.configurationValue[0], 'Auto Lock')
+			break
+
+		// this will be useful as an attribute/command usable by a smartapp
+		case 0x10:
+			map = [ name: 'pinLength', value: cmd.configurationValue[0], displayed: true, descriptionText: "$device.displayName PIN length configured to ${cmd.configurationValue[0]} digits"]
+			break
+
+		// not sure what this one stores
+		case 0x11:
+			desc = "Electronic High Preload Transition Count"
+			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
+			val = "$ttl"
+			break
+
+		// ???
+		case 0x12:
+			desc = "Bootloader Version"
+			val = "${cmd.configurationValue[0]}"
+			break
+		default:
+			desc = "Unknown parameter ${cmd.parameterNumber}"
+			val = "${cmd.configurationValue[0]}"
+			break
+	}
+	if (map) {
+		result << createEvent(map)
+	}
+	else if (desc != null) {
+		// generic description text
+		result << createEvent([ descriptionText: "$device.displayName reports \"$desc\" configured as \"$val\"", displayed: true, isStateChange: true ])
+	}
+	return result
+}
+
+def parseBinaryConfigRpt(paramName, paramValue, paramDesc) {
+	def map = [ name: paramName, displayed: true ]
+
+	def newVal = "on"
+	if (paramValue == 0)
+	{
+		newVal = "off"
+	}
+	map.value = "${newVal}_${paramName}"
+	map.descriptionText = "$device.displayName $paramDesc has been turned $newVal"
+	return map
 }
 
 /**
@@ -1697,4 +1900,107 @@ def readCodeSlotId(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd) {
 		return cmd.eventParameter[2]
 	}
 	return cmd.alarmLevel
+}
+
+def setDeviceSettings(){
+	log.debug('Set Prefs')
+	def cmds = []
+	 cmds << configureAlarm()
+	 cmds << configureAutoLock()
+	 cmds << configureVacationMode()
+	 cmds << configureBeeper()
+	 cmds << configureLockLeave()
+	 cmds << configureLocalControl()
+	 cmds << configurePinLength()
+	 return cmds
+}
+
+def configureAlarm() {
+	def cmds = []
+	// default to off
+	def alarmModeParam = 0x0
+	def alarmSensitivityParam = 0x0
+	switch(alarmMode) {
+		case "Off":
+			alarmModeParam = 0x00
+			// alarmSensitivityParam = 0x0
+			break
+		case "Alert":
+			alarmModeParam = 0x01
+			alarmSensitivityParam = 0x08
+			break
+		case "Tamper":
+			alarmModeParam = 0x2
+			alarmSensitivityParam = 0x09
+			break
+		case "Kick":
+			alarmModeParam = 0x3
+			alarmSensitivityParam = 0x0A
+			break
+		default:
+			alarmModeParam = 0x0
+			alarmSensitivityParam = 0x0
+			break
+	}
+
+	// sensitivity is 5 - lowest, 1 - highest
+	// https://www.schlage.com/content/dam/sch-us/documents/pdf/installation-manuals/24352403.pdf
+	// default to low if no value
+	def configurationValue = 0x05
+	switch(alarmSensitivity) {
+		case "Extreme":
+			configurationValue = 0x01
+			break
+		case "High":
+			configurationValue = 0x02
+			break
+		case "Medium":
+			configurationValue = 0x03
+			break
+		case "Moderate":
+			configurationValue = 0x04
+			break
+		case "Low":
+			configurationValue = 0x05
+			break
+		default:
+			configurationValue = 0x05
+			break
+	}
+	// set alarm mode
+	cmds << secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 7, size: 1, configurationValue: [alarmModeParam])],5000)
+	// set sensitivity
+	cmds << secureSequence([zwave.configurationV2.configurationSet(parameterNumber: alarmSensitivityParam, size: 1, configurationValue: [configurationValue])],5000)
+	return cmds
+}
+
+def onOffSequence(configParam, configBool) {
+	def configValue = 0x00
+	if (configBool) {
+		configValue = 0xFF
+	}
+	return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: configParam, size: 1, configurationValue: [configValue])],5000)
+}
+
+def configureAutoLock() {
+	return onOffSequence(0x0F, autoLock)
+}
+def configureBeeper() {
+	return onOffSequence(0x03, beeperMode)
+}
+def configureVacationMode() {
+	return onOffSequence(0x04, vacationMode)
+}
+def configureLockLeave() {
+	return onOffSequence(0x05, lockLeave)
+}
+def configureLocalControl() {
+	return onOffSequence(0x0B, localControl)
+}
+def configurePinLength() {
+	if (pinLength) {
+		return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: [pinLength])],5000)
+	} else {
+		return null
+	}
 }
