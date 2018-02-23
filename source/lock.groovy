@@ -271,7 +271,7 @@ def updateCode(event) {
         def errorSlot = state.incorrectSlots[0]
         userApp = findSlotUserApp(errorSlot)
         // We can set this reason code immediatly
-        userApp.disableAndSetReason(lock.id, 'PIN conflicts with Master PIN')
+        userApp.disableAndSetReason(lock.id, 'Conflicts with Master Code')
 
         state.codes["slot${errorSlot}"]['code'] = null
         state.codes["slot${errorSlot}"]['codeState'] = 'known'
@@ -286,20 +286,29 @@ def updateCode(event) {
           debugger("Slot:${slot} is no longer set!")
           break
         case 'changed':
-          // we're assuming the change was made correctly
-          state.codes["slot${slot}"]['code'] = code
-          state.codes["slot${slot}"]['codeState'] = 'known'
-          debugger("Slot:${slot} is set!")
         case 'set':
           // we're assuming the change was made correctly
           state.codes["slot${slot}"]['code'] = code
           state.codes["slot${slot}"]['codeState'] = 'known'
           debugger("Slot:${slot} is set!")
+          break
+        case 'failed':
+          if (userApp) {
+            userApp.disableAndSetReason(lock.id, 'Code failed to set.  Possible duplicate or invalid PIN')
+          }
+          debugger("Slot:${slot} failed!")
+          state.codes["slot${slot}"]['code'] = 'invalid'
+          state.codes["slot${slot}"]['codeState'] = 'known'
+          break
         default:
-          // do nothing I'm not sure what happened
+          // unknown action
           break
       }
-    }
+  }
+  if (previousCode != code) {
+    // code changed, let's inform!
+    codeInform(slot, code)
+  }
 }
 
 def codeUsed(evt) {
@@ -460,24 +469,30 @@ def setCodes() {
 
   debugger('run code logic')
   def codes = state.codes
-  def sortedCodes = codes.sort{it.value.slot}
-  sortedCodes.each { data ->
+  // preload user list for performance
+  codes.each { data ->
     data = data.value
-    def lockUser = findSlotUserApp(data.slot)
-    if (lockUser) {
-      if (lockUser.isActive(lock.id)) {
-        // is active, should be set
-        state.codes["slot${data.slot}"].correctValue = lockUser.userCode.toString()
-      } else {
-        // is inactive, should not be set
-        state.codes["slot${data.slot}"].correctValue = null
-      }
-    } else if (state.codes["slot${data.slot}"].control == 'api') {
-      // do nothing! allow API to handle it.
-    } else if (parent.overwriteMode) {
-      state.codes["slot${data.slot}"].correctValue = null
-    } else {
-      // do nothing!
+
+    switch(state.codes["slot${data.slot}"].control) {
+      case 'controller':
+        def lockUser = findSlotUserApp(data.slot)
+        if (lockUser?.isActive(lock.id)) {
+          // is active, should be set
+          state.codes["slot${data.slot}"].correctValue = lockUser.userCode.toString()
+        } else {
+          // is inactive, should not be set
+          state.codes["slot${data.slot}"].correctValue = null
+        }
+        break
+      case 'api':
+        // do nothing, correct code set by API service
+        break
+      default:
+        // only overwrite if enabled
+        if (parent.overwriteMode) {
+          state.codes["slot${data.slot}"].correctValue = null
+        }
+        break
     }
   }
   // After setting code data, send to the lock
@@ -493,32 +508,37 @@ def loadCodes() {
 
   def slotsWithIncorrectCodes = []
 
+  def loadCount = 0
+
   sortedCodes.each { data ->
-    data = data.value
-    def currentCode = data.code.toString()
-    def correctCode = data.correctValue.toString()
-    if (currentCode != correctCode) {
-      // code is set incorrectly on lock!
-      slotsWithIncorrectCodes << data.slot
-      debugger("${currentCode}:${correctCode} s:${data.slot}")
-      if (data.attempts <= 10) {
-        def code
-        if (data.correctValue) {
-          code = data.correctValue
+    // only set codes in groups of 10
+    if (loadCount < 10) {
+      data = data.value
+      def currentCode = data.code.toString()
+      def correctCode = data.correctValue.toString()
+      if (currentCode != correctCode) {
+        // code is set incorrectly on lock!
+        debugger("${currentCode}:${correctCode} s:${data.slot}")
+        if (data.attempts <= 10) {
+          def code
+          if (data.correctValue) {
+            code = data.correctValue
+          } else {
+            code = ''
+          }
+          loadCount++
+          slotsWithIncorrectCodes << data.slot
+          array << ["code${data.slot}", code]
+          state.codes["slot${data.slot}"].attempts = data.attempts + 1
         } else {
-          code = ''
+          state.codes["slot${data.slot}"].attempts = 0
+          // we've tried this slot 10 times, time to disable it
+          def userApp = findSlotUserApp(data.slot)
+          userApp?.disableLock(lock.id)
         }
-        array << ["code${data.slot}", code]
-        state.codes["slot${data.slot}"].attempts = data.attempts + 1
       } else {
         state.codes["slot${data.slot}"].attempts = 0
-        def userApp = findSlotUserApp(data.slot)
-        if (userApp) {
-          userApp.disableLock(lock.id)
-        }
       }
-    } else {
-      state.codes["slot${data.slot}"].attempts = 0
     }
   }
   def json = new groovy.json.JsonBuilder(array).toString()
@@ -535,16 +555,18 @@ def loadCodes() {
   }
 }
 
-def findSlotUserApp(slot) {
-  def foundLockUser = false
+def getUserSlotList() {
+  def userSlots = []
   def lockUsers = parent.getUserApps()
   lockUsers.each { lockUser ->
-    def userSlot = lockUser.userSlot
-    if (userSlot.toInteger() == slot.toInteger()) {
-      foundLockUser = lockUser
-    }
+    userSlots << lockUser.userSlot.toInteger()
   }
-  return foundLockUser
+  return userSlots
+}
+
+def findSlotUserApp(slot) {
+  def lockUsers = parent.getUserApps()
+  return lockUsers.find { app -> app.userSlot.toInteger() == slot.toInteger() }
 }
 
 def codeInform(slot, code) {
