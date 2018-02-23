@@ -247,7 +247,7 @@ def lockInfoPage(params) {
           def completeCount = lockApp.sweepProgress()
           def totalSlots = lockApp.lockCodeSlots()
           def percent = Math.round((completeCount/totalSlots) * 100)
-          def estimatedMinutes = ((completeCount - totalSlots) * 6) / 60
+          def estimatedMinutes = ((totalSlots - completeCount) * 6) / 60
           def p = ""
           p += "${percent}%\n"
           p += 'Sweep is in progress.\n'

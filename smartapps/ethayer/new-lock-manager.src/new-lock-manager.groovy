@@ -247,7 +247,7 @@ def lockInfoPage(params) {
           def completeCount = lockApp.sweepProgress()
           def totalSlots = lockApp.lockCodeSlots()
           def percent = Math.round((completeCount/totalSlots) * 100)
-          def estimatedMinutes = ((completeCount - totalSlots) * 6) / 60
+          def estimatedMinutes = ((totalSlots - completeCount) * 6) / 60
           def p = ""
           p += "${percent}%\n"
           p += 'Sweep is in progress.\n'
@@ -714,7 +714,40 @@ def lockSetupPage() {
 
 def lockMainPage() {
   dynamicPage(name: "lockMainPage", title: "Lock Settings", install: true, uninstall: true) {
+    getLockMaxCodes()
     section("Settings") {
+      if (state.installComplete) {
+        if (state.sweepMode == 'Enabled') {
+          def completeCount = sweepProgress()
+          def totalSlots = lockCodeSlots()
+          def percent = Math.round((completeCount/totalSlots) * 100)
+          def estimatedMinutes = ((totalSlots - completeCount) * 6) / 60
+          def p = ""
+          p += "${percent}%\n"
+          p += 'Sweep is in progress.\n'
+          p += "Progress: ${completeCount}/${totalSlots}\n\n"
+
+          p += "Estimated time left: ${estimatedMinutes} Minutes\n"
+          p += "Lock will set codes after sweep is complete."
+          paragraph p
+        }
+      } else {
+        def totalSlots = lockCodeSlots()
+        def estimatedMinutes = (totalSlots * 6) / 60
+        def para = ""
+        if (!skipSweep) {
+          para += "This lock will take about \n${estimatedMinutes} Minutes to install.\n\n"
+          para += "You may skip the sweep process and save this time."
+        } else {
+          para += "WARNING:\n"
+          para += "You have choosen to skip seep process.\n\n"
+          para += "This will save about ${estimatedMinutes} Minutes.\n\n"
+          para += "Do this at your own risk.  The sweep process will prevent conflicts."
+        }
+        paragraph para
+        input(name: 'skipSweep', title: 'Skip Sweep?', type: 'bool', required: true, description: 'Skip Process', defaultValue: false, submitOnChange: true)
+      }
+
       def actions = location.helloHome?.getPhrases()*.label
       href(name: 'toNotificationPage', page: 'lockNotificationPage', title: 'Notification Settings', image: 'https://images.lockmanager.io/app/v1/images/bullhorn.png')
       if (actions) {
@@ -726,8 +759,16 @@ def lockMainPage() {
       input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
       input(name: 'contactSensor', title: 'Which contact sensor?', type: "capability.contactSensor", multiple: false, required: false)
       input(name: 'slotCount', title: 'How many slots?', type: 'number', multiple: false, required: false, description: 'Overwrite number of slots supported.')
-      paragraph 'Lock Manager © 2017 v1.4'
     }
+  }
+}
+
+def getLockMaxCodes() {
+  // Check to see if the Lock Handler knows how many slots there are
+  if (lock?.hasAttribute('maxCodes')) {
+    def slotCount = lock.latestValue('maxCodes')
+    debugger("Lock Supports ${slotCount} slots")
+    state.codeSlots = slotCount
   }
 }
 
@@ -809,7 +850,10 @@ def initSlots() {
     // new install!  Start learning!
     state.codes = [:]
     state.requestCount = 0
-    state.sweepMode = 'Enabled'
+    // skipSweep may be null
+    if (skipSweep != true) {
+      state.sweepMode = 'Enabled'
+    }
     state.refreshComplete = true
     state.supportsKeypadData = true
     state.pinLength = false
