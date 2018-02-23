@@ -200,11 +200,6 @@ def mainPage() {
       }
     }
 
-    section('Install') {
-      paragraph 'Create integrations'
-      href(name: "toCreatePage", title: 'Create Integration', page: 'createPage', required: false )
-    }
-
     section('API') {
       href(name: 'toApiPage', page: 'apiSetupPage', title: 'API Options', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
     }
@@ -222,24 +217,48 @@ def setAppType(appType) {
   state.appType = appType
 }
 
+def userPageOptions(count) {
+  def options = []
+  (1..count).each { page->
+    options << ["${page}": "Page ${page}"]
+  }
+  return options
+}
+
+def determinePage(pageCount) {
+  if (selectedUserPage) {
+    if (pageCount < selectedUserPage) {
+      return 0
+    } else {
+      return selectedUserPage.toInteger() - 1
+    }
+  } else {
+    return 0
+  }
+}
+
 def lockInfoPage(params) {
   dynamicPage(name:"lockInfoPage", title:"Lock Info") {
     def lockApp = getLockAppByIndex(params)
     if (lockApp) {
       section("${lockApp.label}") {
-        def complete = lockApp.isCodeComplete()
-        if (!complete) {
-          paragraph 'App is learning codes.  They will appear here when received.\n Lock may require special DTH to work properly'
-          lockApp.lock.poll()
+        def pageCount = lockApp.userPageCount()
+        if (pageCount > 1) {
+          input(name: 'selectedUserPage', title: 'Select the visible user page', type: 'enum', required: true, defaultValue: 1, description: 'Select Page',
+          options: userPageOptions(pageCount), submitOnChange: true)
         }
-        def codeData = lockApp.codeData()
+        // def codeData = lockApp.codeData()
+        def thePage = determinePage(pageCount)
+        debugger("Page count: ${pageCount} Page: ${thePage}")
+
+        def codeData = lockApp.codeDataPaginated(thePage)
+        debugger(codeData)
         if (codeData) {
           def setCode = ''
           def usage
           def para
           def image
-          def sortedCodes = codeData.sort{it.value.slot}
-          sortedCodes.each { data ->
+          codeData.each { data ->
             data = data.value
             if (data.codeState != 'unknown') {
               def userApp = lockApp.findSlotUserApp(data.slot)

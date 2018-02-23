@@ -130,6 +130,7 @@ def lockNotificationPage() {
 
 
 def queSetupLockData() {
+  state.installComplete = true
   runIn(10, setupLockData)
 }
 
@@ -145,27 +146,18 @@ def setupLockData() {
     state.requestCount = 0
   }
 
-  def needPoll = initSlots()
-
-  if (needPoll || !state.initializeComplete) {
-    debugger('needs poll')
-    // get report from lock -> reportAllCodes()
-    lock.poll()
-  }
-  setCodes()
+  initSlots()
 }
 
 def initSlots() {
   def codeSlots = lockCodeSlots()
-  def needPoll = false
   def userApp = false
 
   if (state.codes == null) {
     // new install!  Start learning!
     state.codes = [:]
     state.requestCount = 0
-    state.initializeComplete = false
-    state.installComplete = true
+    state.sweepMode = 'Enabled'
     state.refreshComplete = true
     state.supportsKeypadData = true
     state.pinLength = false
@@ -178,9 +170,6 @@ def initSlots() {
     def control = 'available'
 
     if (state.codes["slot${slot}"] == null) {
-      needPoll = true
-
-      state.initializeComplete = false
       state.codes["slot${slot}"] = [:]
       state.codes["slot${slot}"].slot = slot
       state.codes["slot${slot}"].code = null
@@ -197,7 +186,35 @@ def initSlots() {
     }
     state.codes["slot${slot}"].control = control
   }
-  return needPoll
+  if (state.sweepMode == 'Enabled') {
+    sweepSequance()
+  } else {
+    setCodes()
+  }
+}
+
+def sweepSequance() {
+  def codeSlots = lockCodeSlots()
+  def array = []
+  (1..codeSlots).each { slot ->
+
+    def slotData = state.codes["slot${slot}"]
+
+    if (slotData.codeState == 'unknown') {
+      array << ["code${slotData.slot}", null]
+    }
+  }
+
+  def json = new groovy.json.JsonBuilder(array).toString()
+  if (json != '[]') {
+    debugger("Sweep: ${json}")
+    lock.updateCodes(json)
+    runIn(45, sweepSequance)
+  } else {
+    debugger('Sweep Complete!')
+    state.sweepMode = 'Disabled'
+    runIn(30, setCodes)
+  }
 }
 
 def withinAllowed() {
@@ -241,39 +258,8 @@ def updateCode(event) {
   }
 }
 
-
-def pollCodeReport(evt) {
-  def codeData = new JsonSlurper().parseText(evt.data)
-
-  state.codeSlots = codeData.codes
-  def codeSlots = lockCodeSlots()
-  initSlots()
-
-  debugger("Received: ${codeData}")
-  (1..codeSlots).each { slot->
-    def code = codeData."code${slot}"
-    if (code != null) { //check to make sure code isn't already null, which will cause .isNumber() to error. --DiddyWolf
-      if (code.isNumber()) {
-        // do nothing, looks good!
-        } else {
-        // It's easier on logic if code is empty to be null
-         code = null
-      }
-    }
-
-    state.codes["slot${slot}"]['code'] = code
-    if (state.codes["slot${slot}"]['codeState'] != 'refresh') {
-      // don't change state if code in refresh mode
-      state.codes["slot${slot}"]['codeState'] = 'known'
-    }
-  }
-  state.initializeComplete = true
-  // Set codes loaded, set new codes.
-  setCodes()
-}
-
 def codeUsed(evt) {
-  debugger('Code USED')
+  debugger('Lock Event')
   def lockId = lock.id
   def message = ''
   def action = evt.value
@@ -420,6 +406,11 @@ def codeUsed(evt) {
 }
 
 def setCodes() {
+  // set what each slot should be in memory
+  if (state.sweepMode == 'Enabled') {
+    debugger('Not running code logic, Sweep mode is Enabled')
+    return
+  }
   debugger('run code logic')
   def codes = state.codes
   def sortedCodes = codes.sort{it.value.slot}
@@ -442,14 +433,12 @@ def setCodes() {
       // do nothing!
     }
   }
-  if (state.initializeComplete && state.refreshComplete) {
-    runIn(5, loadCodes)
-  } else {
-    debugger('initialize not yet complete!')
-  }
+  // After setting code data, send to the lock
+  runIn(15, loadCodes)
 }
 
 def loadCodes() {
+  // send codes to lock
   debugger('running load codes')
   def array = []
   def codes = state.codes
@@ -484,8 +473,10 @@ def loadCodes() {
   if (json != '[]') {
     debugger("update: ${json}")
     lock.updateCodes(json)
-    runIn(30, setCodes)
+    // After sending codes, run memory logic again
+    runIn(45, setCodes)
   } else {
+    // All done, codes should be correct
     debugger('No codes to set')
   }
 }
@@ -532,6 +523,9 @@ def codeInform(slot, code) {
   }
 }
 
+def isCodeComplete() {
+  true
+}
 
 def doorOpenCheck() {
   def currentState = contact.contactState
@@ -624,10 +618,6 @@ def apiCodeUpdate(slot, code, control) {
   setCodes()
 }
 
-def isCodeComplete() {
-  return state.initializeComplete
-}
-
 def isRefreshComplete() {
   return state.refreshComplete
 }
@@ -656,6 +646,19 @@ def lockCodeSlots() {
 
 def codeData() {
   return state.codes
+}
+
+def userPageCount() {
+  def sortData = state.codes.sort{it.value.slot}
+  def data = sortData.collect{ it }
+  return data.collate(30).size()
+}
+
+def codeDataPaginated(page) {
+  // collect a paginated list to prevent rate limit issues
+  def sortData = state.codes.sort{it.value.slot}
+  def data = sortData.collect{ it }
+  return data.collate(30)[page]
 }
 
 def slotData(slot) {
