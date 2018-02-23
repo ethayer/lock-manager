@@ -925,7 +925,6 @@ def sweepSequance() {
 
   def json = new groovy.json.JsonBuilder(array).toString()
   if (json != '[]') {
-    debugger('Sweeping')
     debugger("Progress: ${completeCount}/${codeSlots} Data: ${json}")
     lock.updateCodes(json)
     runIn(timeOut, sweepSequance)
