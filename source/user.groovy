@@ -213,7 +213,7 @@ def userLockPage(params) {
 
     if (!state."lock${lock.id}".enabled) {
       section {
-        paragraph "WARNING:\n\nThis user has been disabled.\nReason: ${state."lock${lock.id}".disabledReason}", image: 'https://images.lockmanager.io/app/v1/images/ban.png'
+        paragraph "WARNING:\n\nThis user has been disabled.\n${state."lock${lock.id}".disabledReason}", image: 'https://images.lockmanager.io/app/v1/images/ban.png'
         href(name: 'toReEnableUserLockPage', page: 'reEnableUserLockPage', title: 'Reset User', description: 'Retry setting this user.',  params: [id: lock.id], image: 'https://images.lockmanager.io/app/v1/images/refresh.png' )
       }
     }
@@ -853,6 +853,11 @@ def sendMessageViaUser(msg) {
       }
     }
   }
+}
+
+def disableAndSetReason(lockID, reason) {
+  state."lock${lockID}".enabled = false
+  state."lock${lockID}".disabledReason = reason
 }
 
 def disableLock(lockID) {

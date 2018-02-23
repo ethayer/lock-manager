@@ -242,48 +242,63 @@ def lockInfoPage(params) {
     def lockApp = getLockAppByIndex(params)
     if (lockApp) {
       section("${lockApp.label}") {
-        def pageCount = lockApp.userPageCount()
-        if (pageCount > 1) {
-          input(name: 'selectedUserPage', title: 'Select the visible user page', type: 'enum', required: true, defaultValue: 1, description: 'Select Page',
-          options: userPageOptions(pageCount), submitOnChange: true)
-        }
-        // def codeData = lockApp.codeData()
-        def thePage = determinePage(pageCount)
-        debugger("Page count: ${pageCount} Page: ${thePage}")
+        def complete = lockApp.isCodeComplete()
+        if (!complete) {
+          def completeCount = lockApp.sweepProgress()
+          def totalSlots = lockApp.lockCodeSlots()
+          def percent = Math.round((completeCount/totalSlots) * 100)
+          def estimatedMinutes = ((completeCount - totalSlots) * 6) / 60
+          def p = ""
+          p += "${percent}%\n"
+          p += 'Sweep is in progress.\n'
+          p += "Progress: ${completeCount}/${totalSlots}\n\n"
 
-        def codeData = lockApp.codeDataPaginated(thePage)
-        debugger(codeData)
-        if (codeData) {
-          def setCode = ''
-          def usage
-          def para
-          def image
-          codeData.each { data ->
-            data = data.value
-            if (data.codeState != 'unknown') {
-              def userApp = lockApp.findSlotUserApp(data.slot)
-              para = "Slot ${data.slot}"
-              if (data.code) {
-                para = para + "\nCode: ${data.code}"
+          p += "Estimated time left: ${estimatedMinutes} Minutes\n"
+          p += "Lock will set codes after sweep is complete"
+          paragraph p
+        } else {
+          def pageCount = lockApp.userPageCount()
+          if (pageCount > 1) {
+            input(name: 'selectedUserPage', title: 'Select the visible user page', type: 'enum', required: true, defaultValue: 1, description: 'Select Page',
+            options: userPageOptions(pageCount), submitOnChange: true)
+          }
+          // def codeData = lockApp.codeData()
+          def thePage = determinePage(pageCount)
+          debugger("Page count: ${pageCount} Page: ${thePage}")
+
+          def codeData = lockApp.codeDataPaginated(thePage)
+          debugger(codeData)
+          if (codeData) {
+            def setCode = ''
+            def usage
+            def para
+            def image
+            codeData.each { data ->
+              data = data.value
+              if (data.codeState != 'unknown') {
+                def userApp = lockApp.findSlotUserApp(data.slot)
+                para = "Slot ${data.slot}"
+                if (data.code) {
+                  para = para + "\nCode: ${data.code}"
+                }
+                if (userApp) {
+                  para = para + userApp.getLockUserInfo(lockApp.lock)
+                  image = userApp.lockInfoPageImage(lockApp.lock)
+                } else {
+                  image = 'https://images.lockmanager.io/app/v1/images/times-circle-o.png'
+                }
+                if (data.codeState == 'refresh') {
+                  para = para +'\nPending refresh...'
+                }
+                if (data.control) {
+                  para = para +"\nControl: ${data.control}"
+                }
+                paragraph para, image: image
               }
-              if (userApp) {
-                para = para + userApp.getLockUserInfo(lockApp.lock)
-                image = userApp.lockInfoPageImage(lockApp.lock)
-              } else {
-                image = 'https://images.lockmanager.io/app/v1/images/times-circle-o.png'
-              }
-              if (data.codeState == 'refresh') {
-                para = para +'\nPending refresh...'
-              }
-              if (data.control) {
-                para = para +"\nControl: ${data.control}"
-              }
-              paragraph para, image: image
             }
           }
         }
       }
-
       section('Lock Settings') {
         def pinLength = lockApp.pinLength()
         def lockCodeSlots = lockApp.lockCodeSlots()
@@ -790,9 +805,6 @@ def setupLockData() {
 }
 
 def initSlots() {
-  def codeSlots = lockCodeSlots()
-  def userApp = false
-
   if (state.codes == null) {
     // new install!  Start learning!
     state.codes = [:]
@@ -806,6 +818,14 @@ def initSlots() {
     state.pinLength = lock.latestValue('pinLength')
   }
 
+  // Check to see if the Lock Handler knows how many slots there are
+  if (lock?.hasAttribute('maxCodes')) {
+    def slotCount = lock.latestValue('maxCodes')
+    debugger("Lock Supports ${slotCount} slots")
+    state.codeSlots = slotCount
+  }
+  def codeSlots = lockCodeSlots()
+
   (1..codeSlots).each { slot ->
     def control = 'available'
 
@@ -816,7 +836,7 @@ def initSlots() {
       state.codes["slot${slot}"].attempts = 0
       state.codes["slot${slot}"].codeState = 'unknown'
     }
-    userApp = findSlotUserApp(slot)
+    def userApp = findSlotUserApp(slot)
     if (userApp) {
       // there's a smartApp for this slot
       control = 'controller'
@@ -827,6 +847,7 @@ def initSlots() {
     state.codes["slot${slot}"].control = control
   }
   if (state.sweepMode == 'Enabled') {
+    state.sweepProgress = 0
     sweepSequance()
   } else {
     setCodes()
@@ -836,24 +857,39 @@ def initSlots() {
 def sweepSequance() {
   def codeSlots = lockCodeSlots()
   def array = []
+  def count = 0
+  def completeCount = 0
   (1..codeSlots).each { slot ->
-
-    def slotData = state.codes["slot${slot}"]
-
-    if (slotData.codeState == 'unknown') {
-      array << ["code${slotData.slot}", null]
+    // sweep in packages of 10
+    if (count == 10) {
+      // do nothing ~ We're going to stop adding codes for now.
+    } else {
+      def slotData = state.codes["slot${slot}"]
+      if (slotData.codeState == 'unknown') {
+        count++
+        array << ["code${slotData.slot}", null]
+      } else {
+        // This code is already known/unset!
+        completeCount++
+        state.sweepProgress = completeCount
+      }
     }
   }
 
+  // allow 10 and 5 seconds per code delete
+  def timeOut = 10 + (count * 5)
+
   def json = new groovy.json.JsonBuilder(array).toString()
   if (json != '[]') {
-    debugger("Sweep: ${json}")
+    debugger('Sweeping')
+    debugger("Progress: ${completeCount}/${codeSlots} Data: ${json}")
     lock.updateCodes(json)
-    runIn(45, sweepSequance)
+    runIn(timeOut, sweepSequance)
   } else {
-    debugger('Sweep Complete!')
+    debugger('Sweep Completed!')
     state.sweepMode = 'Disabled'
-    runIn(30, setCodes)
+    // Allow some cooldown time to prevent conflicts
+    runIn(15, setCodes)
   }
 }
 
@@ -870,32 +906,55 @@ def updateCode(event) {
   def name = event.name
   def description = event.descriptionText
   def activity = event.value =~ /(\d{1,3}).(\w*)/
-  def slot = activity[0][1]
+  def slot = activity[0][1].toInteger()
   def activityType = activity[0][2]
-
+  def previousCode = null
   debugger("name: ${name} slot: ${slot} data: ${data} description: ${description} activity: ${activity[0]}")
-  def previousCode = state.codes["slot${slot}"]['code']
 
   def code = null
   def userApp = findSlotUserApp(slot)
   if (userApp) {
     code = userApp.userCode
   }
-  switch (activityType) {
-    case 'unset':
-      state.codes["slot${slot}"]['code'] = null
-      state.codes["slot${slot}"]['codeState'] = 'known'
-      debugger("Slot:${slot} is no longer set!")
+
+  switch (slot) {
+    case 251:
+      debugger("Incorrect Slots: ${state.incorrectSlots}")
+      debugger('A code is a duplicate of Master but unknown which.' + state.incorrectSlots.size())
+      if (state.incorrectSlots.size() == 1) {
+        // the only slot to set must be the incorrect one!
+        def errorSlot = state.incorrectSlots[0]
+        userApp = findSlotUserApp(errorSlot)
+        // We can set this reason code immediatly
+        userApp.disableAndSetReason(lock.id, 'PIN conflicts with Master PIN')
+
+        state.codes["slot${errorSlot}"]['code'] = null
+        state.codes["slot${errorSlot}"]['codeState'] = 'known'
+      }
       break
-    case 'changed':
-      // we're assuming the change was made correctly
-      state.codes["slot${slot}"]['code'] = code
-      state.codes["slot${slot}"]['codeState'] = 'known'
-      debugger("Slot:${slot} is set!")
     default:
-      // do nothing I'm not sure what happened
-      break
-  }
+      previousCode = state.codes["slot${slot}"]['code']
+      switch (activityType) {
+        case 'unset':
+          state.codes["slot${slot}"]['code'] = null
+          state.codes["slot${slot}"]['codeState'] = 'known'
+          debugger("Slot:${slot} is no longer set!")
+          break
+        case 'changed':
+          // we're assuming the change was made correctly
+          state.codes["slot${slot}"]['code'] = code
+          state.codes["slot${slot}"]['codeState'] = 'known'
+          debugger("Slot:${slot} is set!")
+        case 'set':
+          // we're assuming the change was made correctly
+          state.codes["slot${slot}"]['code'] = code
+          state.codes["slot${slot}"]['codeState'] = 'known'
+          debugger("Slot:${slot} is set!")
+        default:
+          // do nothing I'm not sure what happened
+          break
+      }
+    }
 }
 
 def codeUsed(evt) {
@@ -1051,6 +1110,9 @@ def setCodes() {
     debugger('Not running code logic, Sweep mode is Enabled')
     return
   }
+  // set incorrect slot array to blank
+  state.incorrectSlots = []
+
   debugger('run code logic')
   def codes = state.codes
   def sortedCodes = codes.sort{it.value.slot}
@@ -1083,11 +1145,16 @@ def loadCodes() {
   def array = []
   def codes = state.codes
   def sortedCodes = codes.sort{it.value.slot}
+
+  def slotsWithIncorrectCodes = []
+
   sortedCodes.each { data ->
     data = data.value
     def currentCode = data.code.toString()
     def correctCode = data.correctValue.toString()
     if (currentCode != correctCode) {
+      // code is set incorrectly on lock!
+      slotsWithIncorrectCodes << data.slot
       debugger("${currentCode}:${correctCode} s:${data.slot}")
       if (data.attempts <= 10) {
         def code
@@ -1111,12 +1178,14 @@ def loadCodes() {
   }
   def json = new groovy.json.JsonBuilder(array).toString()
   if (json != '[]') {
-    debugger("update: ${json}")
+    debugger("update: ${json} slots: ${slotsWithIncorrectCodes}")
+    state.incorrectSlots = slotsWithIncorrectCodes
     lock.updateCodes(json)
     // After sending codes, run memory logic again
     runIn(45, setCodes)
   } else {
     // All done, codes should be correct
+    state.incorrectSlots = slotsWithIncorrectCodes
     debugger('No codes to set')
   }
 }
@@ -1164,7 +1233,11 @@ def codeInform(slot, code) {
 }
 
 def isCodeComplete() {
-  true
+  if (state.sweepMode == 'Enabled') {
+    return false
+  } else {
+    return true
+  }
 }
 
 def doorOpenCheck() {
@@ -1307,6 +1380,10 @@ def slotData(slot) {
 
 def lockState() {
   state.lockState
+}
+
+def sweepProgress() {
+  state.sweepProgress
 }
 
 def enableUser(slot) {
@@ -1533,7 +1610,7 @@ def userLockPage(params) {
 
     if (!state."lock${lock.id}".enabled) {
       section {
-        paragraph "WARNING:\n\nThis user has been disabled.\nReason: ${state."lock${lock.id}".disabledReason}", image: 'https://images.lockmanager.io/app/v1/images/ban.png'
+        paragraph "WARNING:\n\nThis user has been disabled.\n${state."lock${lock.id}".disabledReason}", image: 'https://images.lockmanager.io/app/v1/images/ban.png'
         href(name: 'toReEnableUserLockPage', page: 'reEnableUserLockPage', title: 'Reset User', description: 'Retry setting this user.',  params: [id: lock.id], image: 'https://images.lockmanager.io/app/v1/images/refresh.png' )
       }
     }
@@ -2173,6 +2250,11 @@ def sendMessageViaUser(msg) {
       }
     }
   }
+}
+
+def disableAndSetReason(lockID, reason) {
+  state."lock${lockID}".enabled = false
+  state."lock${lockID}".disabledReason = reason
 }
 
 def disableLock(lockID) {

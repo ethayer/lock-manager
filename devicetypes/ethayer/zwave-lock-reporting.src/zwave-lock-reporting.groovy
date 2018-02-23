@@ -737,8 +737,15 @@ private def handleAccessAlarmReport(cmd) {
 		case 0xF: // Duplicate Pin-code error
 			if (cmd.eventParameter || cmd.alarmLevel) {
 				codeID = readCodeSlotId(cmd)
-				clearStateForSlot(codeID)
-				map = [ name: "codeChanged", value: "$codeID failed", descriptionText: "User code is duplicate and not added",
+
+				def description
+				if (codeID == 251) {
+					description = "User code is duplicate of Master"
+				} else {
+					clearStateForSlot(codeID)
+					description = "User code is duplicate and not added"
+				}
+				map = [ name: "codeChanged", value: "$codeID failed", descriptionText: description,
 					isStateChange: true, data: [isCodeDuplicate: true] ]
 			}
 			break

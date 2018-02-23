@@ -242,48 +242,63 @@ def lockInfoPage(params) {
     def lockApp = getLockAppByIndex(params)
     if (lockApp) {
       section("${lockApp.label}") {
-        def pageCount = lockApp.userPageCount()
-        if (pageCount > 1) {
-          input(name: 'selectedUserPage', title: 'Select the visible user page', type: 'enum', required: true, defaultValue: 1, description: 'Select Page',
-          options: userPageOptions(pageCount), submitOnChange: true)
-        }
-        // def codeData = lockApp.codeData()
-        def thePage = determinePage(pageCount)
-        debugger("Page count: ${pageCount} Page: ${thePage}")
+        def complete = lockApp.isCodeComplete()
+        if (!complete) {
+          def completeCount = lockApp.sweepProgress()
+          def totalSlots = lockApp.lockCodeSlots()
+          def percent = Math.round((completeCount/totalSlots) * 100)
+          def estimatedMinutes = ((completeCount - totalSlots) * 6) / 60
+          def p = ""
+          p += "${percent}%\n"
+          p += 'Sweep is in progress.\n'
+          p += "Progress: ${completeCount}/${totalSlots}\n\n"
 
-        def codeData = lockApp.codeDataPaginated(thePage)
-        debugger(codeData)
-        if (codeData) {
-          def setCode = ''
-          def usage
-          def para
-          def image
-          codeData.each { data ->
-            data = data.value
-            if (data.codeState != 'unknown') {
-              def userApp = lockApp.findSlotUserApp(data.slot)
-              para = "Slot ${data.slot}"
-              if (data.code) {
-                para = para + "\nCode: ${data.code}"
+          p += "Estimated time left: ${estimatedMinutes} Minutes\n"
+          p += "Lock will set codes after sweep is complete"
+          paragraph p
+        } else {
+          def pageCount = lockApp.userPageCount()
+          if (pageCount > 1) {
+            input(name: 'selectedUserPage', title: 'Select the visible user page', type: 'enum', required: true, defaultValue: 1, description: 'Select Page',
+            options: userPageOptions(pageCount), submitOnChange: true)
+          }
+          // def codeData = lockApp.codeData()
+          def thePage = determinePage(pageCount)
+          debugger("Page count: ${pageCount} Page: ${thePage}")
+
+          def codeData = lockApp.codeDataPaginated(thePage)
+          debugger(codeData)
+          if (codeData) {
+            def setCode = ''
+            def usage
+            def para
+            def image
+            codeData.each { data ->
+              data = data.value
+              if (data.codeState != 'unknown') {
+                def userApp = lockApp.findSlotUserApp(data.slot)
+                para = "Slot ${data.slot}"
+                if (data.code) {
+                  para = para + "\nCode: ${data.code}"
+                }
+                if (userApp) {
+                  para = para + userApp.getLockUserInfo(lockApp.lock)
+                  image = userApp.lockInfoPageImage(lockApp.lock)
+                } else {
+                  image = 'https://images.lockmanager.io/app/v1/images/times-circle-o.png'
+                }
+                if (data.codeState == 'refresh') {
+                  para = para +'\nPending refresh...'
+                }
+                if (data.control) {
+                  para = para +"\nControl: ${data.control}"
+                }
+                paragraph para, image: image
               }
-              if (userApp) {
-                para = para + userApp.getLockUserInfo(lockApp.lock)
-                image = userApp.lockInfoPageImage(lockApp.lock)
-              } else {
-                image = 'https://images.lockmanager.io/app/v1/images/times-circle-o.png'
-              }
-              if (data.codeState == 'refresh') {
-                para = para +'\nPending refresh...'
-              }
-              if (data.control) {
-                para = para +"\nControl: ${data.control}"
-              }
-              paragraph para, image: image
             }
           }
         }
       }
-
       section('Lock Settings') {
         def pinLength = lockApp.pinLength()
         def lockCodeSlots = lockApp.lockCodeSlots()
