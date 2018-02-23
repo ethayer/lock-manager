@@ -19,7 +19,6 @@ preferences {
   // Manager ===
   page name: 'appPageWizard'
   page name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true
-  page name: 'createPage'
   page name: 'infoRefreshPage'
   page name: 'notificationPage'
   page name: 'helloHomePage'
@@ -168,6 +167,14 @@ def initializeMain() {
 
 def mainPage() {
   dynamicPage(name: 'mainPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true) {
+    section('Create New Integration') {
+      input name: "appType", type: "enum", title: "Choose Type", options: ['Lock', 'User', 'Keypad'], description: "Select the integration you need", submitOnChange: true
+      if (settings.appType) {
+        def appTypeString = settings.appType
+        def miniTypeString = appTypeString.toLowerCase()
+        app(name: 'newChild', params: [type: miniTypeString], appName: 'New Lock Manager', namespace: 'ethayer', title: "Create New ${appTypeString}", multiple: true, image: "https://images.lockmanager.io/app/v1/images/new-${miniTypeString}.png")
+      }
+    }
     section('Locks') {
       def lockApps = getLockApps()
       lockApps = lockApps.sort{ it.lock.id }
@@ -207,19 +214,6 @@ def mainPage() {
       input(name: 'enableDebug', title: 'Enable IDE debug messages?', type: 'bool', required: true, defaultValue: false, description: 'Show activity from Lock Manger in logs for debugging.')
       label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
       paragraph 'Lock Manager © 2017 v1.4'
-    }
-  }
-}
-
-def createPage() {
-  dynamicPage(name: 'createPage', install: true, uninstall: true, submitOnChange: true) {
-    section('Create') {
-      input name: "appType", type: "enum", title: "Type", options: ['Lock', 'User', 'Keypad', 'Api'], description: "Select the integration you need", submitOnChange: true
-      if (settings.appType) {
-        def appTypeString = settings.appType
-        def miniTypeString = appTypeString.toLowerCase()
-        app(name: 'newChild', params: [type: miniTypeString], appName: 'New Lock Manager', namespace: 'ethayer', title: "New ${appTypeString}", multiple: true, image: "https://images.lockmanager.io/app/v1/images/new-${miniTypeString}.png")
-      }
     }
   }
 }
@@ -461,22 +455,20 @@ def getLockAppByIndex(params) {
 
 def availableSlots(selectedSlot) {
   def options = []
-  (1..30).each { slot->
-    def children = getLockApps()
-    def available = true
-    children.each { child ->
-      def userSlot = child.userSlot
-      if (!selectedSlot) {
-        selectedSlot = 0
-      }
-      if (!userSlot) {
-        userSlot = 0
-      }
-      if (userSlot.toInteger() == slot && selectedSlot.toInteger() != slot) {
-        available = false
-      }
+  def children = getUserApps()
+  def usedSlots = []
+  children.each { child ->
+    def userSlot = child.userSlot.toInteger()
+    // do not remove the currently selected slot
+    if (selectedSlot.toInteger() != userSlot) {
+      usedSlots << userSlot
     }
-    if (available) {
+
+  }
+  (1..30).each { slot->
+    if (usedSlots.contains(slot)) {
+      // do nothing
+    } else {
       options << ["${slot}": "Slot ${slot}"]
     }
   }
