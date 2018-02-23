@@ -15,7 +15,8 @@ def lockInitialize() {
   subscribe(lock, 'codeChanged', updateCode, [filterEvents:false])
   subscribe(lock, "reportAllCodes", pollCodeReport, [filterEvents:false])
   subscribe(lock, "lock", codeUsed)
-  setupLockData()
+  // Allow save and run setup in headless mode
+  queSetupLockData()
 }
 
 
@@ -50,7 +51,7 @@ def lockLandingPage() {
 def lockSetupPage() {
   dynamicPage(name: "lockSetupPage", title: "Setup Lock", nextPage: "lockLandingPage", uninstall: true) {
     section("Choose devices for this lock") {
-      input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
+      input(name: "lock", title: "Which Lock?", type: "capability.Lock", multiple: false, required: true)
       input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
     }
   }
@@ -649,7 +650,6 @@ def lockCodeSlots() {
     codeSlots = slotCount
   } else if (state?.codeSlots) {
     codeSlots = state.codeSlots.toInteger()
-    debugger("Lock has ${codeSlots} code slots.")
   }
   return codeSlots
 }

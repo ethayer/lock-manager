@@ -455,17 +455,29 @@ def getLockAppByIndex(params) {
 
 def availableSlots(selectedSlot) {
   def options = []
-  def children = getUserApps()
+  def userApps = getUserApps()
+  def lockApps = getLockApps()
+  def slotCount = 30
   def usedSlots = []
-  children.each { child ->
-    def userSlot = child.userSlot.toInteger()
+
+  userApps.each { userApp ->
+    def userSlot = userApp.userSlot.toInteger()
     // do not remove the currently selected slot
-    if (selectedSlot.toInteger() != userSlot) {
+    if (selectedSlot?.toInteger() != userSlot) {
       usedSlots << userSlot
     }
-
   }
-  (1..30).each { slot->
+
+  // set slot count to the max available
+  lockApps.each { lockApp ->
+    def appSlotCount = lockApp.lockCodeSlots()
+    // do not remove the currently selected slot
+    if (appSlotCount > slotCount) {
+      slotCount = appSlotCount
+    }
+  }
+
+  (1..slotCount).each { slot->
     if (usedSlots.contains(slot)) {
       // do nothing
     } else {
@@ -539,7 +551,7 @@ def getLockApps() {
 def setAccess() {
   def lockApps = getLockApps()
   lockApps.each { lockApp ->
-    lockApp.makeRequest()
+    lockApp.setCodes()
   }
 }
 
@@ -624,7 +636,8 @@ def lockInitialize() {
   subscribe(lock, 'codeChanged', updateCode, [filterEvents:false])
   subscribe(lock, "reportAllCodes", pollCodeReport, [filterEvents:false])
   subscribe(lock, "lock", codeUsed)
-  setupLockData()
+  // Allow save and run setup in headless mode
+  queSetupLockData()
 }
 
 
@@ -659,7 +672,7 @@ def lockLandingPage() {
 def lockSetupPage() {
   dynamicPage(name: "lockSetupPage", title: "Setup Lock", nextPage: "lockLandingPage", uninstall: true) {
     section("Choose devices for this lock") {
-      input(name: "lock", title: "Which Lock?", type: "capability.lock", multiple: false, required: true)
+      input(name: "lock", title: "Which Lock?", type: "capability.Lock", multiple: false, required: true)
       input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
     }
   }
@@ -1258,7 +1271,6 @@ def lockCodeSlots() {
     codeSlots = slotCount
   } else if (state?.codeSlots) {
     codeSlots = state.codeSlots.toInteger()
-    debugger("Lock has ${codeSlots} code slots.")
   }
   return codeSlots
 }

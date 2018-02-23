@@ -455,17 +455,29 @@ def getLockAppByIndex(params) {
 
 def availableSlots(selectedSlot) {
   def options = []
-  def children = getUserApps()
+  def userApps = getUserApps()
+  def lockApps = getLockApps()
+  def slotCount = 30
   def usedSlots = []
-  children.each { child ->
-    def userSlot = child.userSlot.toInteger()
+
+  userApps.each { userApp ->
+    def userSlot = userApp.userSlot.toInteger()
     // do not remove the currently selected slot
-    if (selectedSlot.toInteger() != userSlot) {
+    if (selectedSlot?.toInteger() != userSlot) {
       usedSlots << userSlot
     }
-
   }
-  (1..30).each { slot->
+
+  // set slot count to the max available
+  lockApps.each { lockApp ->
+    def appSlotCount = lockApp.lockCodeSlots()
+    // do not remove the currently selected slot
+    if (appSlotCount > slotCount) {
+      slotCount = appSlotCount
+    }
+  }
+
+  (1..slotCount).each { slot->
     if (usedSlots.contains(slot)) {
       // do nothing
     } else {
@@ -539,7 +551,7 @@ def getLockApps() {
 def setAccess() {
   def lockApps = getLockApps()
   lockApps.each { lockApp ->
-    lockApp.makeRequest()
+    lockApp.setCodes()
   }
 }
 
