@@ -227,7 +227,7 @@ def userPageOptions(count) {
 
 def determinePage(pageCount) {
   if (selectedUserPage) {
-    if (pageCount < selectedUserPage) {
+    if (pageCount < selectedUserPage.toInteger()) {
       return 0
     } else {
       return selectedUserPage.toInteger() - 1
@@ -740,7 +740,7 @@ def lockMainPage() {
           para += "You may skip the sweep process and save this time."
         } else {
           para += "WARNING:\n"
-          para += "You have choosen to skip seep process.\n\n"
+          para += "You have choosen to skip the sweep process.\n\n"
           para += "This will save about ${estimatedMinutes} Minutes.\n\n"
           para += "Do this at your own risk.  The sweep process will prevent conflicts."
         }
@@ -846,6 +846,7 @@ def setupLockData() {
 }
 
 def initSlots() {
+  def codeState = 'unknown'
   if (state.codes == null) {
     // new install!  Start learning!
     state.codes = [:]
@@ -853,6 +854,7 @@ def initSlots() {
     // skipSweep may be null
     if (skipSweep != true) {
       state.sweepMode = 'Enabled'
+      codeState = 'sweep'
     }
     state.refreshComplete = true
     state.supportsKeypadData = true
@@ -868,25 +870,35 @@ def initSlots() {
     debugger("Lock Supports ${slotCount} slots")
     state.codeSlots = slotCount
   }
+
+  def userCodeSlots = getUserSlotList()
   def codeSlots = lockCodeSlots()
 
   (1..codeSlots).each { slot ->
     def control = 'available'
-
     if (state.codes["slot${slot}"] == null) {
       state.codes["slot${slot}"] = [:]
       state.codes["slot${slot}"].slot = slot
       state.codes["slot${slot}"].code = null
       state.codes["slot${slot}"].attempts = 0
-      state.codes["slot${slot}"].codeState = 'unknown'
+      state.codes["slot${slot}"].namedSlot = false
+      state.codes["slot${slot}"].codeState = codeState
+      state.codes["slot${slot}"].control = control
     }
-    def userApp = findSlotUserApp(slot)
-    if (userApp) {
-      // there's a smartApp for this slot
-      control = 'controller'
-    } else if (state.codes["slot${slot}"].control == 'api') {
-      // don't change from API control
-      control = 'api'
+
+    // manage controll type
+    def currentControl = state.codes["slot${slot}"].control
+    switch (currentControl) {
+      case 'available':
+      case 'controller':
+        if (userCodeSlots.contains(slot.toInteger())) {
+          control = 'controller'
+        }
+        break
+      case 'api':
+      default:
+      // nothing to do
+        break
     }
     state.codes["slot${slot}"].control = control
   }
@@ -909,7 +921,7 @@ def sweepSequance() {
       // do nothing ~ We're going to stop adding codes for now.
     } else {
       def slotData = state.codes["slot${slot}"]
-      if (slotData.codeState == 'unknown') {
+      if (slotData.codeState == 'sweep') {
         count++
         array << ["code${slotData.slot}", null]
       } else {
@@ -921,7 +933,7 @@ def sweepSequance() {
   }
 
   // allow 10 and 5 seconds per code delete
-  def timeOut = 10 + (count * 5)
+  def timeOut = 10 + (count * 6)
 
   def json = new groovy.json.JsonBuilder(array).toString()
   if (json != '[]') {
@@ -951,7 +963,8 @@ def updateCode(event) {
   def activity = event.value =~ /(\d{1,3}).(\w*)/
   def slot = activity[0][1].toInteger()
   def activityType = activity[0][2]
-  def previousCode = null
+  def previousCode = state.codes["slot${slot}"]['code']
+
   debugger("name: ${name} slot: ${slot} data: ${data} description: ${description} activity: ${activity[0]}")
 
   def code = null
@@ -960,10 +973,11 @@ def updateCode(event) {
     code = userApp.userCode
   }
 
+  def codeState
+  def previousCodeState = state.codes["slot${slot}"]['codeState']
   switch (slot) {
     case 251:
-      debugger("Incorrect Slots: ${state.incorrectSlots}")
-      debugger('A code is a duplicate of Master but unknown which.' + state.incorrectSlots.size())
+      // code is duplicate of master
       if (state.incorrectSlots.size() == 1) {
         // the only slot to set must be the incorrect one!
         def errorSlot = state.incorrectSlots[0]
@@ -976,18 +990,31 @@ def updateCode(event) {
       }
       break
     default:
-      previousCode = state.codes["slot${slot}"]['code']
       switch (activityType) {
         case 'unset':
-          state.codes["slot${slot}"]['code'] = null
-          state.codes["slot${slot}"]['codeState'] = 'known'
           debugger("Slot:${slot} is no longer set!")
+
+          if (previousCodeState == 'unset' || state.sweepMode) {
+             codeState = 'correct'
+          } else {
+            // We were not expecting an unset!
+            codeState = 'unexpected'
+          }
+          state.codes["slot${slot}"]['code'] = null
+          state.codes["slot${slot}"]['codeState'] = codeState
           break
         case 'changed':
         case 'set':
-          // we're assuming the change was made correctly
+          if (previousCodeState == 'set') {
+             codeState = 'correct'
+          } else {
+            // We were not expecting a code set!  Possible mismatch!
+            // Set code data for re-check and set!
+            code = 'unknown'
+            codeState = 'unexpected'
+          }
           state.codes["slot${slot}"]['code'] = code
-          state.codes["slot${slot}"]['codeState'] = 'known'
+          state.codes["slot${slot}"]['codeState'] = codeState
           debugger("Slot:${slot} is set!")
           break
         case 'failed':
@@ -996,16 +1023,45 @@ def updateCode(event) {
           }
           debugger("Slot:${slot} failed!")
           state.codes["slot${slot}"]['code'] = 'invalid'
-          state.codes["slot${slot}"]['codeState'] = 'known'
+          state.codes["slot${slot}"]['codeState'] = 'failed'
           break
         default:
           // unknown action
           break
       }
-  }
-  if (previousCode != code) {
-    // code changed, let's inform!
-    codeInform(slot, code)
+  } //end switch(slot)
+
+  switch (codeState) {
+    case 'correct':
+      if (previousCodeState == 'set') {
+        codeInform(slot, 'access')
+      } else if (previousCodeState == 'unset') {
+        codeInform(slot, 'revoked')
+      }
+
+      break
+    case 'unexpected':
+      // run code logic, and reset code
+      switch (activityType) {
+        case 'set':
+        case 'changed':
+          codeInform(slot, 'unexpected-set')
+          break
+        case 'unset':
+        default:
+          codeInform(slot, 'unexpected-unset')
+          break
+      }
+      debugger('Unexpected change!  Scheduling code logic.')
+      runIn(25, setCodes)
+      break
+    case 'failed':
+      if (previousCodeState == 'unset') {
+        // I'm not sure if this would ever happen...
+        codeInform(slot, 'failed-unset')
+      } else if (previousCodeState == 'set') {
+        codeInform(slot, 'failed-set')
+      }
   }
 }
 
@@ -1157,32 +1213,52 @@ def codeUsed(evt) {
 }
 
 def setCodes() {
+  def setValue
+  def name
   // set what each slot should be in memory
   if (state.sweepMode == 'Enabled') {
     debugger('Not running code logic, Sweep mode is Enabled')
-    return
+    return false
   }
   // set incorrect slot array to blank
   state.incorrectSlots = []
 
   debugger('run code logic')
   def codes = state.codes
-  // preload user list for performance
   codes.each { data ->
     data = data.value
-
-    switch(state.codes["slot${data.slot}"].control) {
+    name = false
+    switch(data.control) {
       case 'controller':
         def lockUser = findSlotUserApp(data.slot)
         if (lockUser?.isActive(lock.id)) {
           // is active, should be set
-          state.codes["slot${data.slot}"].correctValue = lockUser.userCode.toString()
+          setValue = lockUser.userCode.toString()
+          state.codes["slot${data.slot}"].correctValue = setValue
+          if (data.code.toString() != setValue) {
+            state.codes["slot${data.slot}"].codeState = 'set'
+          } else {
+            // set name only if code is already set
+            name = lockUser.userName
+          }
         } else {
           // is inactive, should not be set
+          setValue = null
           state.codes["slot${data.slot}"].correctValue = null
+          if (data.code != setValue) {
+            state.codes["slot${data.slot}"].codeState = 'unset'
+          }
         }
         break
       case 'api':
+        if (data.correctCode != null) {
+          if (data.correctCode != data.code) {
+            state.codes["slot${data.slot}"].codeState = 'unset'
+          }
+        } else if (data.correctCode.toString() != data.code.toString()) {
+          state.codes["slot${data.slot}"].codeState = 'set'
+        }
+
         // do nothing, correct code set by API service
         break
       default:
@@ -1192,6 +1268,8 @@ def setCodes() {
         }
         break
     }
+    // ensure name is set correctly
+    nameSlot(data.slot, name)
   }
   // After setting code data, send to the lock
   runIn(15, loadCodes)
@@ -1200,57 +1278,88 @@ def setCodes() {
 def loadCodes() {
   // send codes to lock
   debugger('running load codes')
-  def array = []
+  def codesToSet
+  def unsetCodes = collectCodesToUnset()
+  // do this so we unset codes first
+  if (unsetCodes.size > 0) {
+    codesToSet = unsetCodes
+  } else {
+    codesToSet = collectCodesToSet()
+  }
+
+  def json = new groovy.json.JsonBuilder(codesToSet).toString()
+  if (json != '[]') {
+    debugger("update: ${json}")
+    lock.updateCodes(json)
+    // After sending codes, run memory logic again
+    def timeOut = (codesToSet.size() * 6) + 10
+    runIn(timeOut, setCodes)
+  } else {
+    // All done, codes should be correct
+    debugger('No codes to set')
+  }
+}
+
+def collectCodesToUnset() {
   def codes = state.codes
-  def sortedCodes = codes.sort{it.value.slot}
 
-  def slotsWithIncorrectCodes = []
+  def incorrectSlots = []
+  def array = []
+  def count = 0
 
-  def loadCount = 0
+  codes.each { data ->
+    data = data.value
 
-  sortedCodes.each { data ->
-    // only set codes in groups of 10
-    if (loadCount < 10) {
-      data = data.value
+    if (count < 10) {
+      def currentCode = data.code
+      def correctCode = data.correctValue
+
+      if (correctCode == null && currentCode != null) {
+        array << ["code${data.slot}", code]
+        incorrectSlots << data.slot
+        count++
+      }
+    }
+  }
+
+  state.incorrectSlots = incorrectSlots
+  return array
+}
+
+def collectCodesToSet() {
+  def codes = state.codes
+
+  def incorrectSlots = []
+  def array = []
+  def count = 0
+
+  codes.each { data ->
+    data = data.value
+
+    if (count < 10) {
       def currentCode = data.code.toString()
       def correctCode = data.correctValue.toString()
-      if (currentCode != correctCode) {
-        // code is set incorrectly on lock!
-        debugger("${currentCode}:${correctCode} s:${data.slot}")
-        if (data.attempts <= 10) {
-          def code
-          if (data.correctValue) {
-            code = data.correctValue
-          } else {
-            code = ''
-          }
-          loadCount++
-          slotsWithIncorrectCodes << data.slot
-          array << ["code${data.slot}", code]
-          state.codes["slot${data.slot}"].attempts = data.attempts + 1
-        } else {
-          state.codes["slot${data.slot}"].attempts = 0
-          // we've tried this slot 10 times, time to disable it
-          def userApp = findSlotUserApp(data.slot)
-          userApp?.disableLock(lock.id)
-        }
+
+      if (correctCode != currentCode && state.codes["slot${data.slot}"].attempts < 10) {
+        array << ["code${data.slot}", correctCode]
+        incorrectSlots << data.slot
+        // increment attempt count
+        state.codes["slot${data.slot}"].attempts = data.attempts + 1
+        count++
+      } else if (correctCode != currentCode && state.codes["slot${data.slot}"].attempts >= 10) {
+        state.codes["slot${data.slot}"].attempts = 0
+        // we've tried this slot 10 times, time to disable it
+        def userApp = findSlotUserApp(data.slot)
+        userApp?.disableLock(lock.id)
       } else {
+        // code is correct
         state.codes["slot${data.slot}"].attempts = 0
       }
     }
   }
-  def json = new groovy.json.JsonBuilder(array).toString()
-  if (json != '[]') {
-    debugger("update: ${json} slots: ${slotsWithIncorrectCodes}")
-    state.incorrectSlots = slotsWithIncorrectCodes
-    lock.updateCodes(json)
-    // After sending codes, run memory logic again
-    runIn(45, setCodes)
-  } else {
-    // All done, codes should be correct
-    state.incorrectSlots = slotsWithIncorrectCodes
-    debugger('No codes to set')
-  }
+
+  state.incorrectSlots = incorrectSlots
+  return array
 }
 
 def getUserSlotList() {
@@ -1267,7 +1376,7 @@ def findSlotUserApp(slot) {
   return lockUsers.find { app -> app.userSlot.toInteger() == slot.toInteger() }
 }
 
-def codeInform(slot, code) {
+def codeInformBak(slot, code) {
   def userApp = findSlotUserApp(slot)
   if (userApp) {
     def message = ''
@@ -1292,6 +1401,50 @@ def codeInform(slot, code) {
         // there's a code set for some reason
         // it should be deleted!
       }
+    }
+    debugger(message)
+  }
+}
+
+def codeInform(slot, action) {
+  def userApp = findSlotUserApp(slot)
+  if (userApp) {
+    def message = ''
+    def shouldSend = false
+    switch(action) {
+      case 'access':
+        message = "${userApp.userName} now has access to ${lock.label}"
+        // add name
+        nameSlot(slot, userApp.userName)
+        if (userApp.notifyAccessStart || parent.notifyAccessStart) {
+          shouldSend = true
+        }
+        break
+      case 'revoke':
+        // remove name
+        nameSlot(slot, false)
+        message = "${userApp.userName} no longer has access to ${lock.label}"
+        if (userApp.notifyAccessEnd || parent.notifyAccessEnd) {
+          shouldSend = true
+        }
+        break
+      case 'unexpected-set':
+        message = "Unexpected code in Slot:${slot}. ${userApp.userName} may not have valid access to ${lock.label}. Checking for issues."
+        shouldSend = true
+        break
+      case 'unexpected-unset':
+        message = "Unexpected code delete Slot:${slot}. ${userApp.userName} may not have valid access to ${lock.label}. Checking for issues."
+        shouldSend = true
+        break
+      case 'failed-set':
+        def disabledReason = userApp.disabledReason()
+        message = "Controller failed to set code for ${userApp.name}. ${disabledReason}"
+        shouldSend = true
+        break
+    }
+
+    if (shouldSend) {
+      userApp.sendUserMessage(message)
     }
     debugger(message)
   }
@@ -1364,6 +1517,13 @@ def sendMessage(message) {
     }
   } else {
     sendNotificationEvent(message)
+  }
+}
+
+def nameSlot(slot, name) {
+  if (state.codes["slot${slot}"].namedSlot != name) {
+    state.codes["slot${slot}"].namedSlot = name
+    lock.nameSlot(slot, name)
   }
 }
 
@@ -2330,6 +2490,10 @@ def disableLock(lockID) {
 def enableLock(lockID) {
   state."lock${lockID}".enabled = true
   state."lock${lockID}".disabledReason = null
+}
+
+def disabledReason() {
+  state."lock${lockID}".disabledReason
 }
 
 def getLockUserInfo(lock) {

@@ -870,6 +870,10 @@ def enableLock(lockID) {
   state."lock${lockID}".disabledReason = null
 }
 
+def disabledReason() {
+  state."lock${lockID}".disabledReason
+}
+
 def getLockUserInfo(lock) {
   def para = "\n${app.label}"
   if (settings."lockDisabled${lock.id}") {

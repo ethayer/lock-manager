@@ -227,7 +227,7 @@ def userPageOptions(count) {
 
 def determinePage(pageCount) {
   if (selectedUserPage) {
-    if (pageCount < selectedUserPage) {
+    if (pageCount < selectedUserPage.toInteger()) {
       return 0
     } else {
       return selectedUserPage.toInteger() - 1
