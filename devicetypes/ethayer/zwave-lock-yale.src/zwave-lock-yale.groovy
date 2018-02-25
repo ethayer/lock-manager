@@ -14,7 +14,7 @@
  *
  */
 metadata {
-	definition (name: "Z-Wave Lock Reporting", namespace: "ethayer", author: "SmartThings") {
+	definition (name: "Z-Wave Lock Yale", namespace: "ethayer", author: "SmartThings") {
 		capability "Actuator"
 		capability "Lock"
 		capability "Polling"
@@ -91,57 +91,31 @@ metadata {
 				[value: 41, color: "#79b821"]
 			]
 		}
-		valueTile("alarmSensitivity", "device.alarmSensitivity", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
-			state "Extreme", label: 'Sensitivity: ${currentValue}', backgroundColor: "#ffffff"
-			state "High", label: 'Sensitivity: ${currentValue}', backgroundColor: "#00a0dc"
-			state "Medium", label: 'Sensitivity: ${currentValue}', backgroundColor: "#ffffff"
-			state "Moderate", label: 'Sensitivity: ${currentValue}', backgroundColor: "#ffffff"
-			state "Low", label: 'Sensitivity: ${currentValue}', backgroundColor: "#00a0dc"
-		}
-		valueTile("alarmMode", "device.alarmMode", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
-			state "val", label: 'Alarm ${currentValue}', backgroundColor: "#ffffff"
-			state "Tamper", label: 'Alarm ${currentValue}', backgroundColor: "#00a0dc"
-			state "Kick", label: 'Alarm ${currentValue}', backgroundColor: "#ffffff"
-			state "Off", label: 'Alarm ${currentValue}', backgroundColor: "#00a0dc"
-		}
-		valueTile("lockLeave", "device.lockLeave", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
-			state 'val', label: 'Lock & Leave ${currentValue}', backgroundColor: "#ffffff"
-		}
-
-		valueTile("autoLock", "device.autoLock", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
-			state 'val', label: 'Auto Lock ${currentValue}', backgroundColor: "#ffffff"
-		}
-
-		valueTile("beeperMode", "device.beeperMode", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
-			state 'val', label: 'Beep Mode ${currentValue}', backgroundColor: "#ffffff"
-		}
-
-		valueTile("vacationMode", "device.vacationMode", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
-			state 'val', label: 'Vacation Mode ${currentValue}', backgroundColor: "#ffffff"
-		}
-
-		valueTile("pinLength", "device.pinLength", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
-			state 'val', label: 'Required PIN Length: ${currentValue}', backgroundColor: "#ffffff"
-		}
 
 		standardTile("refresh", "device.lock", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
 			state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
 		}
 
+    valueTile("audioMode", "device.audioMode", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+      state 'val', label: 'Audio Mode ${currentValue}', backgroundColor: "#ffffff"
+    }
+    valueTile("autoLock", "device.autoLock", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+      state 'val', label: 'Auto Lock ${currentValue}', backgroundColor: "#ffffff"
+    }
+
 		main "toggle"
-		details(["toggle", "lock", "unlock", "battery", "refresh", "alarmSensitivity", "alarmMode", "lockLeave", "autoLock", "beeperMode", "vacationMode", "pinLength"])
+		details(["toggle", "lock", "unlock", "battery", "refresh", "autoLock", "audioMode"])
 	}
 	preferences {
-		input name: "alarmMode", type: "enum", title: "Alarm Mode", description: "Enter Mode for Alarm", required: false,
-          displayDuringSetup: false,  options: ["Off", "Alert", "Tamper", "Kick"]
-		input name: "alarmSensitivity", type: "enum", title: "Alarm Sensitivity", description: "Enter Sensitivity for Alarm", required: false,
-          displayDuringSetup: false,  options: ["Extreme", "High", "Medium", "Moderate", "Low"]
+		input name: "audioMode", type: "enum", title: "Audio Mode", description: "Enter Mode for Audio", required: false,
+          displayDuringSetup: false,  options: ["High", "On", "Off"]
+		input name: "autoLock", type: "bool", title: "Auto Re-Lock", description: "Enable Auto Re-Lock?", required: false, displayDuringSetup: false
+		input name: "reLockTime", type: "number", title: "Auto Relock Time", description: "Amount of time for the lock to take before it automatically re-locks in seconds.", range: "5..255", required: false, displayDuringSetup: false
+    input name: "lockDownTime", type: "number", title: "Lockout Time", description: "Amount of time for keypad lockout after number of wrong code entries is exceeded.  Lock will be disabled for the specified amount of seconds.", range: "5..255", required: false, displayDuringSetup: false
+		input name: "entryAttemptLimit", type: "number", title: "Entry Attempt Limit", description: "The number of invalid code enteid lock will accept before TAMPER alarm is triggered and lockout is initiated.", range: "1..7", required: false, displayDuringSetup: false
 
-		input name: "autoLock", type: "bool", title: "Auto Lock", description: "Enable Auto Lock?", required: false, displayDuringSetup: false
-		input name: "vacationMode", type: "bool", title: "Vataction Mode", description: "Enable Vacation Mode?", required: false, displayDuringSetup: false
-		input name: "lockLeave", type: "bool", title: "Lock & Leave", description: "Enable Lock & Leave?", required: false, displayDuringSetup: false
-		input name: "localControl", type: "bool", title: "Local Control", description: "Enable Local Control?", required: false, displayDuringSetup: false
-		input name: "pinLength", type: "number", title: "Pin Length", description: "Changing will delete all codes", range: "4..8", required: false, displayDuringSetup: false
+		input name: "operatingMode", type: "bool", title: "Operation Mode", description: "Mode of Operation",
+      options: ['Normal', 'Vacation', 'Privacy'], required: false, displayDuringSetup: false
 	}
 }
 
@@ -178,7 +152,6 @@ def updated() {
 	}
 	if ( (now() - timeCheck) < 5000 ) return
 	state.updatedDate = now()
-	log.debug('reunning updated!')
 	// Device-Watch pings if no device events received for 1 hour (checkInterval)
 	sendEvent(name: "checkInterval", value: 1 * 60 * 60, displayed: false, data: [protocol: "zwave", hubHardwareId: device.hub.hardwareID, offlinePingable: "1"])
 	def hubAction = null
@@ -283,8 +256,8 @@ def parse(String description) {
 def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd) {
 	log.trace "[DTH] Executing 'zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport cmd)' with cmd = $cmd"
 	def result = []
-	if (isSchlageLock()) {
-		result << processSchlageLockConfig(cmd)
+	if (isYaleLock()) {
+		result << processYaleLockConfig(cmd)
 	}
 	if (isSchlageLock() && cmd.parameterNumber == getSchlageLockParam().codeLength.number) {
 		def length = cmd.scaledConfigurationValue
@@ -305,198 +278,79 @@ def zwaveEvent(physicalgraph.zwave.commands.configurationv2.ConfigurationReport 
 	return result
 }
 
-def processSchlageLockConfig(cmd) {
+def processYaleLockConfig(cmd) {
 	def result = []
 	def map = null		// use this for config reports that are handled
 
 	// use desc/val for generic handling of config reports (it will just send a descriptionText for the acitivty stream)
 	def desc = null
-	def val = ""
+	def value = ""
 	def isEnabled = 'Enabled'
 
 	switch (cmd.parameterNumber) {
-		case 0x3:
-			map = parseBinaryConfigRpt('beeperMode', cmd.configurationValue[0], 'Beeper Mode')
-			if (cmd.configurationValue[0] == 0) {
-				isEnabled = 'Disabled'
-			}
-			sendEvent(name: 'beeperMode', value: isEnabled, displayed: false )
-			break
+		case 0x01: // Audio Mode
+      map = [ name: "audioMode" ]
+      switch(cmd.configurationValue[0]) {
+        case 0x01:
+					switch(zwaveInfo.prod) {
+						case '0001':
+						case '0002':
+							value = 'Off'
+							break
+						default:
+							value = 'On'
+							break
+					}
+          break
+        case 0x02:
+          value = 'Low'
+          break
+        case 0x03:
+          switch(zwaveInfo.prod) {
+            case '0001':
+            case '0002':
+              value = 'High'
+              break
+						default:
+              value = 'Off'
+              break
+          }
+        }
+        desc = "Audio Mode switched to ${value}"
+        map.value = value
+        map.descriptionText = desc
+        sendEvent(name: 'audioMode', value: value)
+        break // End Audo Mode
 
-		// done:  vacation mode toggle
-		case 0x4:
-			map = parseBinaryConfigRpt('vacationMode', cmd.configurationValue[0], 'Vacation Mode')
-			if (cmd.configurationValue[0] == 0) {
-				isEnabled = 'Disabled'
-			}
-			sendEvent(name: 'vacationMode', value: isEnabled, displayed: false )
-			break
+      case 0x02: //Auto Re-Lock
+        map = [ name: "autoLock" ]
+        switch(cmd.configurationValue[0]) {
+          case 0xFF:
+            value = 'On'
+            break
+          case 0x00:
+            value = 'Off'
+            break
+        }
+        desc = "Auto Lock switched to ${value}"
+        map.value = value
+        map.descriptionText = desc
+        sendEvent(name: 'autoLock', value: value)
+        break
+      case 0x03: //Re-lock Timeout
+        map = [ name: "reLockTimeOut" ]
+        value = cmd.configurationValue[0]
+        desc = "Auto lock Timeout set to ${value} seconds"
+        map.value = value
+        map.descriptionText = desc
+        sendEvent(name: 'reLockTime', value: value)
+        break
 
-		// done: lock and leave mode
-		case 0x5:
-			map = parseBinaryConfigRpt('lockLeave', cmd.configurationValue[0], 'Lock & Leave')
-			if (cmd.configurationValue[0] == 0) {
-				isEnabled = 'Disabled'
-			}
-			sendEvent(name: 'lockLeave', value: isEnabled, displayed: false )
-			break
-
-		// these don't seem to be useful.  It's just a bitmap of the code slots used.
-		case 0x6:
-			desc = "User Slot Bit Fields"
-			val = "${cmd.configurationValue[3]} ${cmd.configurationValue[2]} ${cmd.configurationValue[1]} ${cmd.configurationValue[0]}"
-			break
-
-		// done:  the alarm mode of the lock.
-		case 0x7:
-			def currentAlarmMode = "Off"
-
-			switch (cmd.configurationValue[0]) {
-				case 0x00:
-					currentAlarmMode = "Off"
-					break
-				case 0x01:
-					currentAlarmMode = "Alert"
-					break
-				case 0x02:
-					currentAlarmMode = "Tamper"
-					break
-				case 0x03:
-					currentAlarmMode = "Kick"
-					break
-				default:
-					currentAlarmMode = "Off"
-			}
-			log.debug("Lock set Alarm Mode to ${currentAlarmMode} Now is: ${alarmMode}")
-			sendEvent(name: 'alarmMode', value: currentAlarmMode, displayed: false )
-			break
-
-		// done: alarm sensitivities - one for each mode
-		case 0x8:
-		case 0x9:
-		case 0xA:
-			def whichSensitivity = 'Low'
-			switch (cmd.configurationValue[0]) {
-				case 0x01:
-					whichSensitivity = "Extreme"
-					break;
-				case 0x02:
-					whichSensitivity = "High"
-					break;
-				case 0x03:
-					whichSensitivity = "Medium"
-					break;
-				case 0x04:
-					whichSensitivity = "Moderate"
-					break;
-				case 0x05:
-					whichSensitivity = "Low"
-					break;
-				default:
-					whichSensitivity = "Low"
-					break;
-			}
-			// set preference setting to current value
-			log.debug("Lock set sensitivity to ${whichSensitivity}")
-			sendEvent(name: 'alarmSensitivity', value: whichSensitivity, displayed: false )
-			// device.updateSetting('alarmSensitivity', 0)
-			val = "${cmd.configurationValue[0]}"
-
-			// the lock has sensitivity values between 1 and 5. We set the slider's range ("1".."5") in the Tile's Definition
-			def modifiedValue = cmd.configurationValue[0]
-
-			map = [ descriptionText: "$device.displayName Alarm $whichMode Sensitivity set to $val", displayed: true ]
-
-			if (curAlarmMode == "${whichMode}_alarmMode")
-			{
-				map.name = "alarmSensitivity"
-				map.value = modifiedValue
-			}
-			else
-			{
-				log.debug "got sensitivity for $whichMode while in $curAlarmMode"
-				map.isStateChange = true
-			}
-
-			break
-
-		case 0xB:
-			map = parseBinaryConfigRpt('localControl', cmd.configurationValue[0], 'Local Alarm Control')
-			break
-
-		// how many times has the electric motor locked or unlock the device?
-		case 0xC:
-			desc = "Electronic Transition Count"
-			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
-			val = "$ttl"
-			break
-
-		// how many times has the device been locked or unlocked manually?
-		case 0xD:
-			desc = "Mechanical Transition Count"
-			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
-			val = "$ttl"
-			break
-
-		// how many times has there been a failure by the electric motor?  (due to jamming??)
-		case 0xE:
-			desc = "Electronic Failed Count"
-			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
-			val = "$ttl"
-			break
-
-		// done: auto lock mode
-		case 0xF:
-			map = parseBinaryConfigRpt('autoLock', cmd.configurationValue[0], 'Auto Lock')
-			if (cmd.configurationValue[0] == 0) {
-				isEnabled = 'Disabled'
-			}
-			sendEvent(name: 'autoLock', value: isEnabled, displayed: false )
-			break
-
-		// this will be useful as an attribute/command usable by a smartapp
-		case 0x10:
-			map = [ name: 'pinLength', value: cmd.configurationValue[0], displayed: true, descriptionText: "$device.displayName PIN length configured to ${cmd.configurationValue[0]} digits"]
-			break
-
-		// not sure what this one stores
-		case 0x11:
-			desc = "Electronic High Preload Transition Count"
-			def ttl = cmd.configurationValue[3] + (cmd.configurationValue[2] * 0x100) + (cmd.configurationValue[1] * 0x10000) + (cmd.configurationValue[0] * 0x1000000)
-			val = "$ttl"
-			break
-
-		// ???
-		case 0x12:
-			desc = "Bootloader Version"
-			val = "${cmd.configurationValue[0]}"
-			break
-		default:
-			desc = "Unknown parameter ${cmd.parameterNumber}"
-			val = "${cmd.configurationValue[0]}"
-			break
 	}
-	if (map) {
-		result << createEvent(map)
-	}
-	else if (desc != null) {
-		// generic description text
-		result << createEvent([ descriptionText: "$device.displayName reports \"$desc\" configured as \"$val\"", displayed: true, isStateChange: true ])
-	}
+  if (map) {
+    result << createEvent(map)
+  }
 	return result
-}
-
-def parseBinaryConfigRpt(paramName, paramValue, paramDesc) {
-	def map = [ name: paramName, displayed: true ]
-
-	def newVal = "on"
-	if (paramValue == 0)
-	{
-		newVal = "off"
-	}
-	map.value = "${newVal}_${paramName}"
-	map.descriptionText = "$device.displayName $paramDesc has been turned $newVal"
-	return map
 }
 
 /**
@@ -1967,104 +1821,66 @@ def readCodeSlotId(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd) {
 }
 
 def setDeviceSettings(){
-	log.debug('Set Prefs')
 	def cmds = []
-	 cmds << configureAlarm()
+	 cmds << configureAudio()
 	 cmds << configureAutoLock()
-	 cmds << configureVacationMode()
-	 cmds << configureBeeper()
-	 cmds << configureLockLeave()
-	 cmds << configureLocalControl()
-	 cmds << configurePinLength()
+   cmds << configureReLockTime()
+   log.debug cmds
 	 return cmds
 }
 
-def configureAlarm() {
-	def cmds = []
-	// default to off
-	def alarmModeParam = 0x0
-	def alarmSensitivityParam = 0x0
-	switch(alarmMode) {
-		case "Off":
-			alarmModeParam = 0x00
-			// alarmSensitivityParam = 0x0
-			break
-		case "Alert":
-			alarmModeParam = 0x01
-			alarmSensitivityParam = 0x08
-			break
-		case "Tamper":
-			alarmModeParam = 0x2
-			alarmSensitivityParam = 0x09
-			break
-		case "Kick":
-			alarmModeParam = 0x3
-			alarmSensitivityParam = 0x0A
-			break
-		default:
-			alarmModeParam = 0x0
-			alarmSensitivityParam = 0x0
-			break
-	}
-
-	// sensitivity is 5 - lowest, 1 - highest
-	// https://www.schlage.com/content/dam/sch-us/documents/pdf/installation-manuals/24352403.pdf
-	// default to low if no value
-	def configurationValue = 0x05
-	switch(alarmSensitivity) {
-		case "Extreme":
-			configurationValue = 0x01
-			break
-		case "High":
-			configurationValue = 0x02
-			break
-		case "Medium":
-			configurationValue = 0x03
-			break
-		case "Moderate":
-			configurationValue = 0x04
-			break
-		case "Low":
-			configurationValue = 0x05
-			break
-		default:
-			configurationValue = 0x05
-			break
-	}
-	// set alarm mode
-	cmds << secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 7, size: 1, configurationValue: [alarmModeParam])],5000)
-	// set sensitivity
-	cmds << secureSequence([zwave.configurationV2.configurationSet(parameterNumber: alarmSensitivityParam, size: 1, configurationValue: [configurationValue])],5000)
-	return cmds
-}
-
-def onOffSequence(configParam, configBool) {
-	def configValue = 0x00
-	if (configBool) {
-		configValue = 0xFF
-	}
-	return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: configParam, size: 1, configurationValue: [configValue])],5000)
+def configureAudio() {
+  if (audioMode) {
+    def value
+    switch(audioMode) {
+      case 'Off':
+        switch(zwaveInfo.prod) {
+          case '0001':
+          case '0002':
+            value = 0x01
+            break
+          default:
+            value = 0x03
+        }
+        break
+      case 'On':
+        switch(zwaveInfo.prod) {
+          case '0001':
+          case '0002':
+            value = 0x02
+            break
+          default:
+            value = 0x01
+            break
+        }
+      case 'High':
+        switch(zwaveInfo.prod) {
+          case '0001':
+          case '0002':
+            value = 0x03
+            break
+          default:
+            value = 0x01
+            break
+        }
+    }
+    return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 1, size: 1, configurationValue: [value])],7000)
+  }
 }
 
 def configureAutoLock() {
-	return onOffSequence(0x0F, autoLock)
+  if (autoLock != null) {
+    def value
+    if (autoLock) {
+      value = 0xFF
+    } else {
+      value = 0x00
+    }
+    return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 2, size: 1, configurationValue: [value])],7000)
+  }
 }
-def configureBeeper() {
-	return onOffSequence(0x03, beeperMode)
-}
-def configureVacationMode() {
-	return onOffSequence(0x04, vacationMode)
-}
-def configureLockLeave() {
-	return onOffSequence(0x05, lockLeave)
-}
-def configureLocalControl() {
-	return onOffSequence(0x0B, localControl)
-}
-def configurePinLength() {
-	if (pinLength) {
-		return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: [pinLength])],5000)
-	} else {
-		return null
-	}
+def configureReLockTime() {
+  if (reLockTime) {
+    return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 3, size: 1, configurationValue: [reLockTime.toInteger()])],7000)
+  }
 }
