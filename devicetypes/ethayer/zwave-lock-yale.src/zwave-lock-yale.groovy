@@ -111,10 +111,11 @@ metadata {
           displayDuringSetup: false,  options: ["High", "On", "Off"]
 		input name: "autoLock", type: "bool", title: "Auto Re-Lock", description: "Enable Auto Re-Lock?", required: false, displayDuringSetup: false
 		input name: "reLockTime", type: "number", title: "Auto Relock Time", description: "Amount of time for the lock to take before it automatically re-locks in seconds.", range: "5..255", required: false, displayDuringSetup: false
-    input name: "lockDownTime", type: "number", title: "Lockout Time", description: "Amount of time for keypad lockout after number of wrong code entries is exceeded.  Lock will be disabled for the specified amount of seconds.", range: "5..255", required: false, displayDuringSetup: false
-		input name: "entryAttemptLimit", type: "number", title: "Entry Attempt Limit", description: "The number of invalid code enteid lock will accept before TAMPER alarm is triggered and lockout is initiated.", range: "1..7", required: false, displayDuringSetup: false
 
-		input name: "operatingMode", type: "bool", title: "Operation Mode", description: "Mode of Operation",
+		input name: "entryAttemptLimit", type: "number", title: "Entry Attempt Limit", description: "The number of invalid code enteid lock will accept before TAMPER alarm is triggered and lockout is initiated.", range: "1..7", required: false, displayDuringSetup: false
+		input name: "lockOutTime", type: "number", title: "Lockout Time", description: "Amount of time for keypad lock-out after number of wrong code entries is exceeded.  Lock will be disabled for the specified amount of seconds.", range: "1..255", required: false, displayDuringSetup: false
+
+		input name: "operatingMode", type: "enum", title: "Operation Mode", description: "Mode of Operation",
       options: ['Normal', 'Vacation', 'Privacy'], required: false, displayDuringSetup: false
 	}
 }
@@ -338,14 +339,49 @@ def processYaleLockConfig(cmd) {
         sendEvent(name: 'autoLock', value: value)
         break
       case 0x03: //Re-lock Timeout
-        map = [ name: "reLockTimeOut" ]
+        map = [ name: "reLockTime" ]
         value = cmd.configurationValue[0]
         desc = "Auto lock Timeout set to ${value} seconds"
         map.value = value
         map.descriptionText = desc
         sendEvent(name: 'reLockTime', value: value)
         break
-
+      case 0x04: //Wrong Code Entry Limit
+        map = [ name: "wrongCodeEntryLimit" ]
+        value = cmd.configurationValue[0]
+        desc = "Wrong code entry limit set to ${value} attempts"
+        map.value = value
+        map.descriptionText = desc
+        sendEvent(name: 'wrongCodeEntryLimit', value: value)
+        break
+      case 0x05: // language change
+        break
+      case 0x07: // Shutdown Time
+        map = [ name: "lockOutTime" ]
+        value = cmd.configurationValue[0]
+        desc = "Lock Out time set to ${value} seconds"
+        map.value = value
+        map.descriptionText = desc
+        sendEvent(name: 'lockOutTime', value: value)
+        break
+      case 0x08: // Operating Mode
+        map = [ name: "operationMode" ]
+        switch (cmd.configurationValue[0]) {
+          case 0x00:
+            value = 'Normal Mode'
+            break
+          case 0x01:
+            value = 'Vacation Mode'
+            break
+          case 0x02:
+            value = 'Privacy Mode'
+            break
+        }
+        desc = "Lock Operation mode set to ${value}"
+        map.value = value
+        map.descriptionText = desc
+        sendEvent(name: 'operationMode', value: value)
+        break
 	}
   if (map) {
     result << createEvent(map)
@@ -1822,11 +1858,14 @@ def readCodeSlotId(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd) {
 
 def setDeviceSettings(){
 	def cmds = []
-	 cmds << configureAudio()
-	 cmds << configureAutoLock()
-   cmds << configureReLockTime()
-   log.debug cmds
-	 return cmds
+  cmds << configureAudio()
+  cmds << configureAutoLock()
+  cmds << configureReLockTime()
+  cmds << configureAttemptLimit()
+  cmds << configureLockOutTime()
+  cmds << configureOperationMode()
+
+  return secureSequence(cmds, 4200)
 }
 
 def configureAudio() {
@@ -1864,7 +1903,7 @@ def configureAudio() {
             break
         }
     }
-    return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 1, size: 1, configurationValue: [value])],7000)
+    return zwave.configurationV2.configurationSet(parameterNumber: 1, size: 1, configurationValue: [value])
   }
 }
 
@@ -1876,11 +1915,44 @@ def configureAutoLock() {
     } else {
       value = 0x00
     }
-    return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 2, size: 1, configurationValue: [value])],7000)
+    return zwave.configurationV2.configurationSet(parameterNumber: 2, size: 1, configurationValue: [value])
   }
 }
 def configureReLockTime() {
   if (reLockTime) {
-    return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 3, size: 1, configurationValue: [reLockTime.toInteger()])],7000)
+    return zwave.configurationV2.configurationSet(parameterNumber: 3, size: 1, configurationValue: [reLockTime])
+  }
+}
+
+def configureAttemptLimit() {
+  if (entryAttemptLimit) {
+    return zwave.configurationV2.configurationSet(parameterNumber: 4, size: 1, configurationValue: [entryAttemptLimit])
+  }
+}
+
+def configureLockOutTime() {
+  if (lockOutTime) {
+    return zwave.configurationV2.configurationSet(parameterNumber: 7, size: 1, configurationValue: [lockOutTime])
+  }
+}
+
+def configureOperationMode() {
+  if (operatingMode) {
+    def value
+    switch(operatingMode) {
+      case 'Normal':
+        value = 0x00
+        break
+      case 'Vacation':
+        value = 0x01
+        break
+      case 'Privacy':
+        value = 0x02
+        break
+      default:
+        value = 0x00
+        break
+    }
+    return zwave.configurationV2.configurationSet(parameterNumber: 8, size: 1, configurationValue: [value])
   }
 }
