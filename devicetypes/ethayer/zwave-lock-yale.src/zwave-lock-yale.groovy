@@ -102,9 +102,21 @@ metadata {
     valueTile("autoLock", "device.autoLock", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
       state 'val', label: 'Auto Lock ${currentValue}', backgroundColor: "#ffffff"
     }
+		valueTile("reLockTime", "device.reLockTime", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state 'val', label: 'Relock Time ${currentValue} Seconds', backgroundColor: "#ffffff"
+		}
+		valueTile("wrongCodeEntryLimit", "device.wrongCodeEntryLimit", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state 'val', label: 'Code Entry Attempts Allowed ${currentValue}', backgroundColor: "#ffffff"
+		}
+		valueTile("lockOutTime", "device.lockOutTime", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state 'val', label: 'Wrong entry lockout time ${currentValue} seconds', backgroundColor: "#ffffff"
+		}
+		valueTile("operationMode", "device.operationMode", inactiveLabel: false, canChangeBackground: true, width: 2, height: 2) {
+			state 'val', label: 'Operation: ${currentValue}', backgroundColor: "#ffffff"
+		}
 
 		main "toggle"
-		details(["toggle", "lock", "unlock", "battery", "refresh", "autoLock", "audioMode"])
+		details(["toggle", "lock", "unlock", "battery", "refresh", "autoLock", "audioMode", "reLockTime", "wrongCodeEntryLimit", "lockOutTime", "operationMode"])
 	}
 	preferences {
 		input name: "audioMode", type: "enum", title: "Audio Mode", description: "Enter Mode for Audio", required: false,
