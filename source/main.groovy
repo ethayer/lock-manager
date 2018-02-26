@@ -208,7 +208,7 @@ def mainPage() {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
       input(name: 'enableDebug', title: 'Enable IDE debug messages?', type: 'bool', required: true, defaultValue: false, description: 'Show activity from Lock Manger in logs for debugging.')
       label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
-      paragraph 'Lock Manager © 2017 v1.4'
+      paragraph 'Lock Manager © 2018 v2.0'
     }
   }
 }

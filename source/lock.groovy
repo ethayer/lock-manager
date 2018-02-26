@@ -14,7 +14,7 @@ def lockInitialize() {
   unschedule()
   subscribe(lock, 'codeChanged', updateCode, [filterEvents:false])
   subscribe(lock, "reportAllCodes", pollCodeReport, [filterEvents:false])
-  subscribe(lock, "lock", codeUsed)
+  subscribe(lock, "lock", lockEvent)
   // Allow save and run setup in headless mode
   queSetupLockData()
 }
@@ -96,7 +96,7 @@ def lockMainPage() {
       def actions = location.helloHome?.getPhrases()*.label
       href(name: 'toNotificationPage', page: 'lockNotificationPage', title: 'Notification Settings', image: 'https://images.lockmanager.io/app/v1/images/bullhorn.png')
       if (actions) {
-        href(name: 'toHelloHomePage', page: 'lockHelloHomePage', title: 'Hello Home Settings', image: 'https://images.lockmanager.io/app/v1/images/home.png')
+        href(name: 'toLockHelloHomePage', page: 'lockHelloHomePage', title: 'Hello Home Settings', image: 'https://images.lockmanager.io/app/v1/images/home.png')
       }
     }
     section('Setup', hideable: true, hidden: true) {
@@ -104,6 +104,27 @@ def lockMainPage() {
       input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
       input(name: 'contactSensor', title: 'Which contact sensor?', type: "capability.contactSensor", multiple: false, required: false)
       input(name: 'slotCount', title: 'How many slots?', type: 'number', multiple: false, required: false, description: 'Overwrite number of slots supported.')
+    }
+  }
+}
+
+def lockHelloHomePage() {
+  dynamicPage(name: 'helloHomePage', title: 'Hello Home Settings (optional)') {
+    def actions = location.helloHome?.getPhrases()*.label
+    actions?.sort()
+    section('Hello Home Phrases') {
+      input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
+      input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+
+      input(name: 'codeUnlockRoutine', title: 'On Code Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png' )
+
+      paragraph 'Supported on some locks:'
+      input(name: 'codeLockRoutine', title: 'On Code Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'keypadLockRoutine', title: 'On Keypad Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+
+      paragraph 'These restrictions apply to all the above:'
+      input "userNoRunPresence", "capability.presenceSensor", title: "DO NOT run Actions if any of these are present:", multiple: true, required: false
+      input "userDoRunPresence", "capability.presenceSensor", title: "ONLY run Actions if any of these are present:", multiple: true, required: false
     }
   }
 }
@@ -410,94 +431,35 @@ def updateCode(event) {
   }
 }
 
-def codeUsed(evt) {
-  debugger('Lock Event')
-  def lockId = lock.id
-  def message = ''
-  def action = evt.value
-  def userApp = false
-  def codeUsed = false
-  def manualUse = false
-  def data = false
+def lockEvent(evt) {
+  def data = new JsonSlurper().parseText(evt.data)
+  debugger("Lock event. ${data.method}")
 
-  if (evt.data) {
-    data = new JsonSlurper().parseText(evt.data)
-    codeUsed = data.usedCode
-    if (codeUsed?.isNumber()) {
-      userApp = findSlotUserApp(codeUsed)
-    }
+  switch(data.method) {
+    case 'keypad':
+      keypadLockEvent(evt, data)
+      break
+    case 'manual':
+      manualUnlock(evt)
+      break
+    case 'command':
+      commandUnlock(evt)
+      break
+    case 'auto':
+      autoLock(evt)
+      break
   }
+}
 
-  if (!data || data?.usedCode == 'manual') {
-    manualUse = true
-  }
-
-  if (action == 'unlocked') {
-    state.lockState = 'unlocked'
-    debugger('UNLOCKED')
-    // door was unlocked
+def keypadLockEvent(evt, data) {
+  def message
+  def userApp = findSlotUserApp(data.usedCode)
+  if (evt.value == 'locked') {
     if (userApp) {
-      message = "${lock.label} was unlocked by ${userApp.userName}"
-      userApp.incrementLockUsage(lock.id)
-      if (!userApp.isNotBurned()) {
-        parent.setAccess()
-        message += '.  Now burning code.'
-      }
-      // user specific
-      if (userApp.userUnlockPhrase) {
-        userApp.executeHelloPresenceCheck(userApp.userUnlockPhrase)
-      }
-      // lock specific
-      if (codeUnlockRoutine) {
-        executeHelloPresenceCheck(codeUnlockRoutine)
-      }
-      // global
-      if (parent.codeUnlockRoutine) {
-        parent.executeHelloPresenceCheck(parent.codeUnlockRoutine)
-      }
-
-    } else if (manualUse) {
-      // unlocked manually
-
-      // lock specific
-      if (manualUnlockRoutine) {
-        executeHelloPresenceCheck(manualUnlockRoutine)
-      }
-      // global
-      if (parent.manualUnlockRoutine) {
-        parent.executeHelloPresenceCheck(parent.manualUnlockRoutine)
-      }
-
-      message = "${lock.label} was unlocked manually"
-      if (notifyManualUnlock) {
-        sendLockMessage(message)
-      }
-      if (alexaManualUnlock) {
-        sendLockMessage(message)
-      }
-    }
-  }
-  if (action == 'locked') {
-    state.lockState = 'locked'
-    debugger('LOCKED')
-    // door was locked
-    if (userApp) {
-      message = "${lock.label} was locked by ${userApp.userName}"
-      // user specific
-      if (userApp.userLockPhrase) {
-        userApp.executeHelloPresenceCheck(userApp.userLockPhrase)
-      }
-      // lock specific
-      if (codeLockRoutine) {
-        executeHelloPresenceCheck(codeLockRoutine)
-      }
-      // gobal
-      if (parent.codeLockRoutine) {
-        parent.executeHelloPresenceCheck(parent.codeLockRoutine)
-      }
-    }
-    if (data?.usedCode == -1) {
+      userDidLock(userApp)
+    } else {
       message = "${lock.label} was locked by keypad"
+      debugger(message)
       if (keypadLockRoutine) {
         executeHelloPresenceCheck(keypadLockRoutine)
       }
@@ -508,53 +470,117 @@ def codeUsed(evt) {
         askAlexaLock(message)
       }
     }
-    if (manualUse) {
-      // locked manually
-      message = "${lock.label} was locked manually"
-
-      // lock specific
-      if (manualLockRoutine) {
-        executeHelloPresenceCheck(manualLockRoutine)
-      }
-      // global
-      if (parent.manualLockRoutine) {
-        parent.executeHelloPresenceCheck(parent.manualLockRoutine)
-      }
-
-      if (notifyManualLock) {
-        sendLockMessage(message)
-      }
-      if (alexaManualLock) {
-        askAlexaLock(message)
-      }
+  } else if (evt.value == 'unlocked') {
+    if (userApp) {
+      userDidUnlock(userApp)
+    } else {
+      debugger('Lock was locked by unknown user!')
+      // unlocked by unknown user?
     }
   }
+}
 
-  // decide if we should send a message per the userApp
-  if (userApp && message) {
-    debugger("Sending message: " + message)
-    if (action == 'unlocked') {
-      if (userApp.notifyAccess || parent.notifyAccess) {
-        userApp.sendUserMessage(message)
-      }
-      if (userApp.alexaAccess || parent.alexaAccess) {
-        userApp.sendAskAlexaLock(message)
-      }
-    } else if (action == 'locked') {
-      if (userApp.notifyLock || parent.notifyLock) {
-        userApp.sendUserMessage(message)
-      }
-      if (userApp.alexaLock || parent.alexaLock) {
-        userApp.sendAskAlexaLock(message)
-      }
+def userDidLock(userApp) {
+  def message = "${lock.label} was unlocked by ${userApp.userName}"
+  userApp.incrementLockUsage(lock.id)
+  if (!userApp.isNotBurned()) {
+    parent.setAccess()
+    message += '.  Now burning code.'
+  }
+  debugger(message)
+  // user specific
+  if (userApp.userUnlockPhrase) {
+    userApp.executeHelloPresenceCheck(userApp.userUnlockPhrase)
+  }
+  // lock specific
+  if (codeUnlockRoutine) {
+    executeHelloPresenceCheck(codeUnlockRoutine)
+  }
+  // global
+  if (parent.codeUnlockRoutine) {
+    parent.executeHelloPresenceCheck(parent.codeUnlockRoutine)
+  }
+
+  // messages
+  if (userApp.notifyLock || parent.notifyLock) {
+    userApp.sendUserMessage(message)
+  }
+  if (userApp.alexaLock || parent.alexaLock) {
+    userApp.sendAskAlexaLock(message)
+  }
+}
+
+def userDidUnlock(userApp) {
+  def message
+  message = "${lock.label} was unlocked by ${userApp.userName}"
+  debugger(message)
+  userApp.incrementLockUsage(lock.id)
+  if (!userApp.isNotBurned()) {
+    parent.setAccess()
+    message += '.  Now burning code.'
+  }
+  // user specific
+  if (userApp.userUnlockPhrase) {
+    userApp.executeHelloPresenceCheck(userApp.userUnlockPhrase)
+  }
+  // lock specific
+  if (codeUnlockRoutine) {
+    executeHelloPresenceCheck(codeUnlockRoutine)
+  }
+  // global
+  if (parent.codeUnlockRoutine) {
+    parent.executeHelloPresenceCheck(parent.codeUnlockRoutine)
+  }
+
+  //Send Message
+  if (userApp.notifyAccess || parent.notifyAccess) {
+    userApp.sendUserMessage(message)
+  }
+  if (userApp.alexaAccess || parent.alexaAccess) {
+    userApp.sendAskAlexaLock(message)
+  }
+}
+
+def manualUnlock(evt) {
+  def message
+  if (evt.value == 'locked') {
+    // locked manually
+    message = "${lock.label} was locked manually"
+    debugger(message)
+    // lock specific
+    if (manualLockRoutine) {
+      executeHelloPresenceCheck(manualLockRoutine)
+    }
+    // global
+    if (parent.manualLockRoutine) {
+      parent.executeHelloPresenceCheck(parent.manualLockRoutine)
+    }
+
+    if (notifyManualLock) {
+      sendLockMessage(message)
+    }
+    if (alexaManualLock) {
+      askAlexaLock(message)
+    }
+  } else if (evt.value == 'unlocked') {
+    message = "${lock.label} was unlocked manually"
+    debugger(message)
+    // lock specific
+    if (manualUnlockRoutine) {
+      executeHelloPresenceCheck(manualUnlockRoutine)
+    }
+    // global
+    if (parent.manualUnlockRoutine) {
+      parent.executeHelloPresenceCheck(parent.manualUnlockRoutine)
     }
   }
+}
 
-  if (parent.apiApp()) {
-    debugger('send to api!')
-    def apiApp = parent.apiApp()
-    apiApp.codeUsed(app, action, codeUsed)
-  }
+def commandUnlock(evt) {
+  // no options for this scenario yet
+}
+def autoLock(evt) {
+  // no options for this scenario yet
 }
 
 def setCodes() {
@@ -717,37 +743,11 @@ def getUserSlotList() {
 }
 
 def findSlotUserApp(slot) {
-  def lockUsers = parent.getUserApps()
-  return lockUsers.find { app -> app.userSlot.toInteger() == slot.toInteger() }
-}
-
-def codeInformBak(slot, code) {
-  def userApp = findSlotUserApp(slot)
-  if (userApp) {
-    def message = ''
-    def isActive = userApp.isActive(lock.id)
-    def userCode = userApp.userCode
-    if (isActive) {
-      if (userCode == code) {
-        message = "${userApp.userName} now has access to ${lock.label}"
-        if (userApp.notifyAccessStart || parent.notifyAccessStart) {
-          userApp.sendUserMessage(message)
-        }
-      } else {
-        // user should have access but the code is wrong!
-      }
-    } else {
-      if (!code) {
-        message = "${userApp.userName} no longer has access to ${lock.label}"
-        if (userApp.notifyAccessEnd || parent.notifyAccessEnd) {
-          userApp.sendUserMessage(message)
-        }
-      } else {
-        // there's a code set for some reason
-        // it should be deleted!
-      }
-    }
-    debugger(message)
+  if (slot) {
+    def lockUsers = parent.getUserApps()
+    return lockUsers.find { app -> app.userSlot.toInteger() == slot.toInteger() }
+  } else {
+    return false
   }
 }
 
@@ -792,6 +792,9 @@ def codeInform(slot, action) {
       userApp.sendUserMessage(message)
     }
     debugger(message)
+  } else {
+    // remove set user name, no app
+    nameSlot(slot, false)
   }
 }
 
