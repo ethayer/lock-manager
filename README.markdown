@@ -1,18 +1,16 @@
-# Lock Manager
 
-Incomplete List of features:
+# Lock Manager BETA
 
-* Manage user codes on locks.
-* Review and manage active lock codes.
-* Set lock access based on schedules.
-* Receive notifications when a user used their code.
-* Run Hello Home phrases based on lock/unlock events.
-* Manage Hello Home phrases based on keypad inputs.
+This BETA is provided for testing purposes.  If you are uncomfortable about figuring things out on your own, you should wait until a proper relase in the MASTER branch of this repository.
 
-This app works using 3 child apps and 1 parent app.  It is recommended that you install all 4 apps, however if you do not use keypad devices, it is not required to install the keypad child app.
+**Questions** like 'How do I install' are NOT proper questions for a beta release.
 
-### How To Install
-[User Guide](https://www.dropbox.com/s/pfi9ciqmxbjq9lo/guide.pdf?dl=0)
+**Feedback** like 'this thing doesn't work' is highly appreciated, and will help lead to a release.
+
+
+## NOTES
+UNINSTALL all 1.x apps and device types before attepting an install of 2.0.  Only install this software AFTER you've already uninstalled old versions of Lock Manager.  I would recommend uninstalling instances of the app in the SmartThings IDE.
+
 
 
 ### Questions?
