@@ -2793,7 +2793,7 @@ def armCommand(value, correctUser, enteredCode) {
   def message = "${keypad.label} was ${action} by ${correctUser.label}"
 
   debugger(message)
-  correctUser.send(message)
+  correctUser.sendUserMessage(message)
 }
 
 def execRoutine() {
