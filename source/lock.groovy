@@ -13,7 +13,6 @@ def lockInitialize() {
   unsubscribe()
   unschedule()
   subscribe(lock, 'codeChanged', updateCode, [filterEvents:false])
-  subscribe(lock, "reportAllCodes", pollCodeReport, [filterEvents:false])
   subscribe(lock, "lock", lockEvent)
   // Allow save and run setup in headless mode
   queSetupLockData()
@@ -133,7 +132,6 @@ def getLockMaxCodes() {
   // Check to see if the Lock Handler knows how many slots there are
   if (lock?.hasAttribute('maxCodes')) {
     def slotCount = lock.latestValue('maxCodes')
-    debugger("Lock Supports ${slotCount} slots")
     state.codeSlots = slotCount
   }
 }
@@ -233,7 +231,6 @@ def initSlots() {
   // Check to see if the Lock Handler knows how many slots there are
   if (lock?.hasAttribute('maxCodes')) {
     def slotCount = lock.latestValue('maxCodes')
-    debugger("Lock Supports ${slotCount} slots")
     state.codeSlots = slotCount
   }
 
@@ -246,7 +243,9 @@ def initSlots() {
       state.codes["slot${slot}"] = [:]
       state.codes["slot${slot}"].slot = slot
       state.codes["slot${slot}"].code = null
+      // set attempts
       state.codes["slot${slot}"].attempts = 0
+      state.codes["slot${slot}"].recoveryAttempts = 0
       state.codes["slot${slot}"].namedSlot = false
       state.codes["slot${slot}"].codeState = codeState
       state.codes["slot${slot}"].control = control
@@ -329,7 +328,7 @@ def updateCode(event) {
   def activity = event.value =~ /(\d{1,3}).(\w*)/
   def slot = activity[0][1].toInteger()
   def activityType = activity[0][2]
-  def previousCode = state.codes["slot${slot}"]['code']
+  def previousCode = state.codes["slot${slot}"].code
 
   debugger("name: ${name} slot: ${slot} data: ${data} description: ${description} activity: ${activity[0]}")
 
@@ -340,7 +339,7 @@ def updateCode(event) {
   }
 
   def codeState
-  def previousCodeState = state.codes["slot${slot}"]['codeState']
+  def previousCodeState = state.codes["slot${slot}"].codeState
   switch (slot) {
     case 251:
       // code is duplicate of master
@@ -351,45 +350,52 @@ def updateCode(event) {
         // We can set this reason code immediatly
         userApp.disableAndSetReason(lock.id, 'Conflicts with Master Code')
 
-        state.codes["slot${errorSlot}"]['code'] = null
-        state.codes["slot${errorSlot}"]['codeState'] = 'known'
+        state.codes["slot${errorSlot}"].code = null
+        state.codes["slot${errorSlot}"].codeState = 'known'
       }
       break
     default:
       switch (activityType) {
         case 'unset':
           debugger("Slot:${slot} is no longer set!")
-
           if (previousCodeState == 'unset' || state.sweepMode) {
              codeState = 'correct'
           } else {
             // We were not expecting an unset!
             codeState = 'unexpected'
           }
-          state.codes["slot${slot}"]['code'] = null
-          state.codes["slot${slot}"]['codeState'] = codeState
+          state.codes["slot${slot}"].code = null
+          state.codes["slot${slot}"].codeState = codeState
           break
         case 'changed':
         case 'set':
-          if (previousCodeState == 'set') {
-             codeState = 'correct'
-          } else {
-            // We were not expecting a code set!  Possible mismatch!
-            // Set code data for re-check and set!
-            code = 'unknown'
-            codeState = 'unexpected'
+          switch(previousCodeState) {
+            case 'set':
+            case 'recovery':
+              codeState = 'correct'
+              debugger("Slot:${slot} is set!")
+              break
+            default:
+              // We didnt expect a set, lets unset it and set the correct code
+              debugger("Slot:${slot} unexpected set!")
+              if (userApp) {
+                // we have to delete it and set it again,
+                // because if it's the same as user's PIN
+                // it will error
+                failRecovery(slot, previousCodeState, userApp)
+              } else {
+                // We can just delete the code because we don't want anything there
+                code = 'invalid'
+                codeState = 'unexpected'
+              }
+
+              break
           }
-          state.codes["slot${slot}"]['code'] = code
-          state.codes["slot${slot}"]['codeState'] = codeState
-          debugger("Slot:${slot} is set!")
+          state.codes["slot${slot}"].code = code
+          state.codes["slot${slot}"].codeState = codeState
           break
         case 'failed':
-          if (userApp) {
-            userApp.disableAndSetReason(lock.id, 'Code failed to set.  Possible duplicate or invalid PIN')
-          }
-          debugger("Slot:${slot} failed!")
-          state.codes["slot${slot}"]['code'] = 'invalid'
-          state.codes["slot${slot}"]['codeState'] = 'failed'
+          failRecovery(slot, previousCodeState, userApp);
           break
         default:
           // unknown action
@@ -428,6 +434,23 @@ def updateCode(event) {
       } else if (previousCodeState == 'set') {
         codeInform(slot, 'failed-set')
       }
+  }
+}
+
+def failRecovery(slot, previousCodeState, userApp) {
+  def attempts = state.codes["slot${slot}"].recoveryAttempts
+  if (attempts > 3) {
+    if (userApp) {
+      userApp.disableAndSetReason(lock.id, 'Code failed to set.  Possible duplicate or invalid PIN')
+    }
+    debugger("Slot:${slot} failed! Recovery failed.")
+    state.codes["slot${slot}"].code = 'invalid'
+    state.codes["slot${slot}"].codeState = 'failed'
+  } else {
+    debugger("Slot:${slot} failed, attempting recovery.")
+    state.codes["slot${slot}"].recoveryAttempts = attempts + 1
+    state.codes["slot${slot}"].code = 'invalid'
+    state.codes["slot${slot}"].codeState = 'recovery'
   }
 }
 
@@ -602,7 +625,8 @@ def setCodes() {
     switch(data.control) {
       case 'controller':
         def lockUser = findSlotUserApp(data.slot)
-        if (lockUser?.isActive(lock.id)) {
+        def codeState = state.codes["slot${data.slot}"].codeState
+        if (lockUser?.isActive(lock.id) && codeState != 'recovery') {
           // is active, should be set
           setValue = lockUser.userCode.toString()
           state.codes["slot${data.slot}"].correctValue = setValue

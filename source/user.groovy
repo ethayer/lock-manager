@@ -18,7 +18,6 @@ def userInitialize() {
   initializeLocks()
 
   // set listeners
-  subscribe(location, locationHandler)
   subscribeToSchedule()
 }
 
@@ -299,7 +298,7 @@ def schedulingPage() {
       input(name: 'days', type: 'enum', title: 'Allow User Access On These Days', description: 'Every day', required: false, multiple: true, options: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], submitOnChange: true)
     }
     section {
-      input(name: 'modeStart', title: 'Allow Access only when in this mode', type: 'mode', required: false, mutliple: false, submitOnChange: true)
+      input(name: 'activeModes', title: 'Allow Access only when in any of these modes', type: 'mode', required: false, multiple: true, submitOnChange: true)
     }
     section {
       input(name: 'startTime', type: 'time', title: 'Start Time', description: null, required: false)
@@ -496,7 +495,7 @@ def schedulingHrefDescription() {
   if (days) {
     descriptionParts << "On ${fancyString(days)},"
   }
-  if ((andOrTime != null) || (modeStart == null)) {
+  if ((andOrTime != null) || (activeModes == null)) {
     if (startTime) {
       descriptionParts << "at ${humanReadableStartDate()}"
     }
@@ -504,8 +503,8 @@ def schedulingHrefDescription() {
       descriptionParts << "until ${humanReadableEndDate()}"
     }
   }
-  if (modeStart) {
-    descriptionParts << "and when ${location.name} enters '${modeStart}' mode"
+  if (activeModes) {
+    descriptionParts << "and when ${location.name} enters any of '${activeModes}' modes"
   }
   if (descriptionParts.size() <= 1) {
     // locks will be in the list no matter what. No rules are set if only locks are in the list
@@ -647,10 +646,10 @@ def isInCalendarRange() {
 }
 
 def isCorrectMode() {
-  if (modeStart) {
+  if (activeModes) {
     // mode check is on
-    if (location.mode == modeStart) {
-      // we're in the right one mode
+    if (activeModes.contains(location.mode)) {
+      // we're in a right mode
       return true
     } else {
       // we're in the wrong mode

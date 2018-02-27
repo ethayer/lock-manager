@@ -1,8 +1,8 @@
 definition(
-  name: 'New Lock Manager',
+  name: 'Lock Manager',
   namespace: 'ethayer',
   author: 'Erik Thayer',
-  parent: parent ? "ethayer: New Lock Manager" : null,
+  parent: parent ? "ethayer: Lock Manager" : null,
   description: 'Manage locks and users',
   category: 'Safety & Security',
   singleInstance: true,
@@ -18,7 +18,9 @@ include 'asynchttp_v1'
 preferences {
   // Manager ===
   page name: 'appPageWizard'
-  page name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true
+  page name: 'mainLandingPage'
+  page name: 'mainSetupPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true
+  page name: 'mainPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true
   page name: 'infoRefreshPage'
   page name: 'notificationPage'
   page name: 'helloHomePage'
@@ -79,13 +81,12 @@ def appPageWizard(params) {
       apiSetupPage()
       break
     default:
-      mainPage()
+      mainLangingPage()
       break
   }
 }
 
 def installed() {
-
   // find the correct installer
   switch (state.appType) {
     case 'lock':
@@ -160,8 +161,27 @@ def initializeMain() {
   def children = getLockApps()
   log.debug "there are ${children.size()} locks"
 
-  subscribe(theSwitches, "switch.on", switchOnHandler)
-  subscribe(theSwitches, "switch.off", switchOffHandler)
+  state.initializeComplete = true
+  state.appVersion = 2.0
+
+  subscribe(location, "mode", locationHandler)
+}
+
+def mainLangingPage() {
+  if (state.initializeComplete) {
+    mainPage()
+  } else {
+    mainSetupPage()
+  }
+}
+
+def mainSetupPage() {
+  dynamicPage(name: 'mainSetupPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true) {
+    section('Initial Setup') {
+      label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
+      paragraph 'Lock Manager © 2018 v2.0'
+    }
+  }
 }
 
 
@@ -172,7 +192,7 @@ def mainPage() {
       if (settings.appType) {
         def appTypeString = settings.appType
         def miniTypeString = appTypeString.toLowerCase()
-        app(name: 'newChild', params: [type: miniTypeString], appName: 'New Lock Manager', namespace: 'ethayer', title: "Create New ${appTypeString}", multiple: true, image: "https://images.lockmanager.io/app/v1/images/new-${miniTypeString}.png")
+        app(name: 'newChild', params: [type: miniTypeString], appName: 'Lock Manager', namespace: 'ethayer', title: "Create New ${appTypeString}", multiple: true, image: "https://images.lockmanager.io/app/v1/images/new-${miniTypeString}.png")
       }
     }
     section('Locks') {
@@ -200,9 +220,9 @@ def mainPage() {
       }
     }
 
-    section('API') {
-      href(name: 'toApiPage', page: 'apiSetupPage', title: 'API Options', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
-    }
+    // section('API') {
+    //   href(name: 'toApiPage', page: 'apiSetupPage', title: 'API Options', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
+    // }
 
     section('Advanced', hideable: true, hidden: true) {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
@@ -587,6 +607,10 @@ def setAccess() {
   lockApps.each { lockApp ->
     lockApp.setCodes()
   }
+}
+
+def locationHandler(evt) {
+  setAccess()
 }
 
 def anyoneHome(sensors) {

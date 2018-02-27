@@ -10,18 +10,18 @@ gulp.task('concat', function () {
         'source/lock.groovy',
         'source/user.groovy',
         'source/keypad.groovy',
-        'source/api.groovy'
+        // 'source/api.groovy'
       ])
     )
-    .pipe(concat('new-lock-manager.groovy'))
-    .pipe(gulp.dest('smartapps/ethayer/new-lock-manager.src/'));
+    .pipe(concat('lock-manager.groovy'))
+    .pipe(gulp.dest('smartapps/ethayer/lock-manager.src/'));
 });
 
 // Watch Files For Changes
 gulp.task('watch', function() {
     gulp.watch('source/*.groovy', ['concat']);
     // prevent stupid edits
-    gulp.watch('smartapps/ethayer/new-lock-manager.src/*.groovy', ['concat']);
+    gulp.watch('smartapps/ethayer/lock-manager.src/*.groovy', ['concat']);
 });
 
 gulp.task('default', ['concat', 'watch']);

@@ -1,8 +1,8 @@
 definition(
-  name: 'New Lock Manager',
+  name: 'Lock Manager',
   namespace: 'ethayer',
   author: 'Erik Thayer',
-  parent: parent ? "ethayer: New Lock Manager" : null,
+  parent: parent ? "ethayer: Lock Manager" : null,
   description: 'Manage locks and users',
   category: 'Safety & Security',
   singleInstance: true,
@@ -18,7 +18,9 @@ include 'asynchttp_v1'
 preferences {
   // Manager ===
   page name: 'appPageWizard'
-  page name: 'mainPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true
+  page name: 'mainLandingPage'
+  page name: 'mainSetupPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true
+  page name: 'mainPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true
   page name: 'infoRefreshPage'
   page name: 'notificationPage'
   page name: 'helloHomePage'
@@ -79,13 +81,12 @@ def appPageWizard(params) {
       apiSetupPage()
       break
     default:
-      mainPage()
+      mainLangingPage()
       break
   }
 }
 
 def installed() {
-
   // find the correct installer
   switch (state.appType) {
     case 'lock':
@@ -160,8 +161,27 @@ def initializeMain() {
   def children = getLockApps()
   log.debug "there are ${children.size()} locks"
 
-  subscribe(theSwitches, "switch.on", switchOnHandler)
-  subscribe(theSwitches, "switch.off", switchOffHandler)
+  state.initializeComplete = true
+  state.appVersion = 2.0
+
+  subscribe(location, "mode", locationHandler)
+}
+
+def mainLangingPage() {
+  if (state.initializeComplete) {
+    mainPage()
+  } else {
+    mainSetupPage()
+  }
+}
+
+def mainSetupPage() {
+  dynamicPage(name: 'mainSetupPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true) {
+    section('Initial Setup') {
+      label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
+      paragraph 'Lock Manager © 2018 v2.0'
+    }
+  }
 }
 
 
@@ -172,7 +192,7 @@ def mainPage() {
       if (settings.appType) {
         def appTypeString = settings.appType
         def miniTypeString = appTypeString.toLowerCase()
-        app(name: 'newChild', params: [type: miniTypeString], appName: 'New Lock Manager', namespace: 'ethayer', title: "Create New ${appTypeString}", multiple: true, image: "https://images.lockmanager.io/app/v1/images/new-${miniTypeString}.png")
+        app(name: 'newChild', params: [type: miniTypeString], appName: 'Lock Manager', namespace: 'ethayer', title: "Create New ${appTypeString}", multiple: true, image: "https://images.lockmanager.io/app/v1/images/new-${miniTypeString}.png")
       }
     }
     section('Locks') {
@@ -200,9 +220,9 @@ def mainPage() {
       }
     }
 
-    section('API') {
-      href(name: 'toApiPage', page: 'apiSetupPage', title: 'API Options', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
-    }
+    // section('API') {
+    //   href(name: 'toApiPage', page: 'apiSetupPage', title: 'API Options', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
+    // }
 
     section('Advanced', hideable: true, hidden: true) {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
@@ -589,6 +609,10 @@ def setAccess() {
   }
 }
 
+def locationHandler(evt) {
+  setAccess()
+}
+
 def anyoneHome(sensors) {
   def result = false
   if(sensors.findAll { it?.currentPresence == "present" }) {
@@ -668,7 +692,6 @@ def lockInitialize() {
   unsubscribe()
   unschedule()
   subscribe(lock, 'codeChanged', updateCode, [filterEvents:false])
-  subscribe(lock, "reportAllCodes", pollCodeReport, [filterEvents:false])
   subscribe(lock, "lock", lockEvent)
   // Allow save and run setup in headless mode
   queSetupLockData()
@@ -788,7 +811,6 @@ def getLockMaxCodes() {
   // Check to see if the Lock Handler knows how many slots there are
   if (lock?.hasAttribute('maxCodes')) {
     def slotCount = lock.latestValue('maxCodes')
-    debugger("Lock Supports ${slotCount} slots")
     state.codeSlots = slotCount
   }
 }
@@ -888,7 +910,6 @@ def initSlots() {
   // Check to see if the Lock Handler knows how many slots there are
   if (lock?.hasAttribute('maxCodes')) {
     def slotCount = lock.latestValue('maxCodes')
-    debugger("Lock Supports ${slotCount} slots")
     state.codeSlots = slotCount
   }
 
@@ -901,7 +922,9 @@ def initSlots() {
       state.codes["slot${slot}"] = [:]
       state.codes["slot${slot}"].slot = slot
       state.codes["slot${slot}"].code = null
+      // set attempts
       state.codes["slot${slot}"].attempts = 0
+      state.codes["slot${slot}"].recoveryAttempts = 0
       state.codes["slot${slot}"].namedSlot = false
       state.codes["slot${slot}"].codeState = codeState
       state.codes["slot${slot}"].control = control
@@ -984,7 +1007,7 @@ def updateCode(event) {
   def activity = event.value =~ /(\d{1,3}).(\w*)/
   def slot = activity[0][1].toInteger()
   def activityType = activity[0][2]
-  def previousCode = state.codes["slot${slot}"]['code']
+  def previousCode = state.codes["slot${slot}"].code
 
   debugger("name: ${name} slot: ${slot} data: ${data} description: ${description} activity: ${activity[0]}")
 
@@ -995,7 +1018,7 @@ def updateCode(event) {
   }
 
   def codeState
-  def previousCodeState = state.codes["slot${slot}"]['codeState']
+  def previousCodeState = state.codes["slot${slot}"].codeState
   switch (slot) {
     case 251:
       // code is duplicate of master
@@ -1006,45 +1029,52 @@ def updateCode(event) {
         // We can set this reason code immediatly
         userApp.disableAndSetReason(lock.id, 'Conflicts with Master Code')
 
-        state.codes["slot${errorSlot}"]['code'] = null
-        state.codes["slot${errorSlot}"]['codeState'] = 'known'
+        state.codes["slot${errorSlot}"].code = null
+        state.codes["slot${errorSlot}"].codeState = 'known'
       }
       break
     default:
       switch (activityType) {
         case 'unset':
           debugger("Slot:${slot} is no longer set!")
-
           if (previousCodeState == 'unset' || state.sweepMode) {
              codeState = 'correct'
           } else {
             // We were not expecting an unset!
             codeState = 'unexpected'
           }
-          state.codes["slot${slot}"]['code'] = null
-          state.codes["slot${slot}"]['codeState'] = codeState
+          state.codes["slot${slot}"].code = null
+          state.codes["slot${slot}"].codeState = codeState
           break
         case 'changed':
         case 'set':
-          if (previousCodeState == 'set') {
-             codeState = 'correct'
-          } else {
-            // We were not expecting a code set!  Possible mismatch!
-            // Set code data for re-check and set!
-            code = 'unknown'
-            codeState = 'unexpected'
+          switch(previousCodeState) {
+            case 'set':
+            case 'recovery':
+              codeState = 'correct'
+              debugger("Slot:${slot} is set!")
+              break
+            default:
+              // We didnt expect a set, lets unset it and set the correct code
+              debugger("Slot:${slot} unexpected set!")
+              if (userApp) {
+                // we have to delete it and set it again,
+                // because if it's the same as user's PIN
+                // it will error
+                failRecovery(slot, previousCodeState, userApp)
+              } else {
+                // We can just delete the code because we don't want anything there
+                code = 'invalid'
+                codeState = 'unexpected'
+              }
+
+              break
           }
-          state.codes["slot${slot}"]['code'] = code
-          state.codes["slot${slot}"]['codeState'] = codeState
-          debugger("Slot:${slot} is set!")
+          state.codes["slot${slot}"].code = code
+          state.codes["slot${slot}"].codeState = codeState
           break
         case 'failed':
-          if (userApp) {
-            userApp.disableAndSetReason(lock.id, 'Code failed to set.  Possible duplicate or invalid PIN')
-          }
-          debugger("Slot:${slot} failed!")
-          state.codes["slot${slot}"]['code'] = 'invalid'
-          state.codes["slot${slot}"]['codeState'] = 'failed'
+          failRecovery(slot, previousCodeState, userApp);
           break
         default:
           // unknown action
@@ -1083,6 +1113,23 @@ def updateCode(event) {
       } else if (previousCodeState == 'set') {
         codeInform(slot, 'failed-set')
       }
+  }
+}
+
+def failRecovery(slot, previousCodeState, userApp) {
+  def attempts = state.codes["slot${slot}"].recoveryAttempts
+  if (attempts > 3) {
+    if (userApp) {
+      userApp.disableAndSetReason(lock.id, 'Code failed to set.  Possible duplicate or invalid PIN')
+    }
+    debugger("Slot:${slot} failed! Recovery failed.")
+    state.codes["slot${slot}"].code = 'invalid'
+    state.codes["slot${slot}"].codeState = 'failed'
+  } else {
+    debugger("Slot:${slot} failed, attempting recovery.")
+    state.codes["slot${slot}"].recoveryAttempts = attempts + 1
+    state.codes["slot${slot}"].code = 'invalid'
+    state.codes["slot${slot}"].codeState = 'recovery'
   }
 }
 
@@ -1257,7 +1304,8 @@ def setCodes() {
     switch(data.control) {
       case 'controller':
         def lockUser = findSlotUserApp(data.slot)
-        if (lockUser?.isActive(lock.id)) {
+        def codeState = state.codes["slot${data.slot}"].codeState
+        if (lockUser?.isActive(lock.id) && codeState != 'recovery') {
           // is active, should be set
           setValue = lockUser.userCode.toString()
           state.codes["slot${data.slot}"].correctValue = setValue
@@ -1643,7 +1691,6 @@ def userInitialize() {
   initializeLocks()
 
   // set listeners
-  subscribe(location, locationHandler)
   subscribeToSchedule()
 }
 
@@ -1924,7 +1971,7 @@ def schedulingPage() {
       input(name: 'days', type: 'enum', title: 'Allow User Access On These Days', description: 'Every day', required: false, multiple: true, options: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], submitOnChange: true)
     }
     section {
-      input(name: 'modeStart', title: 'Allow Access only when in this mode', type: 'mode', required: false, mutliple: false, submitOnChange: true)
+      input(name: 'activeModes', title: 'Allow Access only when in any of these modes', type: 'mode', required: false, multiple: true, submitOnChange: true)
     }
     section {
       input(name: 'startTime', type: 'time', title: 'Start Time', description: null, required: false)
@@ -2121,7 +2168,7 @@ def schedulingHrefDescription() {
   if (days) {
     descriptionParts << "On ${fancyString(days)},"
   }
-  if ((andOrTime != null) || (modeStart == null)) {
+  if ((andOrTime != null) || (activeModes == null)) {
     if (startTime) {
       descriptionParts << "at ${humanReadableStartDate()}"
     }
@@ -2129,8 +2176,8 @@ def schedulingHrefDescription() {
       descriptionParts << "until ${humanReadableEndDate()}"
     }
   }
-  if (modeStart) {
-    descriptionParts << "and when ${location.name} enters '${modeStart}' mode"
+  if (activeModes) {
+    descriptionParts << "and when ${location.name} enters any of '${activeModes}' modes"
   }
   if (descriptionParts.size() <= 1) {
     // locks will be in the list no matter what. No rules are set if only locks are in the list
@@ -2272,10 +2319,10 @@ def isInCalendarRange() {
 }
 
 def isCorrectMode() {
-  if (modeStart) {
+  if (activeModes) {
     // mode check is on
-    if (location.mode == modeStart) {
-      // we're in the right one mode
+    if (activeModes.contains(location.mode)) {
+      // we're in a right mode
       return true
     } else {
       // we're in the wrong mode
@@ -2811,181 +2858,4 @@ def sendSHMEvent(armMode) {
   if (runDefaultAlarm) {
     sendLocationEvent(event)
   }
-}
-
-mappings {
-  path("/locks") {
-    action: [
-      GET: "listLocks"
-    ]
-  }
-  path("/token") {
-    action: [
-      POST: "gotAccountToken"
-    ]
-  }
-  path("/update-slot") {
-    action: [
-      POST: "updateSlot"
-    ]
-  }
-
-  // Big Mirror
-  path("/switches") {
-    action: [
-      GET: "listSwitches"
-    ]
-  }
-  path("/update-switch") {
-    action: [
-      POST: "updateSwitch"
-    ]
-  }
-}
-
-def apiSetupPage() {
-  dynamicPage(name: 'apiSetupPage', title: 'Setup API', uninstall: true, install: true) {
-    section('API service') {
-      input(name: 'enableAPI', title: 'Enabled?', type: 'bool', required: true, defaultValue: true, description: 'Enable API integration?')
-      if (state.accountToken) {
-        paragraph 'Token: ' + state.accountToken
-      }
-    }
-    section('Entanglements') {
-      paragraph 'Switches:'
-      input(name: 'theSwitches', title: 'Which Switches?', type: 'capability.switch', multiple: true, required: true)
-    }
-  }
-}
-
-def lockObject(lockApp) {
-  def usage = lockApp.totalUsage()
-  def pinLength = lockApp.pinLength()
-  def slotCount = lockApp.lockCodeSlots()
-  def slotData = lockApp.codeData();
-  def lockState = lockApp.lockState();
-  return [
-    name: lockApp.lock.displayName,
-    value: lockApp.lock.id,
-    usage_count: usage,
-    pin_length: pinLength,
-    slot_count: slotCount,
-    lock_state: lockState,
-    slot_data: slotData
-  ]
-}
-
-def listLocks() {
-  def locks = []
-  def lockApps = getLockApps()
-
-  lockApps.each { app ->
-    locks << lockObject(app)
-  }
-  debugger(locks)
-  return locks
-}
-
-def listSlots() {
-  def slots = []
-  def lockApps = parent.getLockApps()
-
-  lockApps.each { app ->
-    locks << lockObject(app)
-  }
-  return locks
-}
-
-def switchObject(theSwitch) {
-  return [
-    name: theSwitch.displayName,
-    key: theSwitch.id,
-    state: theSwitch.currentValue("switch")
-  ]
-}
-
-def listSwitches() {
-  def list = []
-  parent.theSwitches.each { theSwitch ->
-    list << switchObject(theSwitch)
-  }
-  return list
-}
-
-def codeUsed(lockApp, action, slot) {
-  def params = [
-    uri: 'https://api.lockmanager.io/',
-    path: 'v1/events/code-used',
-    body: [
-      token: state.accountToken,
-      lock: lockObject(lockApp),
-      action_event: action,
-      slot: slot
-    ]
-  ]
-  debugger('send switcheroo!')
-  asynchttp_v1.post(processResponse, params)
-}
-
-def processResponse(response, data) {
-  log.debug(data)
-}
-
-def updateSlot() {
-  def slot = request.JSON?.slot
-  def control = request.JSON?.control
-  def code = request.JSON?.code
-  def lock_id = request.JSON?.lock_key
-  def lockApp = parent.getLockAppById(lock_id)
-  // slot, code, control
-  lockApp.apiCodeUpdate(slot, code, control)
-}
-
-def gotAccountToken() {
-  log.debug('got called! ' + request.JSON?.token + ' ' + parent?.id)
-  state.accountToken = request.JSON?.token
-  setAccountToken(request.JSON?.token)
-  return [data: "OK"]
-}
-
-def updateSwitch() {
-  def action = request.JSON?.state
-  def switchID = request.JSON?.key
-  log.debug "got update! ${action} ${switchID}"
-  parent.theSwitches.each { theSwitch ->
-    if (theSwitch.id == switchID) {
-      if (action == 'on') {
-        theSwitch.on()
-      }
-      if (action == 'off') {
-        theSwitch.off()
-      }
-    }
-  }
-}
-
-def switchOnHandler(evt) {
-  def params = [
-    uri: 'https://api.lockmanager.io/',
-    path: '/events/switch-change',
-    body: [
-      token: state.accountToken,
-      key: evt.deviceId,
-      state: 'on'
-    ]
-  ]
-  asynchttp_v1.post(processResponse, params)
-}
-
-def switchOffHandler(evt) {
-  def params = [
-    uri: 'https://api.lockmanager.io/',
-    path: '/events/switch-change',
-    body: [
-      token: state.accountToken,
-      key: evt.deviceId,
-      state: 'off'
-    ]
-  ]
-  asynchttp_v1.post(processResponse, params)
 }
