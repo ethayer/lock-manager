@@ -14,7 +14,7 @@
  *
  */
 metadata {
-	definition (name: "Z-Wave Lock Schlage", namespace: "ethayer", author: "SmartThings", runLocally: true, minHubCoreVersion: '000.017.0012') {
+	definition (name: "Z-Wave Lock Schlage", namespace: "ethayer", author: "SmartThings") {
 		capability "Actuator"
 		capability "Lock"
 		capability "Polling"
