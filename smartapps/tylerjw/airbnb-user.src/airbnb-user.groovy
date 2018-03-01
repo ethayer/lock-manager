@@ -1,8 +1,8 @@
 definition (
-  name: 'Lock User',
-  namespace: 'ethayer',
-  author: 'Erik Thayer',
-  description: 'App to manage users. This is a child app.',
+  name: 'Airbnb User',
+  namespace: 'tylerjw',
+  author: 'Tyler Weaver',
+  description: 'App to manage automated airbnb users. This is a child app.',
   category: 'Safety & Security',
 
   parent: 'ethayer:Lock Manager',
@@ -45,6 +45,7 @@ def initialize() {
   // setup data
   initializeLockData()
   initializeLocks()
+  initializeCodeState()
 
   // set listeners
   subscribe(location, locationHandler)
@@ -79,6 +80,11 @@ def subscribeToSchedule() {
     log.debug 'scheduling calendar end'
     runOnce(endDateTime().format(smartThingsDateFormat(), timeZone()), 'calendarEnd')
   }
+  if (ical) {
+    airbnbCalenderCheck()
+    // schedule airbnb code setter
+    runEvery15Minutes('airbnbCalenderCheck')
+  }
 }
 
 def scheduledStartTime() {
@@ -98,6 +104,13 @@ def calendarEnd() {
   if (calEndPhrase) {
     location.helloHome.execute(calEndPhrase)
   }
+}
+
+def initializeCodeState() {
+  if (!state.userCode) { state.userCode = '' }
+  if (!state.guestName) { state.guestName = '' }
+  if (!state.eventStart) { state.eventStart = '' }
+  if (!state.eventEnd) { state.eventEnd = '' }
 }
 
 def initializeLockData() {
@@ -143,15 +156,39 @@ def landingPage() {
 }
 
 def getUserCode() {
-  return settings.'userCode'
+  return state.userCode
 }
 
 def setupPage() {
   dynamicPage(name: 'setupPage', title: 'Setup Lock', nextPage: 'mainPage', uninstall: true) {
     section('Choose devices for this lock') {
-      input(name: 'userName', title: 'Name for User', required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png')
-      input(name: 'userCode', type: 'text', title: userCodeInputTitle(), required: false, defaultValue: settings.'userCode', refreshAfterSelection: true)
-      input(name: 'userSlot', type: 'enum', options: parent.availableSlots(settings.userSlot), title: 'Select slot', required: true, refreshAfterSelection: true )
+      def defaultTime = timeToday("13:00", timeZone()).format(smartThingsDateFormat(), timeZone())
+      def defaultEarlyCheckin = timeToday("8:00", timeZone()).format(smartThingsDateFormat(), timeZone())
+      def defaultLateCheckout = timeToday("17:00", timeZone()).format(smartThingsDateFormat(), timeZone())
+      input(name: 'ical', type: 'text', title: 'Airbnb Calendar Link',
+            image: 'https://images.lockmanager.io/app/v1/images/calendar.png',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'userSlot', type: 'enum', title: 'Select slot',
+            options: parent.availableSlots(settings.userSlot),
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time',
+            description: 'when to change codes', defaultValue: defaultTime,
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'userName', title: 'Name for User',
+            image: 'https://images.lockmanager.io/app/v1/images/user.png', defaultValue: 'Airbnb',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'earlyCheckin', title: 'Early Checkin', type: 'bool', defaultValue: true,
+            description: 'if there is no other guest before current guest adjust the time that codes change',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'earlyCheckinTime', type: 'time', title: 'Early Checkin Time', defaultValue: defaultEarlyCheckin,
+            description: 'when to change codes if early checkin is enabled',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'lateCheckout', title: 'Late Checkout', type: 'bool', defaultValue: true,
+            description: 'if there is no other guest after current guest adjust the time that codes change',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
+      input(name: 'lateCheckoutTime', type: 'time', title: 'Late Checkout Time', defaultValue: defaultLateCheckout,
+            description: 'when to change codes if late checkout is enabled',
+            refreshAfterSelection: true, submitOnChange: true, required: true)
     }
   }
 }
@@ -168,8 +205,30 @@ def mainPage() {
         text = 'inactive'
       }
       paragraph "${text}/${usage}"
-      input(name: 'userCode', type: 'text', title: userCodeInputTitle(), required: false, defaultValue: settings.'userCode', refreshAfterSelection: true)
-      input(name: 'userEnabled', type: 'bool', title: "User Enabled?", required: false, defaultValue: true, refreshAfterSelection: true)
+      paragraph("User Code: " + getUserCode())
+      paragraph("Guest Name: " + state.guestName)
+      paragraph("Start: " + state.eventStart)
+      paragraph("End: " + state.eventEnd)
+      input(name: 'userEnabled', type: 'bool', title: "User Enabled?",
+            required: false, defaultValue: true, refreshAfterSelection: true)
+      input(name: 'ical', type: 'text', title: 'iCal Link',
+            required: true, refreshAfterSelection: true,
+            image: 'https://images.lockmanager.io/app/v1/images/calendar.png')
+      input(name: 'checkoutTime', type: 'time', title: 'Checkout time',
+            description: 'when to change codes',
+            required: true, refreshAfterSelection: true)
+      input(name: 'earlyCheckin', title: 'Early Checkin', type: 'bool',
+            description: 'if there is no other guest before current guest adjust the time that codes change',
+            refreshAfterSelection: true, required: true)
+      input(name: 'earlyCheckinTime', type: 'time', title: 'Early Checkin Time',
+            description: 'when to change codes if early checkin is enabled',
+            refreshAfterSelection: true, required: true)
+      input(name: 'lateCheckout', title: 'Late Checkout', type: 'bool',
+            description: 'if there is no other guest after current guest adjust the time that codes change',
+            refreshAfterSelection: true, required: true)
+      input(name: 'lateCheckoutTime', type: 'time', title: 'Late Checkout Time',
+            description: 'when to change codes if late checkout is enabled',
+            refreshAfterSelection: true, required: true)
     }
     section('Additional Settings') {
       def actions = location.helloHome?.getPhrases()*.label
@@ -234,7 +293,7 @@ def lockInfoPageImage(lock) {
 
 def lockPage(params) {
   dynamicPage(name:"lockPage", title:"Lock Settings") {
-    debugger('current params: ' + params)
+    debugger('lockPage: current params: ' + params)
     def lock = getLock(params)
     def lockApp = getLockApp(lock.id)
     log.debug lockApp
@@ -242,7 +301,7 @@ def lockPage(params) {
 
     def usage = state."lock${lock.id}".usage
 
-    debugger('found lock id?: ' + lock?.id)
+    debugger('lockPage: found lock id?: ' + lock?.id)
 
     if (!state."lock${lock.id}".enabled) {
       section {
@@ -387,6 +446,8 @@ def notificationPage() {
           input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
         }
         if (phone != null || notification || recipients) {
+          input(name: 'muteAfterCheckin', title: 'Mute after checkin', description: 'Mute notifications after first use of new code', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/bell-slash-o.png')
+          input(name: 'notifyCodeChange', title: 'when Code changes', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/check-circle-o.png')
           input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
           input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
           input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/check-circle-o.png')
@@ -452,6 +513,15 @@ def getAllLocksUsage() {
   return usage
 }
 
+def resetAllLocksUsage() {
+  def lockApps = parent.getLockApps()
+  lockApps.each { lockApp ->
+    if (state."lock${lockApp.lock.id}"?.usage) {
+      state."lock${lockApp.lock.id}"?.usage = 0
+    }
+  }
+}
+
 def calendarHrefDescription() {
   def dateStart = startDateTime()
   def dateEnd = endDateTime()
@@ -485,6 +555,9 @@ def notificationPageDescription() {
   }
   parts = []
 
+  if (settings.notifyCodeChange) {
+    parts << 'on code change'
+  }
   if (settings.notifyAccess) {
     parts << 'on entry'
   }
@@ -792,8 +865,8 @@ def getLockApp(lockId) {
 def getLock(params) {
   def id = ''
   // Assign params to id.  Sometimes parameters are double nested.
-  debugger('params: ' + params)
-  debugger('last: ' + state.lastLock)
+  debugger('getLock: params: ' + params)
+  debugger('getLock: last: ' + state.lastLock)
   if (params?.id) {
     id = params.id
   } else if (params?.params){
@@ -814,7 +887,7 @@ def getLock(params) {
 
 def userNotificationSettings() {
   def userSettings = false
-  if (phone != null || notification || muteUser || recipients) {
+  if (phone != null || notification || muteUser || recipients || muteAfterCheckin) {
     // user has it's own settings!
     userSettings = true
   }
@@ -830,15 +903,21 @@ def send(msg) {
 }
 
 def checkIfNotifyUser(msg) {
-  if (notificationStartTime != null && notificationEndTime != null) {
-    def start = timeToday(notificationStartTime)
-    def stop = timeToday(notificationEndTime)
-    def now = new Date()
-    if (start.before(now) && stop.after(now)){
+  if (muteAfterCheckin) {
+    if(getAllLocksUsage() < 2) {
       sendMessageViaUser(msg)
     }
   } else {
-    sendMessageViaUser(msg)
+    if (notificationStartTime != null && notificationEndTime != null) {
+      def start = timeToday(notificationStartTime)
+      def stop = timeToday(notificationEndTime)
+      def now = new Date()
+      if (start.before(now) && stop.after(now)){
+        sendMessageViaUser(msg)
+      }
+    } else {
+      sendMessageViaUser(msg)
+    }
   }
 }
 
@@ -1012,3 +1091,222 @@ def debugger(message) {
     log.debug(message)
   }
 }
+
+def airbnbCalenderCheck() {
+  def params = [
+    uri: ical
+  ]
+
+  def code = ''
+  def event = null
+
+  try {
+    httpGet(params) { resp ->
+      event = parseICal(resp.data)
+
+      if (event) {
+        if (event['summary'] == 'Not available') {
+          code = ''
+        } else if (event['phone']) {
+          code = event['phone'].replaceAll(/\D/, '')[-4..-1]
+          debugger("airbnbCalenderCheck: ${event['summary']}, phone: ${event['phone']}, code: ${code}")
+        }
+      }
+    }
+  } catch (e) {
+    log.error "something went wrong: $e"
+  }
+
+  if ((state.userCode != code && event) || (state.guestName != event['summary'])) {
+    debugger("airbnbCalenderCheck: setting new user code: ${code}")
+    state.userCode = code
+    state.guestName = event['summary']
+    state.eventStart = readableDateTime(event['dtStart'])
+    state.eventEnd = readableDateTime(event['dtEnd'])
+
+    if (settings.notifyCodeChange) {
+      if (code != '') {
+        sendMessageViaUser("${userName}: Setting code ${settings.userSlot} to ${code} for ${event['summary']}")
+      } else {
+        sendMessageViaUser("${userName}: Clearing code ${settings.userSlot}")
+      }
+    }
+
+    resetAllLocksUsage()
+    parent.setAccess()
+  }
+}
+
+String readLine(ByteArrayInputStream is) {
+  int size = is.available();
+  if (size <= 0) {
+    return null;
+  }
+
+  String ret = "";
+  byte data = 0;
+  char ch;
+
+  while (true) {
+    data = is.read();
+    if (data == -1) {
+      // we are done here
+      break;
+    }
+
+    ch = (char)(data&0xff);
+    if (ch == '\n') {
+      break;
+    }
+
+    ret += ch;
+
+    if (ret.endsWith("\\n")) {
+      ret = ret.replaceAll(/\\n/,"");
+      break;
+    }
+  }
+
+  return ret;
+}
+
+def currentEvent(today, event) {
+  return ((event['dtStart'] <= today) && (today <= event['dtEnd']))
+}
+
+def parseICal(ByteArrayInputStream is) {
+  debugger("parseICal started")
+
+  def events = []
+  def iCalEvent = null
+  def sincePhone = 100
+  def today = rightNow()
+
+  def startTimeOfDay = checkoutTime
+  def endTimeOfDay = checkoutTime
+
+  if(earlyCheckin) {
+    startTimeOfDay = earlyCheckinTime
+  }
+  if(lateCheckout) {
+    endTimeOfDay = lateCheckoutTime
+  }
+
+  while (true) {
+    def line = readLine(is)
+
+    if (line == null) {
+      break
+    }
+
+    if (line == "BEGIN:VEVENT") {
+      iCalEvent = [record:'']
+    } else if (line == "END:VEVENT") {
+      if(iCalEvent['summary'] == 'Not available') {
+        // adjust the time of the not available events
+        if (earlyCheckin) {
+          iCalEvent.put('dtEnd', parseDate(iCalEvent['dtEndString'], earlyCheckinTime))
+        }
+        if (lateCheckout) {
+          iCalEvent.put('dtStart', parseDate(iCalEvent['dtStartString'], lateCheckoutTime))
+        }
+      }
+
+      if (currentEvent(today, iCalEvent)) {
+        events.push(iCalEvent.clone())
+      }
+      iCalEvent = null
+    } else if (iCalEvent != null) {
+      // parse line
+      def compoundKey = null
+      def subKey = null
+      def key = null
+      def value = null
+
+      sincePhone++;
+
+      if ( line ==~ /^[A-Z]+[;:].*/ ) {
+        // grab everything before the :
+        key = line.replaceAll(/:.*/, '')
+        // grab everything before the ;
+        compoundKey = key.replaceAll(/;.*/, '')
+        // grab everything after the ${key}:
+        value = line.replaceFirst(key + ':', '').trim()
+        // grab everything before the ; in the key
+        if (compoundKey != key) {
+          // we found a compound date key
+          subKey = key.replaceFirst(compoundKey + ';', '').trim()
+        }
+
+        if (key == 'DESCRIPTION') {
+          // we found the start of the description
+          key = value.replaceAll(/:.*/, '')
+          value = value.replaceFirst(key + ':', '').trim()
+        }
+
+        if (key == 'UID') { iCalEvent.put('uid',value) }
+        else if (key == 'CREATED') { iCalEvent.put('created', value) }
+        else if (key == 'RRULE') { iCalEvent.put('rRule', value) }
+        else if (key == 'RDATE') { iCalEvent.put('rDate', value) }
+        else if (key == 'DTSTAMP') { iCalEvent.put('dtStamp', parseDate(value, checkoutTime)) }
+        else if (key == 'CHECKIN') { iCalEvent.put('checkin', value) }
+        else if (key == 'CHECKOUT') { iCalEvent.put('checkout', value) }
+        else if (key == 'NIGHTS') { iCalEvent.put('nights', value) }
+        else if (key == 'EMAIL') { iCalEvent.put('email', value) }
+        else if (key == 'SUMMARY') { iCalEvent.put('summary', value) }
+        else if (key == 'LOCATION') { iCalEvent.put('location', value) }
+        else if (key == 'PHONE') { sincePhone = 0; }
+        else if (compoundKey == 'DTSTART') {
+          iCalEvent.put('dtStartString', value)
+          iCalEvent.put('dtStart', parseDate(value, startTimeOfDay))
+          iCalEvent.put('dtStartTz', subKey)
+        } else if (compoundKey == 'DTEND') {
+          iCalEvent.put('dtEndString', value)
+          iCalEvent.put('dtEnd', parseDate(value, endTimeOfDay))
+          iCalEvent.put('dtEndTz', subKey)
+        }
+      }
+
+      if (sincePhone == 1) {
+        // phone number
+        iCalEvent.put('phone', line)
+      }
+
+      if (line) {
+        iCalEvent['record'] = iCalEvent['record'] + line + '\n'
+      }
+    }
+  }
+
+  // adjust times if there are multiple guests on the same day
+  if((earlyCheckin || lateCheckout) && events.size() > 1) {
+    if(events[0]['summary'] != 'Not available' && events[1]['summary'] != 'Not available') {
+        events[0].put('dtEnd', parseDate(events[0]['dtEndString'], checkoutTime))
+        events[0].put('dtStart', parseDate(events[0]['dtStartString'], checkoutTime))
+        events[1].put('dtEnd', parseDate(events[1]['dtEndString'], checkoutTime))
+        events[1].put('dtStart', parseDate(events[1]['dtStartString'], checkoutTime))
+    }
+    if (currentEvent(today, events[0])) {
+      return events[0];
+    } else if (currentEvent(today, events[1])) {
+      return events[1];
+    }
+  } else if (events.size() == 1) {
+    return events[0];
+  }
+
+  return ret
+}
+
+Date parseDate(String value, String timeOfDay) {
+  def time = timeToday(timeOfDay, timeZone()).format("'T'HH:mm:ss.SSSZ", timeZone())
+  def ret = null
+  if ( value ==~ /[0-9]*/ ) {
+    ret = Date.parse("yyyyMMdd'T'HH:mm:ss.SSSZ", "${value}${time}")
+  } else {
+    println "WARNING: unknown date format: ${value}"
+  }
+  return ret
+}
+
+

@@ -490,7 +490,7 @@ def setCodes() {
     if (lockUser) {
       if (lockUser.isActive(lock.id)) {
         // is active, should be set
-        state.codes["slot${data.slot}"].correctValue = lockUser.userCode.toString()
+        state.codes["slot${data.slot}"].correctValue = lockUser.getUserCode().toString()
       } else {
         // is inactive, should not be set
         state.codes["slot${data.slot}"].correctValue = null
@@ -566,7 +566,7 @@ def codeInform(slot, code) {
   if (userApp) {
     def message = ''
     def isActive = userApp.isActive(lock.id)
-    def userCode = userApp.userCode
+    def userCode = userApp.getUserCode()
     if (isActive) {
       if (userCode == code) {
         message = "${userApp.userName} now has access to ${lock.label}"

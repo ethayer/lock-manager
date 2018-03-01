@@ -33,3 +33,13 @@ Donations are completely optional, but if this made your life easier, please con
 * Paypal- <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=LDYNH7HNKBWXJ&lc=US&item_name=Lock%20Code%20Manager%20Donation&item_number=40123&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donate_SM%2egif%3aNonHosted"><img src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" alt="[paypal]" /></a>
 
 * [Google Wallet-](https://www.google.com/wallet/) Send to: thayer.er@gmail.com
+
+##
+
+### Airbnb iCal integration
+This child app allows the user to automate giving their Airbnb guests access codes.  
+
+ * Set lock codes to last 4 digits of guest phone number automatically
+ * Switch between codes after checkout and before checkin
+ * Checks airbnb calendar every 15 minutes to keep lockcode updated (allow last minute bookings)
+ * Send notification when guest checks in (unlock with code notification)
