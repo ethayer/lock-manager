@@ -1,5 +1,5 @@
 definition (
-  name: 'Airbnb Lock User',
+  name: 'Airbnb User',
   namespace: 'tylerjw',
   author: 'Tyler Weaver',
   description: 'App to manage automated airbnb users. This is a child app.',

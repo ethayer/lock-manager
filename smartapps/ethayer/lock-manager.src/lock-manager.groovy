@@ -27,7 +27,7 @@ def mainPage() {
       app(name: 'locks', appName: 'Lock', namespace: 'ethayer', title: 'New Lock', multiple: true, image: 'https://images.lockmanager.io/app/v1/images/new-lock.png')
       app(name: 'lockUsers', appName: 'Lock User', namespace: 'ethayer', title: 'New User', multiple: true, image: 'https://images.lockmanager.io/app/v1/images/user-plus.png')
       app(name: 'keypads', appName: 'Keypad', namespace: 'ethayer', title: 'New Keypad', multiple: true, image: 'https://images.lockmanager.io/app/v1/images/keypad-plus.png')
-      app(name: 'airbnbLockUsers', appName: 'Airbnb Lock User', namespace: 'tylerjw', title: 'New Airbnb User', multiple: true, image: 'https://images.lockmanager.io/app/v1/images/user-plus.png')
+      app(name: 'airbnbLockUsers', appName: 'Airbnb User', namespace: 'tylerjw', title: 'New Airbnb User', multiple: true, image: 'https://images.lockmanager.io/app/v1/images/user-plus.png')
     }
     section('Locks') {
       def lockApps = getLockApps()
