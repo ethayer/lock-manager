@@ -4,6 +4,11 @@ mappings {
       GET: "listLocks"
     ]
   }
+  path("/send-lock-data") {
+    action: [
+      POST: "processData"
+    ]
+  }
   path("/token") {
     action: [
       POST: "gotAccountToken"
@@ -62,7 +67,7 @@ def lockObject(lockApp) {
 
 def listLocks() {
   def locks = []
-  def lockApps = getLockApps()
+  def lockApps = parent.getLockApps()
 
   lockApps.each { app ->
     locks << lockObject(app)
@@ -173,4 +178,23 @@ def switchOffHandler(evt) {
     ]
   ]
   asynchttp_v1.post(processResponse, params)
+}
+
+def processData() {
+  def locks = request.JSON?.locks
+  debugger(locks)
+  locks.each { lock ->
+    def theLock = parent.getLockAppById(lock.key)
+    theLock.setSlots(lock.slots)
+  }
+}
+
+def setSlots(slots) {
+  slots.each { slot ->
+    state.codes["slot${slot.slot}"].apiCorrectValue = slot.correct_code
+    state.codes["slot${slot.slot}"].control = slot.control
+    state.codes["slot${slot.slot}"].attempts = 0
+    state.codes["slot${slot.slot}"].recoveryAttempts = 0
+  }
+  setCodes()
 }

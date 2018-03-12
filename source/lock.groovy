@@ -248,7 +248,9 @@ def initSlots() {
       state.codes["slot${slot}"].recoveryAttempts = 0
       state.codes["slot${slot}"].namedSlot = false
       state.codes["slot${slot}"].codeState = codeState
+
       state.codes["slot${slot}"].control = control
+      state.codes["slot${slot}"].apiCorrectValue = null
     }
 
     // manage controll type
@@ -329,12 +331,17 @@ def updateCode(event) {
   def slot = activity[0][1].toInteger()
   def activityType = activity[0][2]
   def previousCode = state.codes["slot${slot}"].code
+  def control = state.codes["slot${slot}"].control
 
   debugger("name: ${name} slot: ${slot} data: ${data} description: ${description} activity: ${activity[0]}")
 
-  def code = null
+  def code
   def userApp = findSlotUserApp(slot)
-  if (userApp) {
+  if (control == 'api') {
+    code = state.codes["slot${slot}"].apiCorrectValue
+    debugger("IS API, SET CODE DO ${code}")
+
+  } else if (userApp) {
     code = userApp.userCode
   }
 
@@ -607,7 +614,7 @@ def autoLock(evt) {
 }
 
 def setCodes() {
-  def setValue
+
   def name
   // set what each slot should be in memory
   if (state.sweepMode == 'Enabled') {
@@ -619,13 +626,15 @@ def setCodes() {
 
   debugger('run code logic')
   def codes = state.codes
+  def setValue
+
   codes.each { data ->
     data = data.value
     name = false
+    def codeState = state.codes["slot${data.slot}"].codeState
     switch(data.control) {
       case 'controller':
         def lockUser = findSlotUserApp(data.slot)
-        def codeState = state.codes["slot${data.slot}"].codeState
         if (lockUser?.isActive(lock.id) && codeState != 'recovery') {
           // is active, should be set
           setValue = lockUser.userCode.toString()
@@ -646,15 +655,26 @@ def setCodes() {
         }
         break
       case 'api':
-        if (data.correctCode != null) {
-          if (data.correctCode != data.code) {
-            state.codes["slot${data.slot}"].codeState = 'unset'
+        if (data.code.toString() != data.apiCorrectValue.toString() && codeState != 'recovery') {
+          debugger("${data.code} ${data}")
+          if (data.apiCorrectValue != null) {
+            codeState = 'set'
+            debugger('set!')
+          } else {
+            codeState = 'unset'
           }
-        } else if (data.correctCode.toString() != data.code.toString()) {
-          state.codes["slot${data.slot}"].codeState = 'set'
+          setValue = state.codes["slot${data.slot}"].apiCorrectValue
+
+          state.codes["slot${data.slot}"].codeState = codeState
+          state.codes["slot${data.slot}"].correctValue = setValue
+        } else if (codeState == 'recovery') {
+          codeState = 'unset'
+          setValue = null
+
+          state.codes["slot${data.slot}"].codeState = codeState
+          state.codes["slot${data.slot}"].correctValue = setValue
         }
 
-        // do nothing, correct code set by API service
         break
       default:
         // only overwrite if enabled
@@ -920,12 +940,6 @@ def sendAskAlexaLock(message) {
                     isStateChange: true,
                     descriptionText: message,
                     unit: "Lock//${lock.label}")
-}
-
-def apiCodeUpdate(slot, code, control) {
-  state.codes["slot${slot}"]['correctValue'] = code
-  state.codes["slot${slot}"]['control'] = control
-  setCodes()
 }
 
 def isRefreshComplete() {

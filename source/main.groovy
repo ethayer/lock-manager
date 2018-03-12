@@ -220,9 +220,9 @@ def mainPage() {
       }
     }
 
-    // section('API') {
-    //   href(name: 'toApiPage', page: 'apiSetupPage', title: 'API Options', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
-    // }
+    section('API') {
+      href(name: 'toApiPage', page: 'apiSetupPage', title: 'API Options', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
+    }
 
     section('Advanced', hideable: true, hidden: true) {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
