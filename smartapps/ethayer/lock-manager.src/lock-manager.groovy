@@ -1018,6 +1018,8 @@ def updateCode(event) {
   def userApp = findSlotUserApp(slot)
   if (control == 'api') {
     code = state.codes["slot${slot}"].apiCorrectValue
+    debugger("IS API, SET CODE DO ${code}")
+
   } else if (userApp) {
     code = userApp.userCode
   }
@@ -1075,10 +1077,8 @@ def updateCode(event) {
 
               break
           }
-          debugger("Setting ${slot} code to" + code)
           state.codes["slot${slot}"].code = code
           state.codes["slot${slot}"].codeState = codeState
-          debugger("Code stuff:" + state.codes["slot${slot}"])
           break
         case 'failed':
           failRecovery(slot, previousCodeState, userApp);
