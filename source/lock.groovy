@@ -504,7 +504,7 @@ def keypadLockEvent(evt, data) {
 }
 
 def userDidLock(userApp) {
-  def message = "${lock.label} was unlocked by ${userApp.userName}"
+  def message = "${lock.label} was locked by ${userApp.userName}"
   userApp.incrementLockUsage(lock.id)
   if (!userApp.isNotBurned()) {
     parent.setAccess()

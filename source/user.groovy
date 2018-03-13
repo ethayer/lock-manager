@@ -100,7 +100,7 @@ def incrementLockUsage(lockId) {
 def lockReset(lockId) {
   state."lock${lockId}".enabled = true
   state."lock${lockId}".disabledReason = ''
-  def lockApp = getLockApp(lockId)
+  def lockApp = parent.getLockAppById(lockId)
   lockApp.enableUser(userSlot)
 }
 
@@ -201,8 +201,7 @@ def userLockPage(params) {
   dynamicPage(name:"userLockPage", title:"Lock Settings") {
     debugger('current params: ' + params)
     def lock = getLock(params)
-    def lockApp = getLockApp(lock.id)
-    log.debug lockApp
+    def lockApp = parent.getLockAppById(lock.id)
     def slotData = lockApp.slotData(userSlot)
 
     def usage = state."lock${lock.id}".usage
@@ -730,17 +729,6 @@ def getLockById(params) {
   return parent.locks.find{it.id == id}
 }
 
-def getLockApp(lockId) {
-  def lockApp = false
-  def lockApps = parent.getLockApps()
-  lockApps.each { app ->
-    if (app.lock.id == lockId) {
-      lockApp = app
-    }
-  }
-  return lockApp
-}
-
 def getLock(params) {
   def id = ''
   // Assign params to id.  Sometimes parameters are double nested.
@@ -751,9 +739,9 @@ def getLock(params) {
   } else if (params?.params){
     id = params.params.id
   }
-  def lockApp = getLockApp(id)
+  def lockApp = parent.getLockAppById(id)
   if (!lockApp) {
-    lockApp = getLockApp(state.lastLock)
+    lockApp = parent.getLockAppById(state.lastLock)
   }
 
   if (lockApp) {
