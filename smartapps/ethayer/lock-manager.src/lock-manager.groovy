@@ -1143,6 +1143,7 @@ def failRecovery(slot, previousCodeState, userApp) {
 def lockEvent(evt) {
   def data = new JsonSlurper().parseText(evt.data)
   debugger("Lock event. ${data.method}")
+  state.lockState = evt.value
 
   switch(data.method) {
     case 'keypad':
