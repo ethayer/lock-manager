@@ -1184,27 +1184,22 @@ def keypadLockEvent(evt, data) {
 
 def userDidLock(userApp) {
   def message = "${lock.label} was locked by ${userApp.userName}"
-  userApp.incrementLockUsage(lock.id)
-  if (!userApp.isNotBurned()) {
-    parent.setAccess()
-    message += '.  Now burning code.'
-  }
   debugger(message)
   // user specific
-  if (userApp.userUnlockPhrase) {
-    userApp.executeHelloPresenceCheck(userApp.userUnlockPhrase)
+  if (userApp.userLockPhrase) {
+    userApp.executeHelloPresenceCheck(userApp.userLockPhrase)
   }
   // lock specific
-  if (codeUnlockRoutine) {
-    executeHelloPresenceCheck(codeUnlockRoutine)
+  if (codeLockRoutine) {
+    executeHelloPresenceCheck(codeLockRoutine)
   }
   // global
-  if (parent.codeUnlockRoutine) {
-    parent.executeHelloPresenceCheck(parent.codeUnlockRoutine)
+  if (parent.codeLockRoutine) {
+    parent.executeHelloPresenceCheck(parent.codeLockRoutine)
   }
 
   // messages
-  if (userApp.notifyLock || parent.notifyLock) {
+  if (userApp.notifyUnLock || parent.notifyLock) {
     userApp.sendUserMessage(message)
   }
   if (userApp.alexaLock || parent.alexaLock) {
