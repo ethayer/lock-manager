@@ -114,7 +114,7 @@ def airbnbMainPage() {
         text = 'inactive'
       }
       paragraph "${text}/${usage}"
-      paragraph("User Code: " + getUserCode())
+      paragraph("User Code: " + getCode(this))
       paragraph("Guest Name: " + state.guestName)
       paragraph("Start: " + state.eventStart)
       paragraph("End: " + state.eventEnd)
