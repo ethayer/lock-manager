@@ -9,6 +9,7 @@ gulp.task('concat', function () {
         'source/main.groovy',
         'source/lock.groovy',
         'source/user.groovy',
+        'source/airbnb.groovy',
         'source/keypad.groovy',
         // 'source/api.groovy'
       ])

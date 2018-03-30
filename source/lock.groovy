@@ -335,7 +335,7 @@ def updateCode(event) {
   def code = null
   def userApp = findSlotUserApp(slot)
   if (userApp) {
-    code = userApp.userCode
+    code = getCode(userApp)
   }
 
   def codeState
@@ -521,7 +521,7 @@ def userDidLock(userApp) {
 
   // messages
   if (userApp.notifyUnLock || parent.notifyLock) {
-    userApp.sendUserMessage(message)
+    sendMessage(userApp, message)
   }
   if (userApp.alexaLock || parent.alexaLock) {
     userApp.sendAskAlexaLock(message)
@@ -552,7 +552,7 @@ def userDidUnlock(userApp) {
 
   //Send Message
   if (userApp.notifyAccess || parent.notifyAccess) {
-    userApp.sendUserMessage(message)
+    sendMessage(userApp, message)
   }
   if (userApp.alexaAccess || parent.alexaAccess) {
     userApp.sendAskAlexaLock(message)
@@ -621,9 +621,10 @@ def setCodes() {
       case 'controller':
         def lockUser = findSlotUserApp(data.slot)
         def codeState = state.codes["slot${data.slot}"].codeState
+        lockUser.isActive(lock.id)
         if (lockUser?.isActive(lock.id) && codeState != 'recovery') {
           // is active, should be set
-          setValue = lockUser.userCode.toString()
+          setValue = getCode(lockUser).toString()
           state.codes["slot${data.slot}"].correctValue = setValue
           if (data.code.toString() != setValue) {
             state.codes["slot${data.slot}"].codeState = 'set'
@@ -808,7 +809,7 @@ def codeInform(slot, action) {
     }
 
     if (shouldSend) {
-      userApp.sendUserMessage(message)
+      sendMessage(userApp, message)
     }
     debugger(message)
   } else {

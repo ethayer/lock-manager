@@ -554,8 +554,13 @@ def isUserEnabled() {
 	}
 }
 
+def getUserCode() {
+	return settings.'userCode'
+}
+
 def isValidCode() {
-  if (userCode?.isNumber()) {
+  debugger("${getUserCode()}: ${getUserCode()?.isNumber()}")
+  if (getCode(this)?.isNumber()) {
     return true
   } else {
     return false
