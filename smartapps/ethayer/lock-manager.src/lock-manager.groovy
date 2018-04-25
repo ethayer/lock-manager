@@ -1191,7 +1191,7 @@ def userDidLock(userApp) {
   }
   // lock specific
   if (codeLockRoutine) {
-    executeHelloPresenceCheck(codeLockRoutine)
+    userApp.executeHelloPresenceCheck(codeLockRoutine)
   }
   // global
   if (parent.codeLockRoutine) {
@@ -1199,7 +1199,7 @@ def userDidLock(userApp) {
   }
 
   // messages
-  if (userApp.notifyUnLock || parent.notifyLock) {
+  if (userApp.notifyLock || parent.notifyLock) {
     userApp.sendUserMessage(message)
   }
   if (userApp.alexaLock || parent.alexaLock) {
@@ -1222,7 +1222,7 @@ def userDidUnlock(userApp) {
   }
   // lock specific
   if (codeUnlockRoutine) {
-    executeHelloPresenceCheck(codeUnlockRoutine)
+    userApp.executeHelloPresenceCheck(codeUnlockRoutine)
   }
   // global
   if (parent.codeUnlockRoutine) {
