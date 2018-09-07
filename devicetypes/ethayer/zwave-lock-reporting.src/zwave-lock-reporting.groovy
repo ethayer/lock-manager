@@ -651,7 +651,7 @@ def deleteCode(codeNumber) {
 }
 
 def updateCodes(codeSettings) {
-	if(codeSettings instanceof String) codeSettings = util.parseJson(codeSettings)
+    if(codeSettings instanceof String) codeSettings = new groovy.json.JsonSlurper().parseText(codeSettings)
 	def set_cmds = []
 	def get_cmds = []
 	codeSettings.each { name, updated ->
