@@ -199,8 +199,14 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv2.AlarmReport cmd) {
 				break
 			case 6:
 				if (cmd.eventParameter) {
-					map.descriptionText = "$device.displayName was unlocked with code ${cmd.eventParameter.first()}"
-					map.data = [ usedCode: cmd.eventParameter[0] ]
+					if (cmd.eventParameter.size() == 4) {
+						map.descriptionText = "$device.displayName was unlocked with code ${cmd.eventParameter[2]}"
+						map.data = [ usedCode: cmd.eventParameter[2] ]
+					}
+					else {
+						map.descriptionText = "$device.displayName was unlocked with code ${cmd.eventParameter.first()}"
+						map.data = [ usedCode: cmd.eventParameter[0] ]
+					}
 				}
 				break
 			case 9:
@@ -552,7 +558,7 @@ def stateCheck() {
 }
 
 def refresh() {
-	def cmds = [secure(zwave.doorLockV1.doorLockOperationGet())]
+	def cmds = [secure(zwave.doorLockV1.doorLockOperationGet()), secure(zwave.batteryV1.batteryGet())]
 	if (state.assoc == zwaveHubNodeId) {
 		log.debug "$device.displayName is associated to ${state.assoc}"
 	} else if (!state.associationQuery) {
