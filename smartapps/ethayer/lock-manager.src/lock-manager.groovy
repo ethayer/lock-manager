@@ -2615,6 +2615,7 @@ def initializeKeypad() {
 
   if (keypad) {
     subscribe(location, 'alarmSystemStatus', alarmStatusHandler)
+    subscribe(location, 'securitySystemStatus', alarmStatusHandler)
     subscribe(keypad, 'codeEntered', codeEntryHandler)
   }
 }
@@ -2698,12 +2699,21 @@ def alarmStatusHandler(event) {
   if (runDefaultAlarm && event.value == 'off'){
     keypad?.setDisarmed()
   }
+  else if (runDefaultAlarm && event.value == 'disarmed'){
+    keypad?.setDisarmed()
+  }
   else if (runDefaultAlarm && event.value == 'away'){
+    keypad?.setArmedAway()
+  }
+  else if (runDefaultAlarm && event.value == 'armedAway'){
     keypad?.setArmedAway()
   }
   else if (runDefaultAlarm && event.value == 'stay') {
     keypad?.setArmedStay()
   }
+  else if (runDefaultAlarm && event.value == 'armedStay') {
+    keypad?.setArmedStay()
+  }  
 }
 
 def codeEntryHandler(evt) {
