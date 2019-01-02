@@ -2679,7 +2679,8 @@ def keypadMainPage() {
     section('Routines') {
       paragraph 'settings here are for this keypad only. Global keypad settings, use parent app.'
       input(name: 'runDefaultAlarm', title: 'Act as SHM device?', type: 'bool', defaultValue: true, description: 'Toggle this off if actions should not effect SHM' )
-      input(name: 'armRoutine', title: 'Arm/Away routine', type: 'enum', options: actions, required: false, multiple: true)
+      input(name: 'runDefaultAlarm2', title: 'Act as ADT Keypad device?', type: 'bool', defaultValue: false, description: 'Toggle this off if ADt Smartthings panel is not involved' )
+	  input(name: 'armRoutine', title: 'Arm/Away routine', type: 'enum', options: actions, required: false, multiple: true)
       input(name: 'disarmRoutine', title: 'Disarm routine', type: 'enum', options: actions, required: false, multiple: true)
       input(name: 'stayRoutine', title: 'Arm/Stay routine', type: 'enum', options: actions, required: false, multiple: true)
       input(name: 'nightRoutine', title: 'Arm/Night routine', type: 'enum', options: actions, required: false, multiple: true)
@@ -2699,19 +2700,19 @@ def alarmStatusHandler(event) {
   if (runDefaultAlarm && event.value == 'off'){
     keypad?.setDisarmed()
   }
-  else if (runDefaultAlarm && event.value == 'disarmed'){
+  else if (runDefaultAlarm2 && event.value == 'disarmed'){
     keypad?.setDisarmed()
   }
   else if (runDefaultAlarm && event.value == 'away'){
     keypad?.setArmedAway()
   }
-  else if (runDefaultAlarm && event.value == 'armedAway'){
+  else if (runDefaultAlarm2 && event.value == 'armedAway'){
     keypad?.setArmedAway()
   }
   else if (runDefaultAlarm && event.value == 'stay') {
     keypad?.setArmedStay()
   }
-  else if (runDefaultAlarm && event.value == 'armedStay') {
+  else if (runDefaultAlarm2 && event.value == 'armedStay') {
     keypad?.setArmedStay()
   }  
 }
