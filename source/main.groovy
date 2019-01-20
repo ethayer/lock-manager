@@ -98,9 +98,6 @@ def installed() {
     case 'keypad':
       installedKeypad()
       break
-    case 'api':
-      installedApi()
-      break
     default:
       debugger("Installed with settings: ${settings}")
       installedMain()
@@ -621,17 +618,6 @@ def anyoneHome(sensors) {
   result
 }
 
-def apiApp() {
-  def app = false
-  def children = getChildApps()
-  children.each { child ->
-    if (child.enableAPI) {
-      app = child
-    }
-  }
-  return app
-}
-
 def executeHelloPresenceCheck(routines) {
   if (userNoRunPresence && userDoRunPresence == null) {
     if (!anyoneHome(userNoRunPresence)) {
@@ -661,6 +647,10 @@ def theAppType() {
   } else {
     return 'main'
   }
+}
+
+def theAccountToken() {
+  return state.accountToken
 }
 
 def debugger(message) {

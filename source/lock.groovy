@@ -480,6 +480,12 @@ def lockEvent(evt) {
       autoLock(evt)
       break
   }
+
+  if (parent.enableAPI) {
+    debugger('send to api!')
+    def apiApp = parent
+    apiApp.sendLockUpdate(app, action, codeUsed)
+  }
 }
 
 def keypadLockEvent(evt, data) {
@@ -967,6 +973,12 @@ def lockCodeSlots() {
     codeSlots = state.codeSlots.toInteger()
   }
   return codeSlots
+}
+
+def apiCodeUpdate(slot, code, control) {
+  state.codes["slot${slot}"]['correctValue'] = code
+  state.codes["slot${slot}"]['control'] = control
+  setCodes()
 }
 
 def codeData() {

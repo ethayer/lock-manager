@@ -102,7 +102,7 @@ def listSwitches() {
   return list
 }
 
-def codeUsed(lockApp, action, slot) {
+def sendLockUpdate(lockApp, action, slot) {
   def params = [
     uri: 'https://api.lockmanager.io/',
     path: 'v1/events/code-used',
@@ -133,9 +133,14 @@ def updateSlot() {
 
 def gotAccountToken() {
   log.debug('got called! ' + request.JSON?.token + ' ' + parent?.id)
-  state.accountToken = request.JSON?.token
-  setAccountToken(request.JSON?.token)
+  def token = request.JSON?.token
+  def mainApp = getTheMainApp()
+  mainApp.setAccountToken(token)
   return [data: "OK"]
+}
+
+def setAccountToken(token) {
+  state.accountToken = token
 }
 
 def updateSwitch() {
@@ -197,4 +202,12 @@ def setSlots(slots) {
     state.codes["slot${slot.slot}"].recoveryAttempts = 0
   }
   setCodes()
+}
+
+def getTheMainApp() {
+  // The API app isnt always the main app  lets make sure to have main APP
+  if (parent) {
+    return parent
+  }
+  return app
 }

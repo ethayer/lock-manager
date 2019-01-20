@@ -98,9 +98,6 @@ def installed() {
     case 'keypad':
       installedKeypad()
       break
-    case 'api':
-      installedApi()
-      break
     default:
       debugger("Installed with settings: ${settings}")
       installedMain()
@@ -621,17 +618,6 @@ def anyoneHome(sensors) {
   result
 }
 
-def apiApp() {
-  def app = false
-  def children = getChildApps()
-  children.each { child ->
-    if (child.enableAPI) {
-      app = child
-    }
-  }
-  return app
-}
-
 def executeHelloPresenceCheck(routines) {
   if (userNoRunPresence && userDoRunPresence == null) {
     if (!anyoneHome(userNoRunPresence)) {
@@ -661,6 +647,10 @@ def theAppType() {
   } else {
     return 'main'
   }
+}
+
+def theAccountToken() {
+  return state.accountToken
 }
 
 def debugger(message) {
@@ -1159,6 +1149,12 @@ def lockEvent(evt) {
       autoLock(evt)
       break
   }
+
+  if (parent.enableAPI) {
+    debugger('send to api!')
+    def apiApp = parent
+    apiApp.sendLockUpdate(app, action, codeUsed)
+  }
 }
 
 def keypadLockEvent(evt, data) {
@@ -1646,6 +1642,12 @@ def lockCodeSlots() {
     codeSlots = state.codeSlots.toInteger()
   }
   return codeSlots
+}
+
+def apiCodeUpdate(slot, code, control) {
+  state.codes["slot${slot}"]['correctValue'] = code
+  state.codes["slot${slot}"]['control'] = control
+  setCodes()
 }
 
 def codeData() {
@@ -2967,7 +2969,7 @@ def listSwitches() {
   return list
 }
 
-def codeUsed(lockApp, action, slot) {
+def sendLockUpdate(lockApp, action, slot) {
   def params = [
     uri: 'https://api.lockmanager.io/',
     path: 'v1/events/code-used',
@@ -2998,9 +3000,14 @@ def updateSlot() {
 
 def gotAccountToken() {
   log.debug('got called! ' + request.JSON?.token + ' ' + parent?.id)
-  state.accountToken = request.JSON?.token
-  setAccountToken(request.JSON?.token)
+  def token = request.JSON?.token
+  def mainApp = getTheMainApp()
+  mainApp.setAccountToken(token)
   return [data: "OK"]
+}
+
+def setAccountToken(token) {
+  state.accountToken = token
 }
 
 def updateSwitch() {
@@ -3062,4 +3069,12 @@ def setSlots(slots) {
     state.codes["slot${slot.slot}"].recoveryAttempts = 0
   }
   setCodes()
+}
+
+def getTheMainApp() {
+  // The API app isnt always the main app  lets make sure to have main APP
+  if (parent) {
+    return parent
+  }
+  return app
 }
