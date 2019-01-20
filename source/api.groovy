@@ -37,8 +37,8 @@ def apiSetupPage() {
   dynamicPage(name: 'apiSetupPage', title: 'Setup API', uninstall: true, install: true) {
     section('API service') {
       input(name: 'enableAPI', title: 'Enabled?', type: 'bool', required: true, defaultValue: true, description: 'Enable API integration?')
-      if (state.accountToken) {
-        paragraph 'Token: ' + state.accountToken
+      if (atomicState.accountToken) {
+        paragraph 'Token: ' + atomicState.accountToken
       }
     }
     section('Entanglements') {
@@ -107,7 +107,7 @@ def sendLockUpdate(lockApp, action, slot) {
     uri: 'https://api.lockmanager.io/',
     path: 'v1/events/code-used',
     body: [
-      token: state.accountToken,
+      token: atomicState.accountToken,
       lock: lockObject(lockApp),
       action_event: action,
       slot: slot
@@ -140,7 +140,7 @@ def gotAccountToken() {
 }
 
 def setAccountToken(token) {
-  state.accountToken = token
+  atomicState.accountToken = token
 }
 
 def updateSwitch() {
@@ -164,7 +164,7 @@ def switchOnHandler(evt) {
     uri: 'https://api.lockmanager.io/',
     path: '/events/switch-change',
     body: [
-      token: state.accountToken,
+      token: atomicState.accountToken,
       key: evt.deviceId,
       state: 'on'
     ]
@@ -177,7 +177,7 @@ def switchOffHandler(evt) {
     uri: 'https://api.lockmanager.io/',
     path: '/events/switch-change',
     body: [
-      token: state.accountToken,
+      token: atomicState.accountToken,
       key: evt.deviceId,
       state: 'off'
     ]
@@ -196,10 +196,10 @@ def processData() {
 
 def setSlots(slots) {
   slots.each { slot ->
-    state.codes["slot${slot.slot}"].apiCorrectValue = slot.correct_code
-    state.codes["slot${slot.slot}"].control = slot.control
-    state.codes["slot${slot.slot}"].attempts = 0
-    state.codes["slot${slot.slot}"].recoveryAttempts = 0
+    atomicState.codes["slot${slot.slot}"].apiCorrectValue = slot.correct_code
+    atomicState.codes["slot${slot.slot}"].control = slot.control
+    atomicState.codes["slot${slot.slot}"].attempts = 0
+    atomicState.codes["slot${slot.slot}"].recoveryAttempts = 0
   }
   setCodes()
 }

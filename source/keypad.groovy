@@ -11,8 +11,8 @@ def updatedKeypad() {
 def initializeKeypad() {
   // reset listeners
   unsubscribe()
-  atomicState.tries = 0
-  atomicState.installComplete = true
+  atomicatomicState.tries = 0
+  atomicatomicState.installComplete = true
 
   if (keypad) {
     subscribe(location, 'alarmSystemStatus', alarmStatusHandler)
@@ -22,7 +22,7 @@ def initializeKeypad() {
 
 def isUniqueKeypad() {
   def unique = true
-  if (!atomicState.installComplete) {
+  if (!atomicatomicState.installComplete) {
     // only look if we're not initialized yet.
     def keypadApps = parent.getKeypadApps()
     keypadApps.each { keypadApp ->
@@ -117,15 +117,15 @@ def codeEntryHandler(evt) {
   def correctUser = parent.keypadMatchingUser(codeEntered)
 
   if (correctUser) {
-    atomicState.tries = 0
+    atomicatomicState.tries = 0
     debugger('Correct PIN entered.')
     armCommand(data, correctUser, codeEntered)
   } else {
     debugger('Incorrect code!')
-    atomicState.tries = atomicState.tries + 1
-    if (atomicState.tries >= attemptTollerance) {
+    atomicatomicState.tries = atomicatomicState.tries + 1
+    if (atomicatomicState.tries >= attemptTollerance) {
       keypad.sendInvalidKeycodeResponse()
-      atomicState.tries = 0
+      atomicatomicState.tries = 0
     }
   }
 }
@@ -168,8 +168,8 @@ def armCommand(value, correctUser, enteredCode) {
   }
   if (armMode) {
     // set values for delayed event
-    atomicState.codeEntered = enteredCode
-    atomicState.armMode = armMode
+    atomicatomicState.codeEntered = enteredCode
+    atomicatomicState.armMode = armMode
 
     runIn(useDelay, execRoutine)
   }
@@ -182,8 +182,8 @@ def armCommand(value, correctUser, enteredCode) {
 
 def execRoutine() {
   debugger('executing keypad actions')
-  def armMode = atomicState.armMode
-  def userApp = parent.keypadMatchingUser(atomicState.codeEntered)
+  def armMode = atomicatomicState.armMode
+  def userApp = parent.keypadMatchingUser(atomicatomicState.codeEntered)
 
   sendSHMEvent(armMode)
 

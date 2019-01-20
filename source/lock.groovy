@@ -21,7 +21,7 @@ def lockInitialize() {
 
 def isUniqueLock() {
   def unique = true
-  if (!state.installComplete) {
+  if (!atomicState.installComplete) {
     // only look if we're not initialized yet.
     def lockApps = parent.getLockApps()
     lockApps.each { lockApp ->
@@ -60,8 +60,8 @@ def lockMainPage() {
   dynamicPage(name: "lockMainPage", title: "Lock Settings", install: true, uninstall: true) {
     getLockMaxCodes()
     section("Settings") {
-      if (state.installComplete) {
-        if (state.sweepMode == 'Enabled') {
+      if (atomicState.installComplete) {
+        if (atomicState.sweepMode == 'Enabled') {
           def completeCount = sweepProgress()
           def totalSlots = lockCodeSlots()
           def percent = Math.round((completeCount/totalSlots) * 100)
@@ -132,12 +132,12 @@ def getLockMaxCodes() {
   // Check to see if the Lock Handler knows how many slots there are
   if (lock?.hasAttribute('maxCodes')) {
     def slotCount = lock.latestValue('maxCodes')
-    state.codeSlots = slotCount
+    atomicState.codeSlots = slotCount
   }
 }
 
 def isInit() {
-  return (state.initializeComplete)
+  return (atomicState.initializeComplete)
 }
 
 def lockErrorPage() {
@@ -156,7 +156,7 @@ def lockNotificationPage() {
   dynamicPage(name: 'lockNotificationPage', title: 'Notification Settings') {
     section {
       paragraph 'Some options only work on select locks'
-      if (!state.supportsKeypadData) {
+      if (!atomicState.supportsKeypadData) {
         paragraph 'This lock only reports manual messages.\n It does not support code on lock or lock on keypad.'
       }
       if (phone == null && !notification && !recipients) {
@@ -173,7 +173,7 @@ def lockNotificationPage() {
         if (phone != null || notification || recipients) {
           input(name: 'notifyManualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
           input(name: 'notifyManualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
-          if (state.supportsKeypadData) {
+          if (atomicState.supportsKeypadData) {
             input(name: 'notifyKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
           }
         }
@@ -190,7 +190,7 @@ def lockNotificationPage() {
 
 
 def queSetupLockData() {
-  state.installComplete = true
+  atomicState.installComplete = true
   runIn(10, setupLockData)
 }
 
@@ -202,8 +202,8 @@ def setupLockData() {
     // initialize data attributes for this lock.
     lockUser.initializeLockData()
   }
-  if (state.requestCount == null) {
-    state.requestCount = 0
+  if (atomicState.requestCount == null) {
+    atomicState.requestCount = 0
   }
 
   initSlots()
@@ -211,27 +211,27 @@ def setupLockData() {
 
 def initSlots() {
   def codeState = 'unknown'
-  if (state.codes == null) {
+  if (atomicState.codes == null) {
     // new install!  Start learning!
-    state.codes = [:]
-    state.requestCount = 0
+    atomicState.codes = [:]
+    atomicState.requestCount = 0
     // skipSweep may be null
     if (skipSweep != true) {
-      state.sweepMode = 'Enabled'
+      atomicState.sweepMode = 'Enabled'
       codeState = 'sweep'
     }
-    state.refreshComplete = true
-    state.supportsKeypadData = true
-    state.pinLength = false
+    atomicState.refreshComplete = true
+    atomicState.supportsKeypadData = true
+    atomicState.pinLength = false
   }
   if (lock?.hasAttribute('pinLength')) {
-    state.pinLength = lock.latestValue('pinLength')
+    atomicState.pinLength = lock.latestValue('pinLength')
   }
 
   // Check to see if the Lock Handler knows how many slots there are
   if (lock?.hasAttribute('maxCodes')) {
     def slotCount = lock.latestValue('maxCodes')
-    state.codeSlots = slotCount
+    atomicState.codeSlots = slotCount
   }
 
   def userCodeSlots = getUserSlotList()
@@ -239,22 +239,22 @@ def initSlots() {
 
   (1..codeSlots).each { slot ->
     def control = 'available'
-    if (state.codes["slot${slot}"] == null) {
-      state.codes["slot${slot}"] = [:]
-      state.codes["slot${slot}"].slot = slot
-      state.codes["slot${slot}"].code = null
+    if (atomicState.codes["slot${slot}"] == null) {
+      atomicState.codes["slot${slot}"] = [:]
+      atomicState.codes["slot${slot}"].slot = slot
+      atomicState.codes["slot${slot}"].code = null
       // set attempts
-      state.codes["slot${slot}"].attempts = 0
-      state.codes["slot${slot}"].recoveryAttempts = 0
-      state.codes["slot${slot}"].namedSlot = false
-      state.codes["slot${slot}"].codeState = codeState
+      atomicState.codes["slot${slot}"].attempts = 0
+      atomicState.codes["slot${slot}"].recoveryAttempts = 0
+      atomicState.codes["slot${slot}"].namedSlot = false
+      atomicState.codes["slot${slot}"].codeState = codeState
 
-      state.codes["slot${slot}"].control = control
-      state.codes["slot${slot}"].apiCorrectValue = null
+      atomicState.codes["slot${slot}"].control = control
+      atomicState.codes["slot${slot}"].apiCorrectValue = null
     }
 
     // manage controll type
-    def currentControl = state.codes["slot${slot}"].control
+    def currentControl = atomicState.codes["slot${slot}"].control
     switch (currentControl) {
       case 'available':
       case 'controller':
@@ -267,10 +267,10 @@ def initSlots() {
       // nothing to do
         break
     }
-    state.codes["slot${slot}"].control = control
+    atomicState.codes["slot${slot}"].control = control
   }
-  if (state.sweepMode == 'Enabled') {
-    state.sweepProgress = 0
+  if (atomicState.sweepMode == 'Enabled') {
+    atomicState.sweepProgress = 0
     sweepSequance()
   } else {
     setCodes()
@@ -287,14 +287,14 @@ def sweepSequance() {
     if (count == 10) {
       // do nothing ~ We're going to stop adding codes for now.
     } else {
-      def slotData = state.codes["slot${slot}"]
+      def slotData = atomicState.codes["slot${slot}"]
       if (slotData.codeState == 'sweep') {
         count++
         array << ["code${slotData.slot}", null]
       } else {
         // This code is already known/unset!
         completeCount++
-        state.sweepProgress = completeCount
+        atomicState.sweepProgress = completeCount
       }
     }
   }
@@ -309,14 +309,14 @@ def sweepSequance() {
     runIn(timeOut, sweepSequance)
   } else {
     debugger('Sweep Completed!')
-    state.sweepMode = 'Disabled'
+    atomicState.sweepMode = 'Disabled'
     // Allow some cooldown time to prevent conflicts
     runIn(15, setCodes)
   }
 }
 
 def withinAllowed() {
-  return (state.requestCount <= allowedAttempts())
+  return (atomicState.requestCount <= allowedAttempts())
 }
 
 def allowedAttempts() {
@@ -330,15 +330,15 @@ def updateCode(event) {
   def activity = event.value =~ /(\d{1,3}).(\w*)/
   def slot = activity[0][1].toInteger()
   def activityType = activity[0][2]
-  def previousCode = state.codes["slot${slot}"].code
-  def control = state.codes["slot${slot}"].control
+  def previousCode = atomicState.codes["slot${slot}"].code
+  def control = atomicState.codes["slot${slot}"].control
 
   debugger("name: ${name} slot: ${slot} data: ${data} description: ${description} activity: ${activity[0]}")
 
   def code
   def userApp = findSlotUserApp(slot)
   if (control == 'api') {
-    code = state.codes["slot${slot}"].apiCorrectValue
+    code = atomicState.codes["slot${slot}"].apiCorrectValue
     debugger("IS API, SET CODE DO ${code}")
 
   } else if (userApp) {
@@ -346,33 +346,33 @@ def updateCode(event) {
   }
 
   def codeState
-  def previousCodeState = state.codes["slot${slot}"].codeState
+  def previousCodeState = atomicState.codes["slot${slot}"].codeState
   switch (slot) {
     case 251:
       // code is duplicate of master
-      if (state.incorrectSlots.size() == 1) {
+      if (atomicState.incorrectSlots.size() == 1) {
         // the only slot to set must be the incorrect one!
-        def errorSlot = state.incorrectSlots[0]
+        def errorSlot = atomicState.incorrectSlots[0]
         userApp = findSlotUserApp(errorSlot)
         // We can set this reason code immediatly
         userApp.disableAndSetReason(lock.id, 'Conflicts with Master Code')
 
-        state.codes["slot${errorSlot}"].code = null
-        state.codes["slot${errorSlot}"].codeState = 'known'
+        atomicState.codes["slot${errorSlot}"].code = null
+        atomicState.codes["slot${errorSlot}"].codeState = 'known'
       }
       break
     default:
       switch (activityType) {
         case 'unset':
           debugger("Slot:${slot} is no longer set!")
-          if (previousCodeState == 'unset' || state.sweepMode) {
+          if (previousCodeState == 'unset' || atomicState.sweepMode) {
              codeState = 'correct'
           } else {
             // We were not expecting an unset!
             codeState = 'unexpected'
           }
-          state.codes["slot${slot}"].code = null
-          state.codes["slot${slot}"].codeState = codeState
+          atomicState.codes["slot${slot}"].code = null
+          atomicState.codes["slot${slot}"].codeState = codeState
           break
         case 'changed':
         case 'set':
@@ -398,8 +398,8 @@ def updateCode(event) {
 
               break
           }
-          state.codes["slot${slot}"].code = code
-          state.codes["slot${slot}"].codeState = codeState
+          atomicState.codes["slot${slot}"].code = code
+          atomicState.codes["slot${slot}"].codeState = codeState
           break
         case 'failed':
           failRecovery(slot, previousCodeState, userApp);
@@ -445,26 +445,26 @@ def updateCode(event) {
 }
 
 def failRecovery(slot, previousCodeState, userApp) {
-  def attempts = state.codes["slot${slot}"].recoveryAttempts
+  def attempts = atomicState.codes["slot${slot}"].recoveryAttempts
   if (attempts > 3) {
     if (userApp) {
       userApp.disableAndSetReason(lock.id, 'Code failed to set.  Possible duplicate or invalid PIN')
     }
     debugger("Slot:${slot} failed! Recovery failed.")
-    state.codes["slot${slot}"].code = 'invalid'
-    state.codes["slot${slot}"].codeState = 'failed'
+    atomicState.codes["slot${slot}"].code = 'invalid'
+    atomicState.codes["slot${slot}"].codeState = 'failed'
   } else {
     debugger("Slot:${slot} failed, attempting recovery.")
-    state.codes["slot${slot}"].recoveryAttempts = attempts + 1
-    state.codes["slot${slot}"].code = 'invalid'
-    state.codes["slot${slot}"].codeState = 'recovery'
+    atomicState.codes["slot${slot}"].recoveryAttempts = attempts + 1
+    atomicState.codes["slot${slot}"].code = 'invalid'
+    atomicState.codes["slot${slot}"].codeState = 'recovery'
   }
 }
 
 def lockEvent(evt) {
   def data = new JsonSlurper().parseText(evt.data)
   debugger("Lock event. ${data.method}")
-  state.lockState = evt.value
+  atomicState.lockState = evt.value
 
   switch(data.method) {
     case 'keypad':
@@ -624,30 +624,30 @@ def setCodes() {
 
   def name
   // set what each slot should be in memory
-  if (state.sweepMode == 'Enabled') {
+  if (atomicState.sweepMode == 'Enabled') {
     debugger('Not running code logic, Sweep mode is Enabled')
     return false
   }
   // set incorrect slot array to blank
-  state.incorrectSlots = []
+  atomicState.incorrectSlots = []
 
   debugger('run code logic')
-  def codes = state.codes
+  def codes = atomicState.codes
   def setValue
 
   codes.each { data ->
     data = data.value
     name = false
-    def codeState = state.codes["slot${data.slot}"].codeState
+    def codeState = atomicState.codes["slot${data.slot}"].codeState
     switch(data.control) {
       case 'controller':
         def lockUser = findSlotUserApp(data.slot)
         if (lockUser?.isActive(lock.id) && codeState != 'recovery') {
           // is active, should be set
           setValue = lockUser.userCode.toString()
-          state.codes["slot${data.slot}"].correctValue = setValue
+          atomicState.codes["slot${data.slot}"].correctValue = setValue
           if (data.code.toString() != setValue) {
-            state.codes["slot${data.slot}"].codeState = 'set'
+            atomicState.codes["slot${data.slot}"].codeState = 'set'
           } else {
             // set name only if code is already set
             name = lockUser.userName
@@ -655,9 +655,9 @@ def setCodes() {
         } else {
           // is inactive, should not be set
           setValue = null
-          state.codes["slot${data.slot}"].correctValue = null
+          atomicState.codes["slot${data.slot}"].correctValue = null
           if (data.code != setValue) {
-            state.codes["slot${data.slot}"].codeState = 'unset'
+            atomicState.codes["slot${data.slot}"].codeState = 'unset'
           }
         }
         break
@@ -670,23 +670,23 @@ def setCodes() {
           } else {
             codeState = 'unset'
           }
-          setValue = state.codes["slot${data.slot}"].apiCorrectValue
+          setValue = atomicState.codes["slot${data.slot}"].apiCorrectValue
 
-          state.codes["slot${data.slot}"].codeState = codeState
-          state.codes["slot${data.slot}"].correctValue = setValue
+          atomicState.codes["slot${data.slot}"].codeState = codeState
+          atomicState.codes["slot${data.slot}"].correctValue = setValue
         } else if (codeState == 'recovery') {
           codeState = 'unset'
           setValue = null
 
-          state.codes["slot${data.slot}"].codeState = codeState
-          state.codes["slot${data.slot}"].correctValue = setValue
+          atomicState.codes["slot${data.slot}"].codeState = codeState
+          atomicState.codes["slot${data.slot}"].correctValue = setValue
         }
 
         break
       default:
         // only overwrite if enabled
         if (parent.overwriteMode) {
-          state.codes["slot${data.slot}"].correctValue = null
+          atomicState.codes["slot${data.slot}"].correctValue = null
         }
         break
     }
@@ -723,7 +723,7 @@ def loadCodes() {
 }
 
 def collectCodesToUnset() {
-  def codes = state.codes
+  def codes = atomicState.codes
 
   def incorrectSlots = []
   def array = []
@@ -744,12 +744,12 @@ def collectCodesToUnset() {
     }
   }
 
-  state.incorrectSlots = incorrectSlots
+  atomicState.incorrectSlots = incorrectSlots
   return array
 }
 
 def collectCodesToSet() {
-  def codes = state.codes
+  def codes = atomicState.codes
 
   def incorrectSlots = []
   def array = []
@@ -762,25 +762,25 @@ def collectCodesToSet() {
       def currentCode = data.code.toString()
       def correctCode = data.correctValue.toString()
 
-      if (correctCode != currentCode && state.codes["slot${data.slot}"].attempts < 10) {
+      if (correctCode != currentCode && atomicState.codes["slot${data.slot}"].attempts < 10) {
         array << ["code${data.slot}", correctCode]
         incorrectSlots << data.slot
         // increment attempt count
-        state.codes["slot${data.slot}"].attempts = data.attempts + 1
+        atomicState.codes["slot${data.slot}"].attempts = data.attempts + 1
         count++
-      } else if (correctCode != currentCode && state.codes["slot${data.slot}"].attempts >= 10) {
-        state.codes["slot${data.slot}"].attempts = 0
+      } else if (correctCode != currentCode && atomicState.codes["slot${data.slot}"].attempts >= 10) {
+        atomicState.codes["slot${data.slot}"].attempts = 0
         // we've tried this slot 10 times, time to disable it
         def userApp = findSlotUserApp(data.slot)
         userApp?.disableLock(lock.id)
       } else {
         // code is correct
-        state.codes["slot${data.slot}"].attempts = 0
+        atomicState.codes["slot${data.slot}"].attempts = 0
       }
     }
   }
 
-  state.incorrectSlots = incorrectSlots
+  atomicState.incorrectSlots = incorrectSlots
   return array
 }
 
@@ -850,7 +850,7 @@ def codeInform(slot, action) {
 }
 
 def isCodeComplete() {
-  if (state.sweepMode == 'Enabled') {
+  if (atomicState.sweepMode == 'Enabled') {
     return false
   } else {
     return true
@@ -920,8 +920,8 @@ def sendMessage(message) {
 }
 
 def nameSlot(slot, name) {
-  if (state.codes["slot${slot}"].namedSlot != name) {
-    state.codes["slot${slot}"].namedSlot = name
+  if (atomicState.codes["slot${slot}"].namedSlot != name) {
+    atomicState.codes["slot${slot}"].namedSlot = name
     lock.nameSlot(slot, name)
   }
 }
@@ -950,7 +950,7 @@ def sendAskAlexaLock(message) {
 }
 
 def isRefreshComplete() {
-  return state.refreshComplete
+  return atomicState.refreshComplete
 }
 
 def totalUsage() {
@@ -970,51 +970,51 @@ def lockCodeSlots() {
     // return the user defined value
     codeSlots = slotCount
   } else if (state?.codeSlots) {
-    codeSlots = state.codeSlots.toInteger()
+    codeSlots = atomicState.codeSlots.toInteger()
   }
   return codeSlots
 }
 
 def apiCodeUpdate(slot, code, control) {
-  state.codes["slot${slot}"]['correctValue'] = code
-  state.codes["slot${slot}"]['control'] = control
+  atomicState.codes["slot${slot}"]['correctValue'] = code
+  atomicState.codes["slot${slot}"]['control'] = control
   setCodes()
 }
 
 def codeData() {
-  return state.codes
+  return atomicState.codes
 }
 
 def userPageCount() {
-  def sortData = state.codes.sort{it.value.slot}
+  def sortData = atomicState.codes.sort{it.value.slot}
   def data = sortData.collect{ it }
   return data.collate(30).size()
 }
 
 def codeDataPaginated(page) {
   // collect a paginated list to prevent rate limit issues
-  def sortData = state.codes.sort{it.value.slot}
+  def sortData = atomicState.codes.sort{it.value.slot}
   def data = sortData.collect{ it }
   return data.collate(30)[page]
 }
 
 def slotData(slot) {
-  state.codes["slot${slot}"]
+  atomicState.codes["slot${slot}"]
 }
 
 def lockState() {
-  state.lockState
+  atomicState.lockState
 }
 
 def sweepProgress() {
-  state.sweepProgress
+  atomicState.sweepProgress
 }
 
 def enableUser(slot) {
-  state.codes["slot${slot}"].attempts = 0
+  atomicState.codes["slot${slot}"].attempts = 0
   runIn(10, setCodes)
 }
 
 def pinLength() {
-  return state.pinLength
+  return atomicState.pinLength
 }

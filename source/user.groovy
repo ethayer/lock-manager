@@ -75,10 +75,10 @@ def initializeLockData() {
   def lockApps = parent.getLockApps()
   lockApps.each { lockApp ->
     def lockId = lockApp.lock.id
-    if (state."lock${lockId}" == null) {
-      state."lock${lockId}" = [:]
-      state."lock${lockId}".enabled = true
-      state."lock${lockId}".usage = 0
+    if (atomicState."lock${lockId}" == null) {
+      atomicState."lock${lockId}" = [:]
+      atomicState."lock${lockId}".enabled = true
+      atomicState."lock${lockId}".usage = 0
     }
   }
 }
@@ -94,12 +94,12 @@ def initializeLocks() {
 def incrementLockUsage(lockId) {
   // this is called by a lock app when this user
   // used their code to lock the door
-  state."lock${lockId}".usage = state."lock${lockId}".usage + 1
+  atomicState."lock${lockId}".usage = atomicState."lock${lockId}".usage + 1
 }
 
 def lockReset(lockId) {
-  state."lock${lockId}".enabled = true
-  state."lock${lockId}".disabledReason = ''
+  atomicState."lock${lockId}".enabled = true
+  atomicState."lock${lockId}".disabledReason = ''
   def lockApp = parent.getLockAppById(lockId)
   lockApp.enableUser(userSlot)
 }
@@ -182,7 +182,7 @@ def userCodeInputTitle() {
 }
 
 def lockPageImage(lock) {
-  if (!state."lock${lock.id}".enabled || settings."lockDisabled${lock.id}") {
+  if (!atomicState."lock${lock.id}".enabled || settings."lockDisabled${lock.id}") {
     return 'https://images.lockmanager.io/app/v1/images/ban.png'
   } else {
     return 'https://images.lockmanager.io/app/v1/images/lock.png'
@@ -190,7 +190,7 @@ def lockPageImage(lock) {
 }
 
 def lockInfoPageImage(lock) {
-  if (!state."lock${lock.id}".enabled || settings."lockDisabled${lock.id}") {
+  if (!atomicState."lock${lock.id}".enabled || settings."lockDisabled${lock.id}") {
     return 'https://images.lockmanager.io/app/v1/images/user-times.png'
   } else {
     return 'https://images.lockmanager.io/app/v1/images/user.png'
@@ -204,13 +204,13 @@ def userLockPage(params) {
     def lockApp = parent.getLockAppById(lock.id)
     def slotData = lockApp.slotData(userSlot)
 
-    def usage = state."lock${lock.id}".usage
+    def usage = atomicState."lock${lock.id}".usage
 
     debugger('found lock id?: ' + lock?.id)
 
-    if (!state."lock${lock.id}".enabled) {
+    if (!atomicState."lock${lock.id}".enabled) {
       section {
-        paragraph "WARNING:\n\nThis user has been disabled.\n${state."lock${lock.id}".disabledReason}", image: 'https://images.lockmanager.io/app/v1/images/ban.png'
+        paragraph "WARNING:\n\nThis user has been disabled.\n${atomicState."lock${lock.id}".disabledReason}", image: 'https://images.lockmanager.io/app/v1/images/ban.png'
         href(name: 'toReEnableUserLockPage', page: 'reEnableUserLockPage', title: 'Reset User', description: 'Retry setting this user.',  params: [id: lock.id], image: 'https://images.lockmanager.io/app/v1/images/refresh.png' )
       }
     }
@@ -243,9 +243,9 @@ def userKeypadPage() {
 }
 
 def lockPageDescription(lock_id) {
-  def usage = state."lock${lock_id}".usage
+  def usage = atomicState."lock${lock_id}".usage
   def description = "Entries: ${usage} "
-  if (!state."lock${lock_id}".enabled) {
+  if (!atomicState."lock${lock_id}".enabled) {
     description += '// ERROR//DISABLED'
   }
   if (settings."lockDisabled${lock_id}") {
@@ -273,7 +273,7 @@ def lockResetPage(params) {
   // do reset
   def lock = getLock(params)
 
-  state."lock${lock.id}".usage = 0
+  atomicState."lock${lock.id}".usage = 0
   lockReset(lock.id)
 
   dynamicPage(name:'lockResetPage', title:'Lock reset') {
@@ -407,15 +407,15 @@ def readableDateTime(date) {
 
 
 def getLockUsage(lock_id) {
-  return state."lock${lock_id}".usage
+  return atomicState."lock${lock_id}".usage
 }
 
 def getAllLocksUsage() {
   def usage = 0
   def lockApps = parent.getLockApps()
   lockApps.each { lockApp ->
-    if (state."lock${lockApp.lock.id}"?.usage) {
-      usage = usage + state."lock${lockApp.lock.id}".usage
+    if (atomicState."lock${lockApp.lock.id}"?.usage) {
+      usage = usage + atomicState."lock${lockApp.lock.id}".usage
     }
   }
   return usage
@@ -578,12 +578,12 @@ def isNotBurned() {
 }
 
 def isEnabled(lockId) {
-  if (state."lock${lockId}" == null) {
+  if (atomicState."lock${lockId}" == null) {
     return true
-  } else if (state."lock${lockId}".enabled == null) {
+  } else if (atomicState."lock${lockId}".enabled == null) {
     return true
   } else {
-    return state."lock${lockId}".enabled
+    return atomicState."lock${lockId}".enabled
   }
 }
 
@@ -733,7 +733,7 @@ def getLock(params) {
   def id = ''
   // Assign params to id.  Sometimes parameters are double nested.
   debugger('params: ' + params)
-  debugger('last: ' + state.lastLock)
+  debugger('last: ' + atomicState.lastLock)
   if (params?.id) {
     id = params.id
   } else if (params?.params){
@@ -741,11 +741,11 @@ def getLock(params) {
   }
   def lockApp = parent.getLockAppById(id)
   if (!lockApp) {
-    lockApp = parent.getLockAppById(state.lastLock)
+    lockApp = parent.getLockAppById(atomicState.lastLock)
   }
 
   if (lockApp) {
-    state.lastLock = lockApp.lock.id
+    atomicState.lastLock = lockApp.lock.id
     return lockApp.lock
   } else {
     return false
@@ -842,22 +842,22 @@ def sendMessageViaUser(msg) {
 }
 
 def disableAndSetReason(lockID, reason) {
-  state."lock${lockID}".enabled = false
-  state."lock${lockID}".disabledReason = reason
+  atomicState."lock${lockID}".enabled = false
+  atomicState."lock${lockID}".disabledReason = reason
 }
 
 def disableLock(lockID) {
-  state."lock${lockID}".enabled = false
-  state."lock${lockID}".disabledReason = 'Controller failed to set user code.'
+  atomicState."lock${lockID}".enabled = false
+  atomicState."lock${lockID}".disabledReason = 'Controller failed to set user code.'
 }
 
 def enableLock(lockID) {
-  state."lock${lockID}".enabled = true
-  state."lock${lockID}".disabledReason = null
+  atomicState."lock${lockID}".enabled = true
+  atomicState."lock${lockID}".disabledReason = null
 }
 
 def disabledReason() {
-  state."lock${lockID}".disabledReason
+  atomicState."lock${lockID}".disabledReason
 }
 
 def getLockUserInfo(lock) {
@@ -865,10 +865,10 @@ def getLockUserInfo(lock) {
   if (settings."lockDisabled${lock.id}") {
     para += " DISABLED"
   }
-  def usage = state."lock${lock.id}".usage
+  def usage = atomicState."lock${lock.id}".usage
   para += " // Entries: ${usage}"
-  if (!state."lock${lock.id}".enabled) {
-    def reason = state."lock${lock.id}".disabledReason
+  if (!atomicState."lock${lock.id}".enabled) {
+    def reason = atomicState."lock${lock.id}".disabledReason
     para += "\n ${reason}"
   }
   para

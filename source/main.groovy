@@ -67,7 +67,7 @@ def appPageWizard(params) {
     setAppType(params.type)
   }
   // find the correct landing page
-  switch (state.appType) {
+  switch (atomicState.appType) {
     case 'lock':
       lockLandingPage()
       break
@@ -88,7 +88,7 @@ def appPageWizard(params) {
 
 def installed() {
   // find the correct installer
-  switch (state.appType) {
+  switch (atomicState.appType) {
     case 'lock':
       lockInstalled()
       break
@@ -107,7 +107,7 @@ def installed() {
 
 def updated() {
   // find the correct updater
-  switch (state.appType) {
+  switch (atomicState.appType) {
     case 'lock':
       lockUpdated()
       break
@@ -128,7 +128,7 @@ def updated() {
 }
 
 def uninstalled() {
-  switch (state.appType) {
+  switch (atomicState.appType) {
     case 'lock':
       break
     case 'user':
@@ -158,14 +158,14 @@ def initializeMain() {
   def children = getLockApps()
   log.debug "there are ${children.size()} locks"
 
-  state.initializeComplete = true
-  state.appVersion = 2.0
+  atomicState.initializeComplete = true
+  atomicState.appVersion = 2.0
 
   subscribe(location, "mode", locationHandler)
 }
 
 def mainLangingPage() {
-  if (state.initializeComplete) {
+  if (atomicState.initializeComplete) {
     mainPage()
   } else {
     mainSetupPage()
@@ -231,7 +231,7 @@ def mainPage() {
 }
 
 def setAppType(appType) {
-  state.appType = appType
+  atomicState.appType = appType
 }
 
 def userPageOptions(count) {
@@ -485,17 +485,17 @@ def getLockAppByIndex(params) {
     id = params.id
   } else if (params.params){
     id = params.params.id
-  } else if (state.lastLock) {
-    id = state.lastLock
+  } else if (atomicState.lastLock) {
+    id = atomicState.lastLock
   }
-  state.lastLock = id
+  atomicState.lastLock = id
 
   def lockApp = false
   def lockApps = getLockApps()
   if (lockApps) {
     def i = 0
     lockApps.each { app ->
-      if (app.lock.id == state.lastLock) {
+      if (app.lock.id == atomicState.lastLock) {
         lockApp = app
       }
     }
@@ -643,14 +643,14 @@ def debuggerOn() {
 
 def theAppType() {
   if (parent) {
-    return state.appType
+    return atomicState.appType
   } else {
     return 'main'
   }
 }
 
 def theAccountToken() {
-  return state.accountToken
+  return atomicState.accountToken
 }
 
 def debugger(message) {
