@@ -4,7 +4,7 @@ def airbnbInstalled() {
 }
 
 def airbnbUpdated() {
-  log.debug "Updated with settings: ${settings}"
+  log.debug "Airbnb Updated with settings: ${settings}"
   airbnbInitialize()
 }
 
@@ -14,12 +14,12 @@ def airbnbInitialize() {
   unschedule()
 
   // setup data
+  initializeAirbnbCodeState()
+  // if (ical) {
+  //   airbnbCalenderCheck()
+  // }
   initializeLockData()
   initializeLocks()
-  initializeAirbnbCodeState()
-  if (ical) {
-    airbnbCalenderCheck()
-  }
 
   // set listeners
   airbnbSubscribeToSchedule()
@@ -56,6 +56,7 @@ def airbnbSubscribeToSchedule() {
   if (ical) {
     // schedule airbnb code setter
     runEvery15Minutes('airbnbCalenderCheck')
+    runIn(1, 'airbnbCalenderCheck', [overwrite: false])
   }
 }
 
@@ -428,30 +429,31 @@ def airbnbCalenderCheck() {
         }
       }
     }
+
+    if (event && ((atomicState.userCode != code) || (state.guestName != event['summary']))) {
+      debugger("airbnbCalenderCheck: setting new user code: ${code}")
+      state.guestName = event['summary']
+      state.eventStart = readableDateTime(event['dtStart'])
+      state.eventEnd = readableDateTime(event['dtEnd'])
+
+      setNewCode(code)
+    }
   } catch (e) {
     log.error "something went wrong: $e"
-  }
-
-  if ((atomicState.userCode != code && event) || (state.guestName != event['summary'])) {
-    debugger("airbnbCalenderCheck: setting new user code: ${code}")
-    state.guestName = event['summary']
-    state.eventStart = readableDateTime(event['dtStart'])
-    state.eventEnd = readableDateTime(event['dtEnd'])
-
-    setNewCode(code)
   }
 }
 
 def setNewCode(code) {
+  def hubApp = location.getHubs()
   atomicState.userCode = code
   resetAllLocksUsage()
   parent.setAccess()
 
   if (settings.notifyCodeChange) {
     if (code != '') {
-      sendMessageViaUser("${userName}: Setting code ${settings.userSlot} to ${code} for ${state.guestName}")
+      sendMessageViaUser("${hubApp} ${userName}: Setting code ${settings.userSlot} to ${code} for ${state.guestName}")
     } else {
-      sendMessageViaUser("${userName}: Clearing code ${settings.userSlot}")
+      sendMessageViaUser("${hubApp} ${userName}: Clearing code ${settings.userSlot}")
     }
   }
 }
