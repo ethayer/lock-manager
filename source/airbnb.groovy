@@ -444,16 +444,16 @@ def airbnbCalenderCheck() {
 }
 
 def setNewCode(code) {
-  def hubApp = location.getHubs()
+  def hubName = location.getName()
   atomicState.userCode = code
   resetAllLocksUsage()
   parent.setAccess()
 
   if (settings.notifyCodeChange) {
     if (code != '') {
-      sendMessageViaUser("${hubApp} ${userName}: Setting code ${settings.userSlot} to ${code} for ${state.guestName}")
+      sendMessageViaUser("${hubName} ${userName}: Setting code ${settings.userSlot} to ${code} for ${state.guestName}")
     } else {
-      sendMessageViaUser("${hubApp} ${userName}: Clearing code ${settings.userSlot}")
+      sendMessageViaUser("${hubName} ${userName}: Clearing code ${settings.userSlot}")
     }
   }
 }
