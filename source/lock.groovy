@@ -456,7 +456,7 @@ def failRecovery(slot, previousCodeState, userApp) {
 
 def lockEvent(evt) {
   def data = new JsonSlurper().parseText(evt.data)
-  debugger("Lock event. ${data.method}")
+  debugger("Lock event. ${data}")
 
   switch(data.method) {
     case 'keypad':
@@ -512,7 +512,7 @@ def userDidLock(userApp) {
   }
   // lock specific
   if (codeLockRoutine) {
-    executeHelloPresenceCheck(codeLockRoutine)
+    userApp.executeHelloPresenceCheck(codeLockRoutine)
   }
   // global
   if (parent.codeLockRoutine) {
@@ -520,8 +520,8 @@ def userDidLock(userApp) {
   }
 
   // messages
-  if (userApp.notifyUnLock || parent.notifyLock) {
-    sendMessage(userApp, message)
+  if (userApp.notifyLock || parent.notifyLock) {
+    userApp.sendUserMessage(message)
   }
   if (userApp.alexaLock || parent.alexaLock) {
     userApp.sendAskAlexaLock(message)
@@ -543,7 +543,7 @@ def userDidUnlock(userApp) {
   }
   // lock specific
   if (codeUnlockRoutine) {
-    executeHelloPresenceCheck(codeUnlockRoutine)
+    userApp.executeHelloPresenceCheck(codeUnlockRoutine)
   }
   // global
   if (parent.codeUnlockRoutine) {
