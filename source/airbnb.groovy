@@ -59,11 +59,6 @@ def airbnbSubscribeToSchedule() {
   }
 }
 
-def airbnbSchedule() {
-  airbnbCalenderCheck()
-  runEvery15Minutes('airbnbCalenderCheck')
-}
-
 def initializeAirbnbCodeState() {
   if (!atomicState.userCode) { atomicState.userCode = '' }
   if (!state.guestName) { state.guestName = '' }
