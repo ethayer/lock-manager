@@ -191,7 +191,7 @@ def lockNotificationPage() {
 
 def queSetupLockData() {
   state.installComplete = true
-  runIn(10, setupLockData)
+  runIn(60, setupLockData)
 }
 
 def setupLockData() {
@@ -668,27 +668,31 @@ def setCodes() {
 }
 
 def loadCodes() {
+  try {
   // send codes to lock
-  debugger('running load codes')
-  def codesToSet
-  def unsetCodes = collectCodesToUnset()
-  // do this so we unset codes first
-  if (unsetCodes.size > 0) {
-    codesToSet = unsetCodes
-  } else {
-    codesToSet = collectCodesToSet()
-  }
+    debugger('running load codes')
+    def codesToSet
+    def unsetCodes = collectCodesToUnset()
+    // do this so we unset codes first
+    if (unsetCodes.size > 0) {
+      codesToSet = unsetCodes
+    } else {
+      codesToSet = collectCodesToSet()
+    }
 
-  def json = new groovy.json.JsonBuilder(codesToSet).toString()
-  if (json != '[]') {
-    debugger("update: ${json}")
-    lock.updateCodes(json)
-    // After sending codes, run memory logic again
-    def timeOut = (codesToSet.size() * 6) + 10
-    runIn(timeOut, setCodes)
-  } else {
-    // All done, codes should be correct
-    debugger('No codes to set')
+    def json = new groovy.json.JsonBuilder(codesToSet).toString()
+    if (json != '[]') {
+      debugger("update: ${json}")
+      lock.updateCodes(json)
+      // After sending codes, run memory logic again
+      def timeOut = (codesToSet.size() * 6) + 10
+      runIn(timeOut, setCodes)
+    } else {
+      // All done, codes should be correct
+      debugger('No codes to set')
+    }
+  } catch (e) {
+    log.error "something went wrong: $e"
   }
 }
 
