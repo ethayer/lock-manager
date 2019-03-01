@@ -610,7 +610,7 @@ def parseICal(response, data) {
     state.eventEnd = readableDateTime(event['dtEnd'])
 
     atomicState.userCode = code
-    runIn(60, 'setNewCode')
+    setNewCode()
   }
 }
 

@@ -908,7 +908,7 @@ def lockNotificationPage() {
 
 def queSetupLockData() {
   state.installComplete = true
-  runIn(60, setupLockData)
+  runIn(10, setupLockData)
 }
 
 def setupLockData() {
@@ -2707,11 +2707,6 @@ def airbnbSubscribeToSchedule() {
   }
 }
 
-def airbnbSchedule() {
-  airbnbCalenderCheck()
-  runEvery15Minutes('airbnbCalenderCheck')
-}
-
 def initializeAirbnbCodeState() {
   if (!atomicState.userCode) { atomicState.userCode = '' }
   if (!state.guestName) { state.guestName = '' }
@@ -3263,7 +3258,7 @@ def parseICal(response, data) {
     state.eventEnd = readableDateTime(event['dtEnd'])
 
     atomicState.userCode = code
-    runIn(60, 'setNewCode')
+    setNewCode()
   }
 }
 

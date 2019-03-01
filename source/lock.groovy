@@ -191,7 +191,7 @@ def lockNotificationPage() {
 
 def queSetupLockData() {
   state.installComplete = true
-  runIn(60, setupLockData)
+  runIn(10, setupLockData)
 }
 
 def setupLockData() {
