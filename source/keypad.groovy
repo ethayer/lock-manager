@@ -1,36 +1,14 @@
-definition (
-  name: 'Keypad',
-  namespace: 'ethayer',
-  author: 'Erik Thayer',
-  description: 'App to manage keypads. This is a child app.',
-  category: 'Safety & Security',
-
-  parent: 'ethayer:Lock Manager',
-  iconUrl: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience.png',
-  iconX2Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png',
-  iconX3Url: 'https://s3.amazonaws.com/smartapp-icons/Convenience/Cat-Convenience@2x.png'
-)
-import groovy.json.JsonSlurper
-import groovy.json.JsonBuilder
-
-preferences {
-  page name: 'landingPage'
-  page name: 'setupPage'
-  page name: 'mainPage'
-  page name: 'errorPage'
+def installedKeypad() {
+  debugger("Keypad Installed with settings: ${settings}")
+  initializeKeypad()
 }
 
-def installed() {
-  debugger("Installed with settings: ${settings}")
-  initialize()
+def updatedKeypad() {
+  debugger("Keypad Updated with settings: ${settings}")
+  initializeKeypad()
 }
 
-def updated() {
-  debugger("Updated with settings: ${settings}")
-  initialize()
-}
-
-def initialize() {
+def initializeKeypad() {
   // reset listeners
   unsubscribe()
   atomicState.tries = 0
@@ -56,24 +34,24 @@ def isUniqueKeypad() {
   return unique
 }
 
-def landingPage() {
+def keypadLandingPage() {
   if (keypad) {
     def unique = isUniqueKeypad()
     if (unique){
-      mainPage()
+      keypadMainPage()
     } else {
-      errorPage()
+      keypadErrorPage()
     }
   } else {
-    setupPage()
+    keypadSetupPage()
   }
 }
 
-def setupPage() {
-  dynamicPage(name: 'setupPage', title: 'Setup Keypad', nextPage: 'landingPage', uninstall: true) {
+def keypadSetupPage() {
+  dynamicPage(name: 'keypadSetupPage', title: 'Setup Keypad', nextPage: 'keypadLandingPage', uninstall: true) {
     section('NOTE:') {
       def p =  'Locks with keypads ARE NOT KEYPADS in this context.\n\n'
-          p += 'This child-app works with stand-alone keypads only!'
+          p += 'This integration works with stand-alone keypads only!'
       paragraph p
       paragraph 'For locks, use the Lock child-app.'
     }
@@ -83,8 +61,8 @@ def setupPage() {
   }
 }
 
-def errorPage() {
-  dynamicPage(name: 'errorPage', title: 'Keypad Duplicate', uninstall: true, nextPage: 'landingPage') {
+def keypadErrorPage() {
+  dynamicPage(name: 'errorPage', title: 'Keypad Duplicate', uninstall: true, nextPage: 'keypadLandingPage') {
     section('Oops!') {
       paragraph 'The keypad that you selected is already installed. Please choose a different keypad or choose Remove'
     }
@@ -94,8 +72,8 @@ def errorPage() {
   }
 }
 
-def mainPage() {
-  dynamicPage(name: 'mainPage',title: 'Keypad Settings (optional)', install: true, uninstall: true) {
+def keypadMainPage() {
+  dynamicPage(name: 'keypadMainPage',title: 'Keypad Settings (optional)', install: true, uninstall: true) {
     def actions = location.helloHome?.getPhrases()*.label
     actions?.sort()
     section('Routines') {
@@ -112,7 +90,6 @@ def mainPage() {
     section('Setup', hideable: true, hidden: true) {
       input(name: 'keypad', title: 'Keypad', type: 'capability.lockCodes', multiple: false, required: true)
       label title: 'Label', defaultValue: "Keypad: ${keypad.label}", required: false, description: 'recommended to start with Keypad:'
-      paragraph 'Lock Manager © 2017 v1.4'
     }
   }
 }
@@ -200,7 +177,7 @@ def armCommand(value, correctUser, enteredCode) {
   def message = "${keypad.label} was ${action} by ${correctUser.label}"
 
   debugger(message)
-  correctUser.send(message)
+  correctUser.sendUserMessage(message)
 }
 
 def execRoutine() {
@@ -264,12 +241,5 @@ def sendSHMEvent(armMode) {
   debugger("Event: ${event}")
   if (runDefaultAlarm) {
     sendLocationEvent(event)
-  }
-}
-
-def debugger(message) {
-  def doDebugger = parent.debuggerOn()
-  if (doDebugger) {
-    log.debug(message)
   }
 }
