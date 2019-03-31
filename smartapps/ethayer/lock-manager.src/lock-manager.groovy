@@ -1132,8 +1132,7 @@ def failRecovery(slot, previousCodeState, userApp) {
 
 def lockEvent(evt) {
   def data = new JsonSlurper().parseText(evt.data)
-  debugger("Lock event. ${data.method}")
-  state.lockState = evt.value
+  debugger("Lock event. ${data}")
 
   switch(data.method) {
     case 'keypad':
@@ -1188,23 +1187,18 @@ def keypadLockEvent(evt, data) {
 
 def userDidLock(userApp) {
   def message = "${lock.label} was locked by ${userApp.userName}"
-  userApp.incrementLockUsage(lock.id)
-  if (!userApp.isNotBurned()) {
-    parent.setAccess()
-    message += '.  Now burning code.'
-  }
   debugger(message)
   // user specific
-  if (userApp.userUnlockPhrase) {
-    userApp.executeHelloPresenceCheck(userApp.userUnlockPhrase)
+  if (userApp.userLockPhrase) {
+    userApp.executeHelloPresenceCheck(userApp.userLockPhrase)
   }
   // lock specific
-  if (codeUnlockRoutine) {
-    executeHelloPresenceCheck(codeUnlockRoutine)
+  if (codeLockRoutine) {
+    userApp.executeHelloPresenceCheck(codeLockRoutine)
   }
   // global
-  if (parent.codeUnlockRoutine) {
-    parent.executeHelloPresenceCheck(parent.codeUnlockRoutine)
+  if (parent.codeLockRoutine) {
+    parent.executeHelloPresenceCheck(parent.codeLockRoutine)
   }
 
   // messages
@@ -1231,7 +1225,7 @@ def userDidUnlock(userApp) {
   }
   // lock specific
   if (codeUnlockRoutine) {
-    executeHelloPresenceCheck(codeUnlockRoutine)
+    userApp.executeHelloPresenceCheck(codeUnlockRoutine)
   }
   // global
   if (parent.codeUnlockRoutine) {
