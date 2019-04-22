@@ -1343,11 +1343,7 @@ def setCodes() {
           // is active, should be set
           setValue = getCode(lockUser).toString()
           state.codes["slot${data.slot}"].correctValue = setValue
-<<<<<<< HEAD
           debugger("setValue: ${setValue}, data.code.toString(): ${data.code.toString()}")
-=======
-          debugger("${lockUser.userName}: ${data.code.toString()} ${setValue}")
->>>>>>> d52d3b0fe9c967d0114872eebce68dccf61060dd
           if (data.code.toString() != setValue) {
             state.codes["slot${data.slot}"].codeState = 'set'
           } else {
@@ -3078,11 +3074,7 @@ def setNewCode() {
     } else {
       sendMessageViaUser("${hubName} ${userName}: Clearing code ${settings.userSlot}")
     }
-<<<<<<< HEAD
-
     resetAllLocksUsage()
-=======
->>>>>>> d52d3b0fe9c967d0114872eebce68dccf61060dd
   }
   debugger("${state.userCode}")
   parent.setAccess()
