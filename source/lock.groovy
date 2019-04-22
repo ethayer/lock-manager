@@ -456,7 +456,7 @@ def failRecovery(slot, previousCodeState, userApp) {
 
 def lockEvent(evt) {
   def data = new JsonSlurper().parseText(evt.data)
-  debugger("Lock event. ${data.method}")
+  debugger("Lock event. ${data}")
 
   switch(data.method) {
     case 'keypad':
@@ -512,7 +512,7 @@ def userDidLock(userApp) {
   }
   // lock specific
   if (codeLockRoutine) {
-    executeHelloPresenceCheck(codeLockRoutine)
+    userApp.executeHelloPresenceCheck(codeLockRoutine)
   }
   // global
   if (parent.codeLockRoutine) {
@@ -520,8 +520,8 @@ def userDidLock(userApp) {
   }
 
   // messages
-  if (userApp.notifyUnLock || parent.notifyLock) {
-    sendMessage(userApp, message)
+  if (userApp.notifyLock || parent.notifyLock) {
+    userApp.sendUserMessage(message)
   }
   if (userApp.alexaLock || parent.alexaLock) {
     userApp.sendAskAlexaLock(message)
@@ -543,7 +543,7 @@ def userDidUnlock(userApp) {
   }
   // lock specific
   if (codeUnlockRoutine) {
-    executeHelloPresenceCheck(codeUnlockRoutine)
+    userApp.executeHelloPresenceCheck(codeUnlockRoutine)
   }
   // global
   if (parent.codeUnlockRoutine) {
@@ -626,7 +626,7 @@ def setCodes() {
           // is active, should be set
           setValue = getCode(lockUser).toString()
           state.codes["slot${data.slot}"].correctValue = setValue
-          debugger("setValue: ${setValue}, data.code.toString(): ${data.code.toString()}")
+          debugger("${lockUser.userName}: ${data.code.toString()} ${setValue}")
           if (data.code.toString() != setValue) {
             state.codes["slot${data.slot}"].codeState = 'set'
           } else {
@@ -668,27 +668,31 @@ def setCodes() {
 }
 
 def loadCodes() {
+  try {
   // send codes to lock
-  debugger('running load codes')
-  def codesToSet
-  def unsetCodes = collectCodesToUnset()
-  // do this so we unset codes first
-  if (unsetCodes.size > 0) {
-    codesToSet = unsetCodes
-  } else {
-    codesToSet = collectCodesToSet()
-  }
+    debugger('running load codes')
+    def codesToSet
+    def unsetCodes = collectCodesToUnset()
+    // do this so we unset codes first
+    if (unsetCodes.size > 0) {
+      codesToSet = unsetCodes
+    } else {
+      codesToSet = collectCodesToSet()
+    }
 
-  def json = new groovy.json.JsonBuilder(codesToSet).toString()
-  if (json != '[]') {
-    debugger("update: ${json}")
-    lock.updateCodes(json)
-    // After sending codes, run memory logic again
-    def timeOut = (codesToSet.size() * 6) + 10
-    runIn(timeOut, setCodes)
-  } else {
-    // All done, codes should be correct
-    debugger('No codes to set')
+    def json = new groovy.json.JsonBuilder(codesToSet).toString()
+    if (json != '[]') {
+      debugger("update: ${json}")
+      lock.updateCodes(json)
+      // After sending codes, run memory logic again
+      def timeOut = (codesToSet.size() * 6) + 10
+      runIn(timeOut, setCodes)
+    } else {
+      // All done, codes should be correct
+      debugger('No codes to set')
+    }
+  } catch (e) {
+    log.error "something went wrong: $e"
   }
 }
 

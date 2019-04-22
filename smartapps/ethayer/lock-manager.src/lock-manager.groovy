@@ -1173,7 +1173,7 @@ def failRecovery(slot, previousCodeState, userApp) {
 
 def lockEvent(evt) {
   def data = new JsonSlurper().parseText(evt.data)
-  debugger("Lock event. ${data.method}")
+  debugger("Lock event. ${data}")
 
   switch(data.method) {
     case 'keypad':
@@ -1229,7 +1229,7 @@ def userDidLock(userApp) {
   }
   // lock specific
   if (codeLockRoutine) {
-    executeHelloPresenceCheck(codeLockRoutine)
+    userApp.executeHelloPresenceCheck(codeLockRoutine)
   }
   // global
   if (parent.codeLockRoutine) {
@@ -1237,8 +1237,8 @@ def userDidLock(userApp) {
   }
 
   // messages
-  if (userApp.notifyUnLock || parent.notifyLock) {
-    sendMessage(userApp, message)
+  if (userApp.notifyLock || parent.notifyLock) {
+    userApp.sendUserMessage(message)
   }
   if (userApp.alexaLock || parent.alexaLock) {
     userApp.sendAskAlexaLock(message)
@@ -1260,7 +1260,7 @@ def userDidUnlock(userApp) {
   }
   // lock specific
   if (codeUnlockRoutine) {
-    executeHelloPresenceCheck(codeUnlockRoutine)
+    userApp.executeHelloPresenceCheck(codeUnlockRoutine)
   }
   // global
   if (parent.codeUnlockRoutine) {
@@ -1343,7 +1343,11 @@ def setCodes() {
           // is active, should be set
           setValue = getCode(lockUser).toString()
           state.codes["slot${data.slot}"].correctValue = setValue
+<<<<<<< HEAD
           debugger("setValue: ${setValue}, data.code.toString(): ${data.code.toString()}")
+=======
+          debugger("${lockUser.userName}: ${data.code.toString()} ${setValue}")
+>>>>>>> d52d3b0fe9c967d0114872eebce68dccf61060dd
           if (data.code.toString() != setValue) {
             state.codes["slot${data.slot}"].codeState = 'set'
           } else {
@@ -1385,27 +1389,31 @@ def setCodes() {
 }
 
 def loadCodes() {
+  try {
   // send codes to lock
-  debugger('running load codes')
-  def codesToSet
-  def unsetCodes = collectCodesToUnset()
-  // do this so we unset codes first
-  if (unsetCodes.size > 0) {
-    codesToSet = unsetCodes
-  } else {
-    codesToSet = collectCodesToSet()
-  }
+    debugger('running load codes')
+    def codesToSet
+    def unsetCodes = collectCodesToUnset()
+    // do this so we unset codes first
+    if (unsetCodes.size > 0) {
+      codesToSet = unsetCodes
+    } else {
+      codesToSet = collectCodesToSet()
+    }
 
-  def json = new groovy.json.JsonBuilder(codesToSet).toString()
-  if (json != '[]') {
-    debugger("update: ${json}")
-    lock.updateCodes(json)
-    // After sending codes, run memory logic again
-    def timeOut = (codesToSet.size() * 6) + 10
-    runIn(timeOut, setCodes)
-  } else {
-    // All done, codes should be correct
-    debugger('No codes to set')
+    def json = new groovy.json.JsonBuilder(codesToSet).toString()
+    if (json != '[]') {
+      debugger("update: ${json}")
+      lock.updateCodes(json)
+      // After sending codes, run memory logic again
+      def timeOut = (codesToSet.size() * 6) + 10
+      runIn(timeOut, setCodes)
+    } else {
+      // All done, codes should be correct
+      debugger('No codes to set')
+    }
+  } catch (e) {
+    log.error "something went wrong: $e"
   }
 }
 
@@ -2110,7 +2118,7 @@ public humanReadableEndDate() {
 }
 
 def readableDateTime(date) {
-  new Date().parse(smartThingsDateFormat(), date.format(smartThingsDateFormat(), timeZone())).format("EEE, MMM d yyyy 'at' h:mma", timeZone())
+  new Date().parse(smartThingsDateFormat(), date.format(smartThingsDateFormat(), timeZone())).format("EEE, MMM d yyyy 'at' h:mma (z)", timeZone())
 }
 
 
@@ -2648,19 +2656,22 @@ def airbnbInstalled() {
 }
 
 def airbnbUpdated() {
-  log.debug "Updated with settings: ${settings}"
+  log.debug "Airbnb Updated with settings: ${settings}"
   airbnbInitialize()
 }
 
 def airbnbInitialize() {
   // reset listeners
   unsubscribe()
-  unschedule()
+  // unschedule()
 
   // setup data
+  initializeAirbnbCodeState()
   initializeLockData()
   initializeLocks()
-  initializeAirbnbCodeState()
+  if (ical) {
+    airbnbCalenderCheck()
+  }
 
   // set listeners
   airbnbSubscribeToSchedule()
@@ -2695,14 +2706,13 @@ def airbnbSubscribeToSchedule() {
     runOnce(endDateTime().format(smartThingsDateFormat(), timeZone()), 'calendarEnd')
   }
   if (ical) {
-    airbnbCalenderCheck()
     // schedule airbnb code setter
     runEvery1Minute('airbnbCalenderCheck')
   }
 }
 
 def initializeAirbnbCodeState() {
-  if (!state.userCode) { state.userCode = '' }
+  if (!atomicState.userCode) { atomicState.userCode = '' }
   if (!state.guestName) { state.guestName = '' }
   if (!state.eventStart) { state.eventStart = '' }
   if (!state.eventEnd) { state.eventEnd = '' }
@@ -3046,7 +3056,7 @@ def resetAllLocksUsage() {
 }
 
 def getAirbnbCode() {
-  return state.userCode
+  return atomicState.userCode
 }
 
 def airbnbCalenderCheck() {
@@ -3054,49 +3064,32 @@ def airbnbCalenderCheck() {
     uri: ical
   ]
 
-  def code = ''
-  def event = null
+  asynchttp_v1.get('parseICal', params)
+}
 
-  try {
-    httpGet(params) { resp ->
-      event = parseICal(resp.data)
+def setNewCode() {
+  def hubName = location.getName()
+  resetAllLocksUsage()
+  parent.setAccess()
 
-      if (event) {
-        if (event['summary'] == 'Not available') {
-          code = ''
-        } else if (event['phone']) {
-          code = event['phone'].replaceAll(/\D/, '')[-4..-1]
-          debugger("airbnbCalenderCheck: ${event['summary']}, phone: ${event['phone']}, code: ${code}")
-        }
-      }
+  if (settings.notifyCodeChange) {
+    if (atomicState.userCode != '') {
+      sendMessageViaUser("${hubName} ${userName}: Setting code ${settings.userSlot} to ${atomicState.userCode} for ${state.guestName}")
+    } else {
+      sendMessageViaUser("${hubName} ${userName}: Clearing code ${settings.userSlot}")
     }
-  } catch (e) {
-    log.error "something went wrong: $e"
-  }
-
-  if ((state.userCode != code && event) || (state.guestName != event['summary'])) {
-    debugger("airbnbCalenderCheck: setting new user code: ${code}")
-    state.userCode = code
-    state.guestName = event['summary']
-    state.eventStart = readableDateTime(event['dtStart'])
-    state.eventEnd = readableDateTime(event['dtEnd'])
-
-    if (settings.notifyCodeChange) {
-      if (code != '') {
-        sendMessageViaUser("${userName}: Setting code ${settings.userSlot} to ${code} for ${event['summary']}")
-      } else {
-        sendMessageViaUser("${userName}: Clearing code ${settings.userSlot}")
-      }
-    }
+<<<<<<< HEAD
 
     resetAllLocksUsage()
+=======
+>>>>>>> d52d3b0fe9c967d0114872eebce68dccf61060dd
   }
   debugger("${state.userCode}")
   parent.setAccess()
 }
 
-String readLine(ByteArrayInputStream is) {
-  int size = is.available();
+String readLine(ByteArrayInputStream inputStream) {
+  int size = inputStream.available();
   if (size <= 0) {
     return null;
   }
@@ -3106,7 +3099,7 @@ String readLine(ByteArrayInputStream is) {
   char ch;
 
   while (true) {
-    data = is.read();
+    data = inputStream.read();
     if (data == -1) {
       // we are done here
       break;
@@ -3132,9 +3125,13 @@ def currentEvent(today, event) {
   return ((event['dtStart'] <= today) && (today <= event['dtEnd']))
 }
 
-def parseICal(ByteArrayInputStream is) {
-  debugger("parseICal started")
-
+def parseICal(response, data) {
+  if (response.hasError()) {
+    log.debug "response received error: ${response.getErrorMessage()}"
+    return
+  }
+  def code = ''
+  def event = null
   def events = []
   def iCalEvent = null
   def sincePhone = 100
@@ -3150,8 +3147,10 @@ def parseICal(ByteArrayInputStream is) {
     endTimeOfDay = lateCheckoutTime
   }
 
+  InputStream inputStream = new ByteArrayInputStream(response.getData().getBytes())
+
   while (true) {
-    def line = readLine(is)
+    def line = readLine(inputStream)
 
     if (line == null) {
       break
@@ -3245,15 +3244,33 @@ def parseICal(ByteArrayInputStream is) {
         events[1].put('dtStart', parseDate(events[1]['dtStartString'], checkoutTime))
     }
     if (currentEvent(today, events[0])) {
-      return events[0];
+      event = events[0];
     } else if (currentEvent(today, events[1])) {
-      return events[1];
+      event = events[1];
     }
   } else if (events.size() == 1) {
-    return events[0];
+    event = events[0];
   }
 
-  return ret
+  if (event) {
+    if (event['summary'] == 'Not available') {
+      code = ''
+    } else if (event['phone']) {
+      code = event['phone'].replaceAll(/\D/, '')[-4..-1]
+      debugger("airbnbCalenderCheck: ${event['summary']}, phone: ${event['phone']}, code: ${code}")
+    }
+  }
+
+  debugger("code: ${code}, atomicState.userCode: ${atomicState.userCode}")
+  if (event && ((atomicState.userCode != code) || (state.guestName != event['summary']))) {
+    debugger("airbnbCalenderCheck: setting new user code: ${code}")
+    state.guestName = event['summary']
+    state.eventStart = readableDateTime(event['dtStart'])
+    state.eventEnd = readableDateTime(event['dtEnd'])
+
+    atomicState.userCode = code
+    setNewCode()
+  }
 }
 
 Date parseDate(String value, String timeOfDay) {
