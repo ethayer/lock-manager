@@ -53,7 +53,7 @@ def airbnbSubscribeToSchedule() {
   if (ical) {
     airbnbCalenderCheck()
     // schedule airbnb code setter
-    runEvery15Minutes('airbnbCalenderCheck')
+    runEvery1Minute('airbnbCalenderCheck')
   }
 }
 
@@ -446,8 +446,9 @@ def airbnbCalenderCheck() {
     }
 
     resetAllLocksUsage()
-    parent.setAccess()
   }
+  debugger("${state.userCode}")
+  parent.setAccess()
 }
 
 String readLine(ByteArrayInputStream is) {

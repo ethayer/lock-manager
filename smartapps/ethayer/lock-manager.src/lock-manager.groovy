@@ -1343,6 +1343,7 @@ def setCodes() {
           // is active, should be set
           setValue = getCode(lockUser).toString()
           state.codes["slot${data.slot}"].correctValue = setValue
+          debugger("setValue: ${setValue}, data.code.toString(): ${data.code.toString()}")
           if (data.code.toString() != setValue) {
             state.codes["slot${data.slot}"].codeState = 'set'
           } else {
@@ -2696,7 +2697,7 @@ def airbnbSubscribeToSchedule() {
   if (ical) {
     airbnbCalenderCheck()
     // schedule airbnb code setter
-    runEvery15Minutes('airbnbCalenderCheck')
+    runEvery1Minute('airbnbCalenderCheck')
   }
 }
 
@@ -3089,8 +3090,9 @@ def airbnbCalenderCheck() {
     }
 
     resetAllLocksUsage()
-    parent.setAccess()
   }
+  debugger("${state.userCode}")
+  parent.setAccess()
 }
 
 String readLine(ByteArrayInputStream is) {
