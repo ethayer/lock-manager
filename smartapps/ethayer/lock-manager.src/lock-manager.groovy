@@ -1270,6 +1270,9 @@ def manualUnlock(evt) {
     if (parent.manualUnlockRoutine) {
       parent.executeHelloPresenceCheck(parent.manualUnlockRoutine)
     }
+    if (notifyManualLock) {
+      sendLockMessage(message)
+    }
   }
 }
 
