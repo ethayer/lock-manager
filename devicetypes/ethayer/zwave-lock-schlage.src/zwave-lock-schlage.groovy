@@ -129,20 +129,22 @@ metadata {
 		}
 
 		main "toggle"
-		details(["toggle", "lock", "unlock", "battery", "refresh", "alarmSensitivity", "alarmMode", "lockLeave", "autoLock", "beeperMode", "vacationMode", "pinLength"])
+		//details(["toggle", "lock", "unlock", "battery", "refresh", "alarmSensitivity", "alarmMode", "lockLeave", "autoLock", "beeperMode", "vacationMode", "pinLength"])
+        details(["toggle", "lock", "unlock", "battery", "refresh", "lockLeave", "autoLock", "vacationMode", "pinLength"])
 	}
 	preferences {
+    	/*
 		input name: "alarmMode", type: "enum", title: "Alarm Mode", description: "Enter Mode for Alarm", required: false,
           displayDuringSetup: false,  options: ["Off", "Alert", "Tamper", "Kick"]
 		input name: "alarmSensitivity", type: "enum", title: "Alarm Sensitivity", description: "Enter Sensitivity for Alarm", required: false,
           displayDuringSetup: false,  options: ["Extreme", "High", "Medium", "Moderate", "Low"]
-
+		*/
 		input name: "autoLock", type: "bool", title: "Auto Lock", description: "Enable Auto Lock?", required: false, displayDuringSetup: false
 		input name: "vacationMode", type: "bool", title: "Vataction Mode", description: "Enable Vacation Mode?", required: false, displayDuringSetup: false
 		input name: "lockLeave", type: "bool", title: "Lock & Leave", description: "Enable Lock & Leave?", required: false, displayDuringSetup: false
 		input name: "localControl", type: "bool", title: "Local Control", description: "Enable Local Control?", required: false, displayDuringSetup: false
 		input name: "pinLength", type: "number", title: "Pin Length", description: "Changing will delete all codes", range: "4..8", required: false, displayDuringSetup: false
-		input name: "beeperMode", type: 'bool', title: "Beeper Mode", description: "beep when buttons are pressed?", required: false, displayDuringSetup: false
+		//input name: "beeperMode", type: 'bool', title: "Beeper Mode", description: "beep when buttons are pressed?", required: false, displayDuringSetup: false
 	}
 }
 
