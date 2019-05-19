@@ -266,7 +266,19 @@ def parse(String description) {
 					)
 		}
 	} else {
-		def cmd = zwave.parse(description, [ 0x98: 1, 0x72: 2, 0x85: 2, 0x86: 1 ])
+    	/*
+            Z-Wave Command Classes code
+            0x98: Security
+            0x62: Door Lock
+            0x63: User Code
+            0x71: Alarm
+            0x72: Manufacturer Specific
+            0x80: Battery
+            0x85: Association
+            0x86: Version
+        */
+		//def cmd = zwave.parse(description, [ 0x98: 1, 0x72: 2, 0x85: 2, 0x86: 1 ])
+        def cmd = zwave.parse(description, [ 0x98: 1, 0x62: 1, 0x63: 1, 0x71: 2, 0x72: 2, 0x80: 1, 0x85: 2, 0x86: 1 ])                
 		if (cmd) {
 			result = zwaveEvent(cmd)
 		}
