@@ -130,7 +130,7 @@ metadata {
 
 		main "toggle"
 		//details(["toggle", "lock", "unlock", "battery", "refresh", "alarmSensitivity", "alarmMode", "lockLeave", "autoLock", "beeperMode", "vacationMode", "pinLength"])
-        details(["toggle", "lock", "unlock", "battery", "refresh", "lockLeave", "autoLock", "vacationMode", "pinLength"])
+        details(["toggle", "lock", "unlock", "battery", "refresh", "lockLeave", "autoLock", "beeperMode", "vacationMode", "pinLength"])
 	}
 	preferences {
     	/*
@@ -144,7 +144,7 @@ metadata {
 		input name: "lockLeave", type: "bool", title: "Lock & Leave", description: "Enable Lock & Leave?", required: false, displayDuringSetup: false
 		input name: "localControl", type: "bool", title: "Local Control", description: "Enable Local Control?", required: false, displayDuringSetup: false
 		input name: "pinLength", type: "number", title: "Pin Length", description: "Changing will delete all codes", range: "4..8", required: false, displayDuringSetup: false
-		//input name: "beeperMode", type: 'bool', title: "Beeper Mode", description: "beep when buttons are pressed?", required: false, displayDuringSetup: false
+		input name: "beeperMode", type: 'bool', title: "Beeper Mode", description: "beep when buttons are pressed?", required: false, displayDuringSetup: false
 	}
 }
 
