@@ -130,7 +130,7 @@ metadata {
 
 		main "toggle"
 		//details(["toggle", "lock", "unlock", "battery", "refresh", "alarmSensitivity", "alarmMode", "lockLeave", "autoLock", "beeperMode", "vacationMode", "pinLength"])
-        details(["toggle", "lock", "unlock", "battery", "refresh", "lockLeave", "autoLock", "vacationMode", "pinLength"])
+        details(["toggle", "lock", "unlock", "battery", "refresh", "lockLeave", "autoLock", "beeperMode", "vacationMode", "pinLength"])
 	}
 	preferences {
     	/*
@@ -144,7 +144,7 @@ metadata {
 		input name: "lockLeave", type: "bool", title: "Lock & Leave", description: "Enable Lock & Leave?", required: false, displayDuringSetup: false
 		input name: "localControl", type: "bool", title: "Local Control", description: "Enable Local Control?", required: false, displayDuringSetup: false
 		input name: "pinLength", type: "number", title: "Pin Length", description: "Changing will delete all codes", range: "4..8", required: false, displayDuringSetup: false
-		//input name: "beeperMode", type: 'bool', title: "Beeper Mode", description: "beep when buttons are pressed?", required: false, displayDuringSetup: false
+		input name: "beeperMode", type: 'bool', title: "Beeper Mode", description: "beep when buttons are pressed?", required: false, displayDuringSetup: false
 	}
 }
 
@@ -266,7 +266,19 @@ def parse(String description) {
 					)
 		}
 	} else {
-		def cmd = zwave.parse(description, [ 0x98: 1, 0x72: 2, 0x85: 2, 0x86: 1 ])
+    	/*
+            Z-Wave Command Classes code
+            0x98: Security
+            0x62: Door Lock
+            0x63: User Code
+            0x71: Alarm
+            0x72: Manufacturer Specific
+            0x80: Battery
+            0x85: Association
+            0x86: Version
+        */
+		//def cmd = zwave.parse(description, [ 0x98: 1, 0x72: 2, 0x85: 2, 0x86: 1 ])
+        def cmd = zwave.parse(description, [ 0x98: 1, 0x62: 1, 0x63: 1, 0x71: 2, 0x72: 2, 0x80: 1, 0x85: 2, 0x86: 1 ])                
 		if (cmd) {
 			result = zwaveEvent(cmd)
 		}
