@@ -1,0 +1,28 @@
+{
+  "name": "lock-manager",
+  "version": "1.0.0",
+  "description": "This BETA is provided for testing purposes.  If you are uncomfortable about figuring things out on your own, you should wait until a proper relase in the MASTER branch of this repository.",
+  "main": "gulpfile.js",
+  "dependencies": {
+    "concat": "^1.0.3"
+  },
+  "devDependencies": {
+    "gulp": "^4.0.2",
+    "gulp-concat": "^2.6.1",
+    "gulp-merge": "^0.1.1",
+    "gulp-watch": "^5.0.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ethayer/lock-manager.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ethayer/lock-manager/issues"
+  },
+  "homepage": "https://github.com/ethayer/lock-manager#readme"
+}
