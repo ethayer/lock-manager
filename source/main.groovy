@@ -197,7 +197,7 @@ def mainPage() {
     }
     section('Locks') {
       def lockApps = getLockApps()
-      lockApps = lockApps.sort{ it.lock.id }
+      lockApps = lockApps.sort{ it.lockSort() }
       if (lockApps) {
         def i = 0
         lockApps.each { lockApp ->

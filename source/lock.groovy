@@ -974,6 +974,14 @@ def lockState() {
   state.lockState
 }
 
+def lockSort() {
+  if (lock) {
+    return lock.id
+  } else {
+    return 1
+  }
+}
+
 def sweepProgress() {
   state.sweepProgress
 }

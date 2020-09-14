@@ -197,12 +197,13 @@ def mainPage() {
     }
     section('Locks') {
       def lockApps = getLockApps()
-      lockApps = lockApps.sort{ it.lock.id }
+      lockApps = lockApps.sort{ it.lockSort() }
       if (lockApps) {
         def i = 0
         lockApps.each { lockApp ->
+
           i++
-          href(name: "toLockInfoPage${i}", page: 'lockInfoPage', params: [id: lockApp.lock.id], required: false, title: lockApp.label, image: 'https://images.lockmanager.io/app/v1/images/lock.png' )
+          href(name: "toLockInfoPage${i}", page: 'lockInfoPage', params: [id: lockApp.lockSort()], required: false, title: lockApp.label, image: 'https://images.lockmanager.io/app/v1/images/lock.png' )
         }
       }
     }
@@ -1651,6 +1652,14 @@ def slotData(slot) {
 
 def lockState() {
   state.lockState
+}
+
+def lockSort() {
+  if (lock) {
+    return lock.id
+  } else {
+    return 1
+  }
 }
 
 def sweepProgress() {
