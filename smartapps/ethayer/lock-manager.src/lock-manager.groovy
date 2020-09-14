@@ -6,9 +6,9 @@ definition(
   description: 'Manage locks and users',
   category: 'Safety & Security',
   singleInstance: true,
-  iconUrl: 'https://images.lockmanager.io/app/v1/images/lm.jpg',
-  iconX2Url: 'https://images.lockmanager.io/app/v1/images/lm2x.jpg',
-  iconX3Url: 'https://images.lockmanager.io/app/v1/images/lm3x.jpg'
+  iconUrl: 'http://images.lockmanager.io/app/v1/images/lm.jpg',
+  iconX2Url: 'http://images.lockmanager.io/app/v1/images/lm2x.jpg',
+  iconX3Url: 'http://images.lockmanager.io/app/v1/images/lm3x.jpg'
 )
 import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
@@ -16,8 +16,10 @@ import java.util.regex.*
 include 'asynchttp_v1'
 
 preferences {
-  // Manager ===
+  // Wizard
   page name: 'appPageWizard'
+
+  // Manager ===
   page name: 'mainLandingPage'
   page name: 'mainSetupPage', title: 'Installed', install: true, uninstall: true, submitOnChange: true
   page name: 'mainPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true
@@ -62,12 +64,23 @@ preferences {
 }
 
 def appPageWizard(params) {
-  if (params.type) {
-    // inital set app type
-    setAppType(params.type)
+  def appType = state.appType
+  
+  if (!appType) {
+    if (params.type) {
+      // inital set app type
+      debugger("Param set is: ${params.type}")
+      appType = params.type
+    }
+    if (parent) {
+      appType = parent.theNewChild()
+    }
+    debugger("App Type: ${appType}")
+    setAppType(appType)
   }
+    
   // find the correct landing page
-  switch (state.appType) {
+  switch (appType) {
     case 'lock':
       lockLandingPage()
       break
@@ -192,7 +205,8 @@ def mainPage() {
       if (settings.appType) {
         def appTypeString = settings.appType
         def miniTypeString = appTypeString.toLowerCase()
-        app(name: 'newChild', params: [type: miniTypeString], appName: 'Lock Manager', namespace: 'ethayer', title: "Create New ${appTypeString}", multiple: true, image: "https://images.lockmanager.io/app/v1/images/new-${miniTypeString}.png")
+        debugger("New Param: ${miniTypeString}")
+        app(name: 'newChild', params: [type: miniTypeString], appName: 'Lock Manager', namespace: 'ethayer', title: "Create New ${appTypeString}", multiple: true, image: "http://images.lockmanager.io/app/v1/images/new-${miniTypeString}.png")
       }
     }
     section('Locks') {
@@ -202,26 +216,26 @@ def mainPage() {
         def i = 0
         lockApps.each { lockApp ->
           i++
-          href(name: "toLockInfoPage${i}", page: 'lockInfoPage', params: [id: lockApp.lock.id], required: false, title: lockApp.label, image: 'https://images.lockmanager.io/app/v1/images/lock.png' )
+          href(name: "toLockInfoPage${i}", page: 'lockInfoPage', params: [id: lockApp.lock.id], required: false, title: lockApp.label, image: 'http://images.lockmanager.io/app/v1/images/lock.png' )
         }
       }
     }
     section('Global Settings') {
-      href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'https://images.lockmanager.io/app/v1/images/bullhorn.png')
+      href(name: 'toNotificationPage', page: 'notificationPage', title: 'Notification Settings', description: notificationPageDescription(), state: notificationPageDescription() ? 'complete' : '', image: 'http://images.lockmanager.io/app/v1/images/bullhorn.png')
 
       def actions = location.helloHome?.getPhrases()*.label
       if (actions) {
-        href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'https://images.lockmanager.io/app/v1/images/home.png')
+        href(name: 'toHelloHomePage', page: 'helloHomePage', title: 'Hello Home Settings', image: 'http://images.lockmanager.io/app/v1/images/home.png')
       }
 
       def keypadApps = getKeypadApps()
       if (keypadApps) {
-        href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
+        href(name: 'toKeypadPage', page: 'keypadPage', title: 'Keypad Routines (optional)', image: 'http://images.lockmanager.io/app/v1/images/keypad.png')
       }
     }
 
     // section('API') {
-    //   href(name: 'toApiPage', page: 'apiSetupPage', title: 'API Options', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
+    //   href(name: 'toApiPage', page: 'apiSetupPage', title: 'API Options', image: 'http://images.lockmanager.io/app/v1/images/keypad.png')
     // }
 
     section('Advanced', hideable: true, hidden: true) {
@@ -234,7 +248,9 @@ def mainPage() {
 }
 
 def setAppType(appType) {
-  state.appType = appType
+  if (!state.appType) {
+    state.appType = appType
+  }
 }
 
 def userPageOptions(count) {
@@ -305,7 +321,7 @@ def lockInfoPage(params) {
                   para = para + userApp.getLockUserInfo(lockApp.lock)
                   image = userApp.lockInfoPageImage(lockApp.lock)
                 } else {
-                  image = 'https://images.lockmanager.io/app/v1/images/times-circle-o.png'
+                  image = 'http://images.lockmanager.io/app/v1/images/times-circle-o.png'
                 }
                 if (data.codeState == 'refresh') {
                   para = para +'\nPending refresh...'
@@ -340,8 +356,8 @@ def notificationPage() {
     section {
       paragraph 'These settings will apply to all users.  Settings on individual users will override these settings'
 
-      input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/book.png')
-      href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'askAlexaPage', image: 'https://images.lockmanager.io/app/v1/images/Alexa.png')
+      input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/book.png')
+      href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'askAlexaPage', image: 'http://images.lockmanager.io/app/v1/images/Alexa.png')
       if (!recipients) {
         input(name: 'phone', type: 'text', title: 'Text This Number', description: 'Phone number', required: false, submitOnChange: true)
         paragraph 'For multiple SMS recipients, separate phone numbers with a semicolon(;)'
@@ -349,10 +365,10 @@ def notificationPage() {
       }
 
       if (phone != null || notification || recipients) {
-        input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
-        input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
-        input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/check-circle-o.png')
-        input(name: 'notifyAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/times-circle-o.png')
+        input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png')
+        input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+        input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/check-circle-o.png')
+        input(name: 'notifyAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/times-circle-o.png')
       }
     }
     section('Only During These Times (optional)') {
@@ -367,13 +383,13 @@ def helloHomePage() {
     def actions = location.helloHome?.getPhrases()*.label
     actions?.sort()
     section('Hello Home Phrases') {
-      input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
-      input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png')
+      input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
 
-      input(name: 'codeUnlockRoutine', title: 'On Code Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png' )
+      input(name: 'codeUnlockRoutine', title: 'On Code Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png' )
 
       paragraph 'Supported on some locks:'
-      input(name: 'codeLockRoutine', title: 'On Code Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'codeLockRoutine', title: 'On Code Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
 
       paragraph 'These restrictions apply to all the above:'
       input "userNoRunPresence", "capability.presenceSensor", title: "DO NOT run Actions if any of these are present:", multiple: true, required: false
@@ -386,10 +402,10 @@ def askAlexaPage() {
   dynamicPage(name: 'askAlexaPage', title: 'Ask Alexa Message Settings') {
     section('Que Messages with the Ask Alexa app') {
       paragraph 'These settings apply to all users.  These settings are overridable on the user level'
-      input(name: 'alexaAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
-      input(name: 'alexaLock', title: 'on Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
-      input(name: 'alexaAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/check-circle-o.png')
-      input(name: 'alexaAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/times-circle-o.png')
+      input(name: 'alexaAccess', title: 'on User Entry', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png')
+      input(name: 'alexaLock', title: 'on Lock', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'alexaAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/check-circle-o.png')
+      input(name: 'alexaAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/times-circle-o.png')
     }
     section('Only During These Times (optional)') {
       input(name: 'alexaStartTime', type: 'time', title: 'Notify Starting At This Time', description: null, required: false)
@@ -613,6 +629,10 @@ def locationHandler(evt) {
   setAccess()
 }
 
+def theNewChild() {
+  return appType.toLowerCase()
+}
+
 def anyoneHome(sensors) {
   def result = false
   if(sensors.findAll { it?.currentPresence == "present" }) {
@@ -664,17 +684,18 @@ def theAppType() {
 }
 
 def debugger(message) {
-  if (parent) {
-    def doDebugger = parent.debuggerOn()
-    if (doDebugger) {
-      log.debug(message)
-    }
-  } else {
-    def doDebugger = debuggerOn()
-    if (enableDebug) {
-      return log.debug(message)
-    }
-  }
+  return log.debug(message)
+  // if (parent) {
+  //   def doDebugger = parent.debuggerOn()
+  //   if (doDebugger) {
+  //     log.debug(message)
+  //   }
+  // } else {
+  //   def doDebugger = debuggerOn()
+  //   if (enableDebug) {
+  //     return log.debug(message)
+  //   }
+  // }
 }
 
 def lockInstalled() {
@@ -772,9 +793,9 @@ def lockMainPage() {
       }
 
       def actions = location.helloHome?.getPhrases()*.label
-      href(name: 'toNotificationPage', page: 'lockNotificationPage', title: 'Notification Settings', image: 'https://images.lockmanager.io/app/v1/images/bullhorn.png')
+      href(name: 'toNotificationPage', page: 'lockNotificationPage', title: 'Notification Settings', image: 'http://images.lockmanager.io/app/v1/images/bullhorn.png')
       if (actions) {
-        href(name: 'toLockHelloHomePage', page: 'lockHelloHomePage', title: 'Hello Home Settings', image: 'https://images.lockmanager.io/app/v1/images/home.png')
+        href(name: 'toLockHelloHomePage', page: 'lockHelloHomePage', title: 'Hello Home Settings', image: 'http://images.lockmanager.io/app/v1/images/home.png')
       }
     }
     section('Setup', hideable: true, hidden: true) {
@@ -791,14 +812,14 @@ def lockHelloHomePage() {
     def actions = location.helloHome?.getPhrases()*.label
     actions?.sort()
     section('Hello Home Phrases') {
-      input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
-      input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png')
+      input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
 
-      input(name: 'codeUnlockRoutine', title: 'On Code Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png' )
+      input(name: 'codeUnlockRoutine', title: 'On Code Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png' )
 
       paragraph 'Supported on some locks:'
-      input(name: 'codeLockRoutine', title: 'On Code Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
-      input(name: 'keypadLockRoutine', title: 'On Keypad Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'codeLockRoutine', title: 'On Code Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'keypadLockRoutine', title: 'On Keypad Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
 
       paragraph 'These restrictions apply to all the above:'
       input "userNoRunPresence", "capability.presenceSensor", title: "DO NOT run Actions if any of these are present:", multiple: true, required: false
@@ -839,21 +860,21 @@ def lockNotificationPage() {
         paragraph 'This lock only reports manual messages.\n It does not support code on lock or lock on keypad.'
       }
       if (phone == null && !notification && !recipients) {
-        input(name: 'muteLock', title: 'Mute this lock?', type: 'bool', required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://images.lockmanager.io/app/v1/images/bell-slash-o.png')
+        input(name: 'muteLock', title: 'Mute this lock?', type: 'bool', required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'http://images.lockmanager.io/app/v1/images/bell-slash-o.png')
       }
       if (!muteLock) {
-        input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/book.png')
-        href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'lockAskAlexaPage', image: 'https://images.lockmanager.io/app/v1/images/Alexa.png')
+        input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/book.png')
+        href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'lockAskAlexaPage', image: 'http://images.lockmanager.io/app/v1/images/Alexa.png')
         if (!recipients) {
           input(name: 'phone', type: 'text', title: 'Text This Number', description: 'Phone number', required: false, submitOnChange: true)
           paragraph 'For multiple SMS recipients, separate phone numbers with a semicolon(;)'
           input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
         }
         if (phone != null || notification || recipients) {
-          input(name: 'notifyManualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
-          input(name: 'notifyManualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
+          input(name: 'notifyManualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+          input(name: 'notifyManualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png')
           if (state.supportsKeypadData) {
-            input(name: 'notifyKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
+            input(name: 'notifyKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png')
           }
         }
       }
@@ -1783,7 +1804,7 @@ def userLandingPage() {
 def userSetupPage() {
   dynamicPage(name: 'userSetupPage', title: 'Setup Lock', nextPage: 'userMainPage', uninstall: true) {
     section('Choose details for this user') {
-      input(name: 'userName', title: 'Name for User', required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png')
+      input(name: 'userName', type: 'text', title: 'Name for User', required: true)
       input(name: 'userCode', type: 'text', title: userCodeInputTitle(), required: false, defaultValue: settings.'userCode', refreshAfterSelection: true)
       input(name: 'userSlot', type: 'enum', options: parent.availableSlots(settings.userSlot), title: 'Select slot', required: true, refreshAfterSelection: true )
     }
@@ -1809,16 +1830,16 @@ def userMainPage() {
       def actions = location.helloHome?.getPhrases()*.label
       if (actions) {
         actions.sort()
-        input name: 'userUnlockPhrase', type: 'enum', title: 'Hello Home Phrase on unlock', multiple: true, required: false, options: actions, refreshAfterSelection: true, image: 'https://images.lockmanager.io/app/v1/images/home.png'
-        input name: 'userLockPhrase', type: 'enum', title: 'Hello Home Phrase on lock', description: 'Available on select locks only', multiple: true, required: false, options: actions, refreshAfterSelection: true, image: 'https://images.lockmanager.io/app/v1/images/home.png'
+        input name: 'userUnlockPhrase', type: 'enum', title: 'Hello Home Phrase on unlock', multiple: true, required: false, options: actions, refreshAfterSelection: true, image: 'http://images.lockmanager.io/app/v1/images/home.png'
+        input name: 'userLockPhrase', type: 'enum', title: 'Hello Home Phrase on lock', description: 'Available on select locks only', multiple: true, required: false, options: actions, refreshAfterSelection: true, image: 'http://images.lockmanager.io/app/v1/images/home.png'
 
         input "userNoRunPresence", "capability.presenceSensor", title: "DO NOT run Actions if any of these are present:", multiple: true, required: false
         input "userDoRunPresence", "capability.presenceSensor", title: "ONLY run Actions if any of these are present:", multiple: true, required: false
       }
-      input(name: 'burnAfterInt', title: 'How many uses before burn?', type: 'number', required: false, description: 'Blank or zero is infinite', image: 'https://images.lockmanager.io/app/v1/images/fire.png')
-      href(name: 'toSchedulingPage', page: 'schedulingPage', title: 'Schedule (optional)', description: schedulingHrefDescription(), state: schedulingHrefDescription() ? 'complete' : '', image: 'https://images.lockmanager.io/app/v1/images/calendar.png')
-      href(name: 'toNotificationPage', page: 'userNotificationPage', title: 'Notification Settings', description: userNotificationPageDescription(), state: userNotificationPageDescription() ? 'complete' : '', image: 'https://images.lockmanager.io/app/v1/images/bullhorn.png')
-      href(name: 'toUserKeypadPage', page: 'userKeypadPage', title: 'Keypad Routines (optional)', image: 'https://images.lockmanager.io/app/v1/images/keypad.png')
+      input(name: 'burnAfterInt', title: 'How many uses before burn?', type: 'number', required: false, description: 'Blank or zero is infinite', image: 'http://images.lockmanager.io/app/v1/images/fire.png')
+      href(name: 'toSchedulingPage', page: 'schedulingPage', title: 'Schedule (optional)', description: schedulingHrefDescription(), state: schedulingHrefDescription() ? 'complete' : '', image: 'http://images.lockmanager.io/app/v1/images/calendar.png')
+      href(name: 'toNotificationPage', page: 'userNotificationPage', title: 'Notification Settings', description: userNotificationPageDescription(), state: userNotificationPageDescription() ? 'complete' : '', image: 'http://images.lockmanager.io/app/v1/images/bullhorn.png')
+      href(name: 'toUserKeypadPage', page: 'userKeypadPage', title: 'Keypad Routines (optional)', image: 'http://images.lockmanager.io/app/v1/images/keypad.png')
     }
     section('Locks') {
       initializeLockData()
@@ -1829,8 +1850,8 @@ def userMainPage() {
       }
     }
     section('Setup', hideable: true, hidden: true) {
-      label(title: "Name for App", defaultValue: 'User: ' + userName, required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png')
-      input name: 'userName', title: "Name for user", required: true, image: 'https://images.lockmanager.io/app/v1/images/user.png'
+      label(title: "Name for App", defaultValue: 'User: ' + userName, required: true, image: 'http://images.lockmanager.io/app/v1/images/user.png')
+      input name: 'userName', type: "text", title: "Name for user", required: true, image: 'http://images.lockmanager.io/app/v1/images/user.png'
       input(name: "userSlot", type: "enum", options: parent.availableSlots(settings.userSlot), title: "Select slot", required: true, refreshAfterSelection: true )
     }
   }
@@ -1851,17 +1872,17 @@ def userCodeInputTitle() {
 
 def lockPageImage(lock) {
   if (!state."lock${lock.id}".enabled || settings."lockDisabled${lock.id}") {
-    return 'https://images.lockmanager.io/app/v1/images/ban.png'
+    return 'http://images.lockmanager.io/app/v1/images/ban.png'
   } else {
-    return 'https://images.lockmanager.io/app/v1/images/lock.png'
+    return 'http://images.lockmanager.io/app/v1/images/lock.png'
   }
 }
 
 def lockInfoPageImage(lock) {
   if (!state."lock${lock.id}".enabled || settings."lockDisabled${lock.id}") {
-    return 'https://images.lockmanager.io/app/v1/images/user-times.png'
+    return 'http://images.lockmanager.io/app/v1/images/user-times.png'
   } else {
-    return 'https://images.lockmanager.io/app/v1/images/user.png'
+    return 'http://images.lockmanager.io/app/v1/images/user.png'
   }
 }
 
@@ -1878,8 +1899,8 @@ def userLockPage(params) {
 
     if (!state."lock${lock.id}".enabled) {
       section {
-        paragraph "WARNING:\n\nThis user has been disabled.\n${state."lock${lock.id}".disabledReason}", image: 'https://images.lockmanager.io/app/v1/images/ban.png'
-        href(name: 'toReEnableUserLockPage', page: 'reEnableUserLockPage', title: 'Reset User', description: 'Retry setting this user.',  params: [id: lock.id], image: 'https://images.lockmanager.io/app/v1/images/refresh.png' )
+        paragraph "WARNING:\n\nThis user has been disabled.\n${state."lock${lock.id}".disabledReason}", image: 'http://images.lockmanager.io/app/v1/images/ban.png'
+        href(name: 'toReEnableUserLockPage', page: 'reEnableUserLockPage', title: 'Reset User', description: 'Retry setting this user.',  params: [id: lock.id], image: 'http://images.lockmanager.io/app/v1/images/refresh.png' )
       }
     }
     section("${deviceLabel(lock)} settings for ${app.label}") {
@@ -1890,8 +1911,8 @@ def userLockPage(params) {
       if(slotData.attempts > 0) {
         paragraph "Lock set failed try ${slotData.attempts}/10"
       }
-      input(name: "lockDisabled${lock.id}", type: 'bool', title: 'Disable lock for this user?', required: false, defaultValue: settings."lockDisabled${lock.id}", refreshAfterSelection: true, image: 'https://images.lockmanager.io/app/v1/images/ban.png' )
-      href(name: 'toLockResetPage', page: 'lockResetPage', title: 'Reset Lock', description: 'Reset lock data for this user.',  params: [id: lock.id], image: 'https://images.lockmanager.io/app/v1/images/refresh.png' )
+      input(name: "lockDisabled${lock.id}", type: 'bool', title: 'Disable lock for this user?', required: false, defaultValue: settings."lockDisabled${lock.id}", refreshAfterSelection: true, image: 'http://images.lockmanager.io/app/v1/images/ban.png' )
+      href(name: 'toLockResetPage', page: 'lockResetPage', title: 'Reset Lock', description: 'Reset lock data for this user.',  params: [id: lock.id], image: 'http://images.lockmanager.io/app/v1/images/refresh.png' )
     }
   }
 }
@@ -2008,21 +2029,21 @@ def userNotificationPage() {
 
     section {
       if (phone == null && !notification && !recipients) {
-        input(name: 'muteUser', title: 'Mute this user?', type: 'bool', required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://images.lockmanager.io/app/v1/images/bell-slash-o.png')
+        input(name: 'muteUser', title: 'Mute this user?', type: 'bool', required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'http://images.lockmanager.io/app/v1/images/bell-slash-o.png')
       }
       if (!muteUser) {
-        input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/book.png')
-        href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'userAskAlexaPage', image: 'https://images.lockmanager.io/app/v1/images/Alexa.png')
+        input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/book.png')
+        href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'userAskAlexaPage', image: 'http://images.lockmanager.io/app/v1/images/Alexa.png')
         if (!recipients) {
           input(name: 'phone', type: 'text', title: 'Text This Number', description: 'Phone number', required: false, submitOnChange: true)
           paragraph 'For multiple SMS recipients, separate phone numbers with a semicolon(;)'
           input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
         }
         if (phone != null || notification || recipients) {
-          input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
-          input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
-          input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/check-circle-o.png')
-          input(name: 'notifyAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/times-circle-o.png')
+          input(name: 'notifyAccess', title: 'on User Entry', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png')
+          input(name: 'notifyLock', title: 'on Lock', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+          input(name: 'notifyAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/check-circle-o.png')
+          input(name: 'notifyAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/times-circle-o.png')
         }
       }
     }
@@ -2038,10 +2059,10 @@ def userNotificationPage() {
 def userAskAlexaPage() {
   dynamicPage(name: 'userAskAlexaPage', title: 'Ask Alexa Message Settings') {
     section('Que Messages with the Ask Alexa app') {
-      input(name: 'alexaAccess', title: 'on User Entry', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
-      input(name: 'alexaLock', title: 'on Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
-      input(name: 'alexaAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/check-circle-o.png')
-      input(name: 'alexaAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/times-circle-o.png')
+      input(name: 'alexaAccess', title: 'on User Entry', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png')
+      input(name: 'alexaLock', title: 'on Lock', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'alexaAccessStart', title: 'when granting access', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/check-circle-o.png')
+      input(name: 'alexaAccessEnd', title: 'when revoking access', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/times-circle-o.png')
     }
     section('Only During These Times (optional)') {
       input(name: 'alexaStartTime', type: 'time', title: 'Notify Starting At This Time', description: null, required: false)
