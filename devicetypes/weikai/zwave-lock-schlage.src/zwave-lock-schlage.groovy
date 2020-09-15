@@ -14,7 +14,7 @@
  *
  */
 metadata {
-	definition (name: "Z-Wave Lock Schlage", namespace: "ethayer", author: "SmartThings") {
+	definition (name: "Z-Wave Lock Schlage", namespace: "weikai", author: "SmartThings") {
 		capability "Actuator"
 		capability "Lock"
 		capability "Polling"
