@@ -216,7 +216,7 @@ def mainPage() {
         def i = 0
         lockApps.each { lockApp ->
           i++
-          href(name: "toLockInfoPage${i}", page: 'lockInfoPage', params: [id: lockApp.lock.id], required: false, title: lockApp.label, image: 'http://images.lockmanager.io/app/v1/images/lock.png' )
+          href(name: "toLockInfoPage${i}", page: 'lockInfoPage', params: [id: lockApp.lockSort()], required: false, title: lockApp.label, image: 'http://images.lockmanager.io/app/v1/images/lock.png' )
         }
       }
     }
