@@ -65,7 +65,7 @@ preferences {
 
 def appPageWizard(params) {
   def appType = state.appType
-  
+
   if (!appType) {
     if (params.type) {
       // inital set app type
@@ -78,7 +78,7 @@ def appPageWizard(params) {
     debugger("App Type: ${appType}")
     setAppType(appType)
   }
-    
+
   // find the correct landing page
   switch (appType) {
     case 'lock':
@@ -175,7 +175,7 @@ def initializeMain() {
   log.debug "there are ${children.size()} locks"
 
   state.initializeComplete = true
-  state.appVersion = 2.0
+  state.appVersion = 2.1
 
   subscribe(location, "mode", locationHandler)
 }
@@ -192,7 +192,7 @@ def mainSetupPage() {
   dynamicPage(name: 'mainSetupPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true) {
     section('Initial Setup') {
       label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
-      paragraph 'Lock Manager © 2018 v2.0'
+      paragraph 'Lock Manager © 2020 v2.1'
     }
   }
 }
@@ -242,7 +242,7 @@ def mainPage() {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
       input(name: 'enableDebug', title: 'Enable IDE debug messages?', type: 'bool', required: true, defaultValue: false, description: 'Show activity from Lock Manger in logs for debugging.')
       label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
-      paragraph 'Lock Manager © 2018 v2.0'
+      paragraph 'Lock Manager © 2020 v2.1'
     }
   }
 }
