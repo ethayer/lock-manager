@@ -55,6 +55,9 @@ def keypadSetupPage() {
       paragraph p
       paragraph 'For locks, use the Lock child-app.'
     }
+    section('Keypad App Label') {
+      label(title: "Name for App", required: true)
+    }
     section('Choose keypad for this app') {
       input(name: 'keypad', title: 'Which keypad?', type: 'capability.lockCodes', multiple: false, required: true)
     }

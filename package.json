@@ -10,7 +10,8 @@
     "gulp": "^4.0.2",
     "gulp-concat": "^2.6.1",
     "gulp-merge": "^0.1.1",
-    "gulp-watch": "^5.0.1"
+    "gulp-watch": "^5.0.1",
+    "yargs-parser": ">=13.1.2"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

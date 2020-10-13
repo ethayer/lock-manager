@@ -49,6 +49,9 @@ def lockLandingPage() {
 
 def lockSetupPage() {
   dynamicPage(name: "lockSetupPage", title: "Setup Lock", nextPage: "lockLandingPage", uninstall: true) {
+    section('Lock App Label') {
+      label(title: "Name for App", required: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+    }
     section("Choose devices for this lock") {
       input(name: "lock", title: "Which Lock?", type: "capability.Lock", multiple: false, required: true)
       input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)

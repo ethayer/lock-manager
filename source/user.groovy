@@ -114,6 +114,9 @@ def userLandingPage() {
 
 def userSetupPage() {
   dynamicPage(name: 'userSetupPage', title: 'Setup Lock', nextPage: 'userMainPage', uninstall: true) {
+    section('User App Label') {
+      label(title: "Name for App", required: true, image: 'http://images.lockmanager.io/app/v1/images/user.png')
+    }
     section('Choose details for this user') {
       input(name: 'userName', type: 'text', title: 'Name for User', required: true)
       input(name: 'userCode', type: 'text', title: userCodeInputTitle(), required: false, defaultValue: settings.'userCode', refreshAfterSelection: true)

@@ -749,6 +749,9 @@ def lockLandingPage() {
 
 def lockSetupPage() {
   dynamicPage(name: "lockSetupPage", title: "Setup Lock", nextPage: "lockLandingPage", uninstall: true) {
+    section('Lock App Label') {
+      label(title: "Name for App", required: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+    }
     section("Choose devices for this lock") {
       input(name: "lock", title: "Which Lock?", type: "capability.Lock", multiple: false, required: true)
       input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
@@ -1811,6 +1814,9 @@ def userLandingPage() {
 
 def userSetupPage() {
   dynamicPage(name: 'userSetupPage', title: 'Setup Lock', nextPage: 'userMainPage', uninstall: true) {
+    section('User App Label') {
+      label(title: "Name for App", required: true, image: 'http://images.lockmanager.io/app/v1/images/user.png')
+    }
     section('Choose details for this user') {
       input(name: 'userName', type: 'text', title: 'Name for User', required: true)
       input(name: 'userCode', type: 'text', title: userCodeInputTitle(), required: false, defaultValue: settings.'userCode', refreshAfterSelection: true)
@@ -2682,6 +2688,9 @@ def keypadSetupPage() {
           p += 'This integration works with stand-alone keypads only!'
       paragraph p
       paragraph 'For locks, use the Lock child-app.'
+    }
+    section('Keypad App Label') {
+      label(title: "Name for App", required: true)
     }
     section('Choose keypad for this app') {
       input(name: 'keypad', title: 'Which keypad?', type: 'capability.lockCodes', multiple: false, required: true)
