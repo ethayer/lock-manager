@@ -152,6 +152,9 @@ def lockErrorPage() {
       input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
       input(name: 'contactSensor', title: 'Which contact sensor?', type: 'capability.contactSensor', multiple: false, required: false)
     }
+    section('Lock App Label') {
+      label(title: "Name for App", required: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+    }
   }
 }
 

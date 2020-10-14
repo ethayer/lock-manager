@@ -192,7 +192,7 @@ def mainSetupPage() {
   dynamicPage(name: 'mainSetupPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true) {
     section('Initial Setup') {
       label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
-      paragraph 'Lock Manager © 2020 v2.1'
+      paragraph 'Lock Manager © 2020 v2.1.1'
     }
   }
 }
@@ -242,7 +242,7 @@ def mainPage() {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
       input(name: 'enableDebug', title: 'Enable IDE debug messages?', type: 'bool', required: true, defaultValue: false, description: 'Show activity from Lock Manger in logs for debugging.')
       label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
-      paragraph 'Lock Manager © 2020 v2.1'
+      paragraph 'Lock Manager © 2020 v2.1.1'
     }
   }
 }
@@ -851,6 +851,9 @@ def lockErrorPage() {
     section('Choose devices for this lock') {
       input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
       input(name: 'contactSensor', title: 'Which contact sensor?', type: 'capability.contactSensor', multiple: false, required: false)
+    }
+    section('Lock App Label') {
+      label(title: "Name for App", required: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
     }
   }
 }
@@ -2699,12 +2702,15 @@ def keypadSetupPage() {
 }
 
 def keypadErrorPage() {
-  dynamicPage(name: 'errorPage', title: 'Keypad Duplicate', uninstall: true, nextPage: 'keypadLandingPage') {
+  dynamicPage(name: 'keypadErrorPage', title: 'Keypad Duplicate', uninstall: true, nextPage: 'keypadLandingPage') {
     section('Oops!') {
       paragraph 'The keypad that you selected is already installed. Please choose a different keypad or choose Remove'
     }
     section('Choose keypad for this app') {
       input(name: 'keypad', title: 'Which keypad?', type: 'capability.lockCodes', multiple: false, required: true)
+    }
+    section('Keypad App Label') {
+      label(title: "Name for App", required: true)
     }
   }
 }
