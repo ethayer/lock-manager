@@ -175,7 +175,7 @@ def initializeMain() {
   log.debug "there are ${children.size()} locks"
 
   state.initializeComplete = true
-  state.appVersion = 2.1
+  state.appVersion = "2.1.3"
 
   subscribe(location, "mode", locationHandler)
 }
@@ -192,7 +192,7 @@ def mainSetupPage() {
   dynamicPage(name: 'mainSetupPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true) {
     section('Initial Setup') {
       label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
-      paragraph 'Lock Manager © 2021 v2.1.2'
+      paragraph 'Lock Manager © 2021 v2.1.3'
     }
   }
 }
@@ -242,7 +242,7 @@ def mainPage() {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
       input(name: 'enableDebug', title: 'Enable IDE debug messages?', type: 'bool', required: true, defaultValue: false, description: 'Show activity from Lock Manger in logs for debugging.')
       label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
-      paragraph 'Lock Manager © 2021 v2.1.2'
+      paragraph 'Lock Manager © 2021 v2.1.3'
     }
   }
 }
@@ -2316,7 +2316,7 @@ def isCorrectDay() {
 def isInCalendarRange() {
   def dateStart = startDateTime()
   def dateEnd = endDateTime()
-  def now = rightNow()
+  def now = rightNow().getTime()
   if (dateStart && dateEnd) {
     // There's both an end time, and a start time.  Allow access between them.
     if (dateStart.getTime() < now && dateEnd.getTime() > now) {

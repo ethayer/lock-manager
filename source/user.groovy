@@ -613,7 +613,7 @@ def isCorrectDay() {
 def isInCalendarRange() {
   def dateStart = startDateTime()
   def dateEnd = endDateTime()
-  def now = rightNow()
+  def now = rightNow().getTime()
   if (dateStart && dateEnd) {
     // There's both an end time, and a start time.  Allow access between them.
     if (dateStart.getTime() < now && dateEnd.getTime() > now) {
