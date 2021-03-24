@@ -192,7 +192,7 @@ def mainSetupPage() {
   dynamicPage(name: 'mainSetupPage', title: 'Lock Manager', install: true, uninstall: true, submitOnChange: true) {
     section('Initial Setup') {
       label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
-      paragraph 'Lock Manager © 2020 v2.1.1'
+      paragraph 'Lock Manager © 2021 v2.1.2'
     }
   }
 }
@@ -242,7 +242,7 @@ def mainPage() {
       input(name: 'overwriteMode', title: 'Overwrite?', type: 'bool', required: true, defaultValue: true, description: 'Overwrite mode automatically deletes codes not in the users list')
       input(name: 'enableDebug', title: 'Enable IDE debug messages?', type: 'bool', required: true, defaultValue: false, description: 'Show activity from Lock Manger in logs for debugging.')
       label(title: 'Label this SmartApp', required: false, defaultValue: 'Lock Manager')
-      paragraph 'Lock Manager © 2020 v2.1.1'
+      paragraph 'Lock Manager © 2021 v2.1.2'
     }
   }
 }
@@ -1558,7 +1558,7 @@ def sendLockMessage(message) {
   if (notificationStartTime != null && notificationEndTime != null) {
     def start = timeToday(notificationStartTime)
     def stop = timeToday(notificationEndTime)
-    def now = new Date()
+    def now = rightNow()
     if (start.before(now) && stop.after(now)){
       sendMessage(message)
     }
@@ -1605,7 +1605,7 @@ def askAlexaLock(message) {
     if (alexaStartTime != null && alexaEndTime != null) {
       def start = timeToday(alexaStartTime)
       def stop = timeToday(alexaEndTime)
-      def now = new Date()
+      def now = rightNow()
       if (start.before(now) && stop.after(now)){
         sendAskAlexa(message)
       }
@@ -2316,7 +2316,7 @@ def isCorrectDay() {
 def isInCalendarRange() {
   def dateStart = startDateTime()
   def dateEnd = endDateTime()
-  def now = rightNow().getTime()
+  def now = rightNow()
   if (dateStart && dateEnd) {
     // There's both an end time, and a start time.  Allow access between them.
     if (dateStart.getTime() < now && dateEnd.getTime() > now) {
@@ -2367,7 +2367,8 @@ def isCorrectMode() {
 }
 
 def isInScheduledTime() {
-  def now = new Date()
+  def now = rightNow()
+
   if (startTime && endTime) {
     def start = timeToday(startTime)
     def stop = timeToday(endTime)
@@ -2479,7 +2480,7 @@ def checkIfNotifyUser(msg) {
   if (notificationStartTime != null && notificationEndTime != null) {
     def start = timeToday(notificationStartTime)
     def stop = timeToday(notificationEndTime)
-    def now = new Date()
+    def now = rightNow()
     if (start.before(now) && stop.after(now)){
       sendMessageViaUser(msg)
     }
@@ -2492,7 +2493,7 @@ def checkIfNotifyGlobal(msg) {
   if (parent.notificationStartTime != null && parent.notificationEndTime != null) {
     def start = timeToday(parent.notificationStartTime)
     def stop = timeToday(parent.notificationEndTime)
-    def now = new Date()
+    def now = rightNow()
     if (start.before(now) && stop.after(now)){
       sendMessageViaParent(msg)
     }
@@ -2604,7 +2605,7 @@ def checkIfAlexaUser(message) {
     if (alexaStartTime != null && alexaEndTime != null) {
       def start = timeToday(alexaStartTime)
       def stop = timeToday(alexaEndTime)
-      def now = new Date()
+      def now = rightNow()
       if (start.before(now) && stop.after(now)){
         sendAskAlexaUser(message)
       }
@@ -2618,7 +2619,7 @@ def checkIfAlexaGlobal(message) {
   if (parent.alexaStartTime != null && parent.alexaEndTime != null) {
     def start = timeToday(parent.alexaStartTime)
     def stop = timeToday(parent.alexaEndTime)
-    def now = new Date()
+    def now = rightNow()
     if (start.before(now) && stop.after(now)){
       sendAskAlexaUser(message)
     }

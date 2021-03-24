@@ -858,7 +858,7 @@ def sendLockMessage(message) {
   if (notificationStartTime != null && notificationEndTime != null) {
     def start = timeToday(notificationStartTime)
     def stop = timeToday(notificationEndTime)
-    def now = new Date()
+    def now = rightNow()
     if (start.before(now) && stop.after(now)){
       sendMessage(message)
     }
@@ -905,7 +905,7 @@ def askAlexaLock(message) {
     if (alexaStartTime != null && alexaEndTime != null) {
       def start = timeToday(alexaStartTime)
       def stop = timeToday(alexaEndTime)
-      def now = new Date()
+      def now = rightNow()
       if (start.before(now) && stop.after(now)){
         sendAskAlexa(message)
       }
