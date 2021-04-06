@@ -49,6 +49,9 @@ def lockLandingPage() {
 
 def lockSetupPage() {
   dynamicPage(name: "lockSetupPage", title: "Setup Lock", nextPage: "lockLandingPage", uninstall: true) {
+    section('Lock App Label') {
+      label(title: "Name for App", required: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+    }
     section("Choose devices for this lock") {
       input(name: "lock", title: "Which Lock?", type: "capability.Lock", multiple: false, required: true)
       input(name: "contactSensor", title: "Which contact sensor?", type: "capability.contactSensor", multiple: false, required: false)
@@ -93,9 +96,9 @@ def lockMainPage() {
       }
 
       def actions = location.helloHome?.getPhrases()*.label
-      href(name: 'toNotificationPage', page: 'lockNotificationPage', title: 'Notification Settings', image: 'https://images.lockmanager.io/app/v1/images/bullhorn.png')
+      href(name: 'toNotificationPage', page: 'lockNotificationPage', title: 'Notification Settings', image: 'http://images.lockmanager.io/app/v1/images/bullhorn.png')
       if (actions) {
-        href(name: 'toLockHelloHomePage', page: 'lockHelloHomePage', title: 'Hello Home Settings', image: 'https://images.lockmanager.io/app/v1/images/home.png')
+        href(name: 'toLockHelloHomePage', page: 'lockHelloHomePage', title: 'Hello Home Settings', image: 'http://images.lockmanager.io/app/v1/images/home.png')
       }
     }
     section('Setup', hideable: true, hidden: true) {
@@ -112,14 +115,14 @@ def lockHelloHomePage() {
     def actions = location.helloHome?.getPhrases()*.label
     actions?.sort()
     section('Hello Home Phrases') {
-      input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
-      input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'manualUnlockRoutine', title: 'On Manual Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png')
+      input(name: 'manualLockRoutine', title: 'On Manual Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
 
-      input(name: 'codeUnlockRoutine', title: 'On Code Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png' )
+      input(name: 'codeUnlockRoutine', title: 'On Code Unlock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png' )
 
       paragraph 'Supported on some locks:'
-      input(name: 'codeLockRoutine', title: 'On Code Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
-      input(name: 'keypadLockRoutine', title: 'On Keypad Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'codeLockRoutine', title: 'On Code Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+      input(name: 'keypadLockRoutine', title: 'On Keypad Lock', type: 'enum', options: actions, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
 
       paragraph 'These restrictions apply to all the above:'
       input "userNoRunPresence", "capability.presenceSensor", title: "DO NOT run Actions if any of these are present:", multiple: true, required: false
@@ -149,6 +152,9 @@ def lockErrorPage() {
       input(name: 'lock', title: 'Which Lock?', type: 'capability.lock', multiple: false, required: true)
       input(name: 'contactSensor', title: 'Which contact sensor?', type: 'capability.contactSensor', multiple: false, required: false)
     }
+    section('Lock App Label') {
+      label(title: "Name for App", required: true, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+    }
   }
 }
 
@@ -160,21 +166,21 @@ def lockNotificationPage() {
         paragraph 'This lock only reports manual messages.\n It does not support code on lock or lock on keypad.'
       }
       if (phone == null && !notification && !recipients) {
-        input(name: 'muteLock', title: 'Mute this lock?', type: 'bool', required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'https://images.lockmanager.io/app/v1/images/bell-slash-o.png')
+        input(name: 'muteLock', title: 'Mute this lock?', type: 'bool', required: false, submitOnChange: true, defaultValue: false, description: 'Mute notifications for this user if notifications are set globally', image: 'http://images.lockmanager.io/app/v1/images/bell-slash-o.png')
       }
       if (!muteLock) {
-        input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'https://images.lockmanager.io/app/v1/images/book.png')
-        href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'lockAskAlexaPage', image: 'https://images.lockmanager.io/app/v1/images/Alexa.png')
+        input('recipients', 'contact', title: 'Send notifications to', submitOnChange: true, required: false, multiple: true, image: 'http://images.lockmanager.io/app/v1/images/book.png')
+        href(name: 'toAskAlexaPage', title: 'Ask Alexa', page: 'lockAskAlexaPage', image: 'http://images.lockmanager.io/app/v1/images/Alexa.png')
         if (!recipients) {
           input(name: 'phone', type: 'text', title: 'Text This Number', description: 'Phone number', required: false, submitOnChange: true)
           paragraph 'For multiple SMS recipients, separate phone numbers with a semicolon(;)'
           input(name: 'notification', type: 'bool', title: 'Send A Push Notification', description: 'Notification', required: false, submitOnChange: true)
         }
         if (phone != null || notification || recipients) {
-          input(name: 'notifyManualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/lock.png')
-          input(name: 'notifyManualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
+          input(name: 'notifyManualLock', title: 'On Manual Turn (Lock)', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/lock.png')
+          input(name: 'notifyManualUnlock', title: 'On Manual Turn (Unlock)', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png')
           if (state.supportsKeypadData) {
-            input(name: 'notifyKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'https://images.lockmanager.io/app/v1/images/unlock-alt.png')
+            input(name: 'notifyKeypadLock', title: 'On Keypad Press to Lock', type: 'bool', required: false, image: 'http://images.lockmanager.io/app/v1/images/unlock-alt.png')
           }
         }
       }
@@ -852,7 +858,7 @@ def sendLockMessage(message) {
   if (notificationStartTime != null && notificationEndTime != null) {
     def start = timeToday(notificationStartTime)
     def stop = timeToday(notificationEndTime)
-    def now = new Date()
+    def now = rightNow()
     if (start.before(now) && stop.after(now)){
       sendMessage(message)
     }
@@ -899,7 +905,7 @@ def askAlexaLock(message) {
     if (alexaStartTime != null && alexaEndTime != null) {
       def start = timeToday(alexaStartTime)
       def stop = timeToday(alexaEndTime)
-      def now = new Date()
+      def now = rightNow()
       if (start.before(now) && stop.after(now)){
         sendAskAlexa(message)
       }
@@ -972,6 +978,14 @@ def slotData(slot) {
 
 def lockState() {
   state.lockState
+}
+
+def lockSort() {
+  if (lock) {
+    return lock.id
+  } else {
+    return 1
+  }
 }
 
 def sweepProgress() {

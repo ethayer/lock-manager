@@ -1,27 +1,25 @@
 var gulp = require('gulp'),
-  gulpMerge = require('gulp-merge'),
-  concat = require('gulp-concat'),
-  watch = require('gulp-watch');
+  concat = require('gulp-concat');
 
-gulp.task('concat', function () {
-  return gulpMerge(
-      gulp.src([
+
+const { watch } = require('gulp');
+  
+  gulp.task('concat', function() {
+    return gulp.src([
         'source/main.groovy',
         'source/lock.groovy',
         'source/user.groovy',
         'source/keypad.groovy',
         // 'source/api.groovy'
       ])
-    )
-    .pipe(concat('lock-manager.groovy'))
-    .pipe(gulp.dest('smartapps/ethayer/lock-manager.src/'));
-});
+      .pipe(concat('lock-manager.groovy'))
+      .pipe(gulp.dest('./smartapps/ethayer/lock-manager.src/'));
+  });
 
 // Watch Files For Changes
-gulp.task('watch', function() {
-    gulp.watch('source/*.groovy', ['concat']);
-    // prevent stupid edits
-    gulp.watch('smartapps/ethayer/lock-manager.src/*.groovy', ['concat']);
-});
+exports.default = function() {
+  // You can use a single task
+  watch('source/*.groovy', gulp.parallel(['concat']))
+};
 
-gulp.task('default', ['concat', 'watch']);
+

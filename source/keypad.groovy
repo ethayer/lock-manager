@@ -55,6 +55,9 @@ def keypadSetupPage() {
       paragraph p
       paragraph 'For locks, use the Lock child-app.'
     }
+    section('Keypad App Label') {
+      label(title: "Name for App", required: true)
+    }
     section('Choose keypad for this app') {
       input(name: 'keypad', title: 'Which keypad?', type: 'capability.lockCodes', multiple: false, required: true)
     }
@@ -62,12 +65,15 @@ def keypadSetupPage() {
 }
 
 def keypadErrorPage() {
-  dynamicPage(name: 'errorPage', title: 'Keypad Duplicate', uninstall: true, nextPage: 'keypadLandingPage') {
+  dynamicPage(name: 'keypadErrorPage', title: 'Keypad Duplicate', uninstall: true, nextPage: 'keypadLandingPage') {
     section('Oops!') {
       paragraph 'The keypad that you selected is already installed. Please choose a different keypad or choose Remove'
     }
     section('Choose keypad for this app') {
       input(name: 'keypad', title: 'Which keypad?', type: 'capability.lockCodes', multiple: false, required: true)
+    }
+    section('Keypad App Label') {
+      label(title: "Name for App", required: true)
     }
   }
 }
