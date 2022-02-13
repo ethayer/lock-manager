@@ -400,9 +400,14 @@ def processSchlageLockConfig(cmd) {
 
 			break
 
-		case 0xB:
+		// done: lock specific alarm disable - local controls         
+        case 0xB:
 			map = parseBinaryConfigRpt('localControl', cmd.configurationValue[0], 'Local Alarm Control')
-			break
+			if (cmd.configurationValue[0] == 0) {
+				isEnabled = 'Disabled'
+			}
+			sendEvent(name: 'localControl', value: isEnabled, displayed: false )
+            break
 
 		// how many times has the electric motor locked or unlock the device?
 		case 0xC:
@@ -2030,8 +2035,16 @@ def configureLocalControl() {
 	return onOffSequence(0x0B, localControl)
 }
 def configurePinLength() {
-	if (pinLength) {
-		return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: [pinLength])],5000)
+	if (pinLength == 4) {
+		return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: 0x04)],5000)
+    } else if (pinLength == 5) {
+    	return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: 0x05)],5000)
+    } else if (pinLength == 6) {
+    	return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: 0x06)],5000)
+    } else if (pinLength == 7) {
+    	return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: 0x07)],5000)
+    } else if (pinLength == 8) {
+    	return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: 0x08)],5000)
 	} else {
 		return null
 	}
