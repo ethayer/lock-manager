@@ -74,17 +74,16 @@ metadata {
 	}
     preferences {
 		input name: "alarmMode", type: "enum", title: "Alarm Mode", description: "Enter Mode for Alarm", required: false,
-          displayDuringSetup: false,  options: ["Off", "Alert", "Tamper", "Kick"]
+          displayDuringSetup: false,  options: ["Off", "Activity", "Tamper", "Forced Entry"]
 		input name: "alarmSensitivity", type: "enum", title: "Alarm Sensitivity", description: "Enter Sensitivity for Alarm", required: false,
-          displayDuringSetup: false,  options: ["Extreme", "High", "Medium", "Moderate", "Low"]
-
-		input name: "autoLock", type: "bool", title: "Auto Lock", description: "Enable Auto Lock?", required: false, displayDuringSetup: false
-		input name: "vacationMode", type: "bool", title: "Vataction Mode", description: "Enable Vacation Mode?", required: false, displayDuringSetup: false
-		input name: "lockLeave", type: "bool", title: "Lock & Leave", description: "Enable Lock & Leave?", required: false, displayDuringSetup: false
-		input name: "localControl", type: "bool", title: "Local Control", description: "Enable Local Control?", required: false, displayDuringSetup: false
-		input name: "pinLength", type: "number", title: "Pin Length", description: "Changing will delete all codes", range: "4..8", required: false, displayDuringSetup: false
-		input name: "beeperMode", type: 'bool', title: "Beeper Mode", description: "beep when buttons are pressed?", required: false, displayDuringSetup: false
-	}
+          displayDuringSetup: false,  options: ["5 - Extreme", "4 - High", "3 - Default", "2 - Moderate", "1 - Low"]
+		input name: "autoLock", type: "bool", title: "Auto Lock", description: "Automatically relock 30 seconds after unlocking", required: false, displayDuringSetup: false
+		input name: "beeperMode", type: 'bool', title: "Button Beeps", description: "Beeps when buttons are pressed", required: false, displayDuringSetup: false
+        input name: "localControl", type: "bool", title: "Local Control", description: "Enables local alarm on/off, mode change, sensitivity changes", required: false, displayDuringSetup: false
+        input name: "lockLeave", type: "bool", title: "Lock & Leave", description: "Single press the outside Schlage button to lock the deadbolt", required: false, displayDuringSetup: false
+        input name: "pinLength", type: "number", title: "User Code Length", description: "Changing will delete all codes", range: "4..8", required: false, displayDuringSetup: false
+        input name: "vacationMode", type: "bool", title: "Vacation Mode", description: "Prevents all user codes from unlocking the deadbolt", required: false, displayDuringSetup: false
+   	}
 }
 
 import physicalgraph.zwave.commands.doorlockv1.*
@@ -337,13 +336,13 @@ def processSchlageLockConfig(cmd) {
 					currentAlarmMode = "Off"
 					break
 				case 0x01:
-					currentAlarmMode = "Alert"
+					currentAlarmMode = "Activity"
 					break
 				case 0x02:
 					currentAlarmMode = "Tamper"
 					break
 				case 0x03:
-					currentAlarmMode = "Kick"
+					currentAlarmMode = "Forced Entry"
 					break
 				default:
 					currentAlarmMode = "Off"
@@ -355,26 +354,26 @@ def processSchlageLockConfig(cmd) {
 		// done: alarm sensitivities - one for each mode
 		case 0x8:
 		case 0x9:
-		case 0xA:
+        case 0xA:
 			def whichSensitivity = 'Low'
 			switch (cmd.configurationValue[0]) {
 				case 0x01:
-					whichSensitivity = "Extreme"
+					whichSensitivity = "5 - Extreme"
 					break;
 				case 0x02:
-					whichSensitivity = "High"
+					whichSensitivity = "4 - High"
 					break;
 				case 0x03:
-					whichSensitivity = "Medium"
+					whichSensitivity = "3 - Default"
 					break;
 				case 0x04:
-					whichSensitivity = "Moderate"
+					whichSensitivity = "2 - Moderate"
 					break;
 				case 0x05:
-					whichSensitivity = "Low"
+					whichSensitivity = "1 - Low"
 					break;
 				default:
-					whichSensitivity = "Low"
+					whichSensitivity = "3 - Default"
 					break;
 			}
 			// set preference setting to current value
@@ -401,9 +400,14 @@ def processSchlageLockConfig(cmd) {
 
 			break
 
-		case 0xB:
+		// done: lock specific alarm disable - local controls         
+        case 0xB:
 			map = parseBinaryConfigRpt('localControl', cmd.configurationValue[0], 'Local Alarm Control')
-			break
+			if (cmd.configurationValue[0] == 0) {
+				isEnabled = 'Disabled'
+			}
+			sendEvent(name: 'localControl', value: isEnabled, displayed: false )
+            break
 
 		// how many times has the electric motor locked or unlock the device?
 		case 0xC:
@@ -2031,8 +2035,16 @@ def configureLocalControl() {
 	return onOffSequence(0x0B, localControl)
 }
 def configurePinLength() {
-	if (pinLength) {
-		return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: [pinLength])],5000)
+	if (pinLength == 4) {
+		return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: 0x04)],5000)
+    } else if (pinLength == 5) {
+    	return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: 0x05)],5000)
+    } else if (pinLength == 6) {
+    	return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: 0x06)],5000)
+    } else if (pinLength == 7) {
+    	return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: 0x07)],5000)
+    } else if (pinLength == 8) {
+    	return secureSequence([zwave.configurationV2.configurationSet(parameterNumber: 0x10, size: 1, configurationValue: 0x08)],5000)
 	} else {
 		return null
 	}
@@ -2046,23 +2058,23 @@ def configureAlarm() {
 	switch(alarmMode) {
 		case "Off":
 			alarmModeParam = 0x00
-			// alarmSensitivityParam = 0x0
+			//alarmSensitivityParam = 0x00
 			break
-		case "Alert":
+		case "Activity":
 			alarmModeParam = 0x01
 			alarmSensitivityParam = 0x08
 			break
 		case "Tamper":
-			alarmModeParam = 0x2
+			alarmModeParam = 0x02
 			alarmSensitivityParam = 0x09
 			break
-		case "Kick":
-			alarmModeParam = 0x3
+		case "Forced Entry":
+			alarmModeParam = 0x03
 			alarmSensitivityParam = 0x0A
 			break
 		default:
-			alarmModeParam = 0x0
-			alarmSensitivityParam = 0x0
+			alarmModeParam = 0x00
+			//alarmSensitivityParam = 0x00
 			break
 	}
 
@@ -2070,24 +2082,24 @@ def configureAlarm() {
 	// https://www.schlage.com/content/dam/sch-us/documents/pdf/installation-manuals/24352403.pdf
 	// default to low if no value
 	def configurationValue = 0x05
-	switch(alarmSensitivity) {
-		case "Extreme":
+    switch(alarmSensitivity) {
+		case "5 - Extreme":
 			configurationValue = 0x01
 			break
-		case "High":
+		case "4 - High":
 			configurationValue = 0x02
 			break
-		case "Medium":
+		case "3 - Default":
 			configurationValue = 0x03
 			break
-		case "Moderate":
+		case "2 - Moderate":
 			configurationValue = 0x04
 			break
-		case "Low":
+		case "1 - Low":
 			configurationValue = 0x05
 			break
 		default:
-			configurationValue = 0x05
+			configurationValue = 0x03
 			break
 	}
 	// set alarm mode
